@@ -608,10 +608,12 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 
 -- â”€â”€ profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "profiles: own read" ON public.profiles;
 CREATE POLICY "profiles: own read"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "profiles: active read others" ON public.profiles;
 CREATE POLICY "profiles: active read others"
   ON public.profiles FOR SELECT
   USING (public.is_active() AND status = 'active');
@@ -622,6 +624,7 @@ CREATE POLICY "profiles: active read others"
 -- to OLD values for any non-service-role caller. The trigger fires
 -- BEFORE the row is written, so even a syntactically valid UPDATE
 -- that tries to change role/status cannot persist the new values.
+DROP POLICY IF EXISTS "profiles: own update" ON public.profiles;
 CREATE POLICY "profiles: own update"
   ON public.profiles FOR UPDATE
   USING  (auth.uid() = id)
@@ -629,10 +632,12 @@ CREATE POLICY "profiles: own update"
 
 
 -- â”€â”€ posts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "posts: read published" ON public.posts;
 CREATE POLICY "posts: read published"
   ON public.posts FOR SELECT
   USING (public.is_active() AND status = 'published');
 
+DROP POLICY IF EXISTS "posts: own insert" ON public.posts;
 CREATE POLICY "posts: own insert"
   ON public.posts FOR INSERT
   WITH CHECK (public.is_active() AND auth.uid() = user_id);
@@ -644,6 +649,7 @@ CREATE POLICY "posts: own insert"
 -- schema in case a client ever calls Supabase directly:
 --   â€¢ USING  checks the BEFORE state  (row must be mine & published)
 --   â€¢ WITH CHECK checks the AFTER state (only published/deleted/hidden allowed)
+DROP POLICY IF EXISTS "posts: own update" ON public.posts;
 CREATE POLICY "posts: own update"
   ON public.posts FOR UPDATE
   USING     (public.is_active() AND auth.uid() = user_id AND status = 'published')
@@ -656,14 +662,17 @@ CREATE POLICY "posts: own update"
 
 
 -- â”€â”€ comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "comments: read" ON public.comments;
 CREATE POLICY "comments: read"
   ON public.comments FOR SELECT
   USING (public.is_active() AND status = 'published');
 
+DROP POLICY IF EXISTS "comments: own insert" ON public.comments;
 CREATE POLICY "comments: own insert"
   ON public.comments FOR INSERT
   WITH CHECK (public.is_active() AND auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "comments: own update" ON public.comments;
 CREATE POLICY "comments: own update"
   ON public.comments FOR UPDATE
   USING (public.is_active() AND auth.uid() = user_id);
@@ -674,6 +683,7 @@ CREATE POLICY "comments: own update"
 
 
 -- â”€â”€ user_votes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "votes: own" ON public.user_votes;
 CREATE POLICY "votes: own"
   ON public.user_votes FOR ALL
   USING (public.is_active() AND auth.uid() = user_id)
@@ -681,6 +691,7 @@ CREATE POLICY "votes: own"
 
 
 -- â”€â”€ anon_votes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "anon_votes: own" ON public.anon_votes;
 CREATE POLICY "anon_votes: own"
   ON public.anon_votes FOR ALL
   USING (public.is_active() AND auth.uid() = user_id)
@@ -688,6 +699,7 @@ CREATE POLICY "anon_votes: own"
 
 
 -- â”€â”€ bookmarks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "bookmarks: own" ON public.bookmarks;
 CREATE POLICY "bookmarks: own"
   ON public.bookmarks FOR ALL
   USING (public.is_active() AND auth.uid() = user_id)
@@ -695,12 +707,14 @@ CREATE POLICY "bookmarks: own"
 
 
 -- â”€â”€ dm_conversations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "dm_conv: participants read" ON public.dm_conversations;
 CREATE POLICY "dm_conv: participants read"
   ON public.dm_conversations FOR SELECT
   USING (public.is_active() AND (auth.uid() = participant_a OR auth.uid() = participant_b));
 
 
 -- â”€â”€ dm_messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "dm_messages: participants read" ON public.dm_messages;
 CREATE POLICY "dm_messages: participants read"
   ON public.dm_messages FOR SELECT
   USING (
@@ -711,6 +725,7 @@ CREATE POLICY "dm_messages: participants read"
     )
   );
 
+DROP POLICY IF EXISTS "dm_messages: own insert" ON public.dm_messages;
 CREATE POLICY "dm_messages: own insert"
   ON public.dm_messages FOR INSERT
   WITH CHECK (
@@ -724,6 +739,7 @@ CREATE POLICY "dm_messages: own insert"
 
 
 -- â”€â”€ notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "notifications: own" ON public.notifications;
 CREATE POLICY "notifications: own"
   ON public.notifications FOR ALL
   USING (public.is_active() AND auth.uid() = user_id)
@@ -731,58 +747,69 @@ CREATE POLICY "notifications: own"
 
 
 -- â”€â”€ reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "reports: insert" ON public.reports;
 CREATE POLICY "reports: insert"
   ON public.reports FOR INSERT
   WITH CHECK (public.is_active() AND auth.uid() = reporter_id);
 
 
 -- â”€â”€ password_reset_requests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "reset_requests: public insert" ON public.password_reset_requests;
 CREATE POLICY "reset_requests: public insert"
   ON public.password_reset_requests FOR INSERT
   WITH CHECK (TRUE);
 
 
 -- â”€â”€ pyq_files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "pyq: read" ON public.pyq_files;
 CREATE POLICY "pyq: read"
   ON public.pyq_files FOR SELECT
   USING (public.is_active() AND status = 'published');
 
+DROP POLICY IF EXISTS "pyq: insert" ON public.pyq_files;
 CREATE POLICY "pyq: insert"
   ON public.pyq_files FOR INSERT
   WITH CHECK (public.is_active() AND auth.uid() = uploader_id);
 
 
 -- â”€â”€ notices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "notices: read active" ON public.notices;
 CREATE POLICY "notices: read active"
   ON public.notices FOR SELECT
   USING (public.is_active() AND status = 'active');
 
 
 -- â”€â”€ lost_found â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "lf: read open" ON public.lost_found;
 CREATE POLICY "lf: read open"
   ON public.lost_found FOR SELECT
   USING (public.is_active() AND status = 'open');
 
+DROP POLICY IF EXISTS "lf: insert" ON public.lost_found;
 CREATE POLICY "lf: insert"
   ON public.lost_found FOR INSERT
   WITH CHECK (public.is_active() AND auth.uid() = poster_id);
 
 
 -- â”€â”€ notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "notes: read" ON public.notes;
 CREATE POLICY "notes: read"
   ON public.notes FOR SELECT
   USING (public.is_active() AND status = 'published');
 
+DROP POLICY IF EXISTS "notes: insert" ON public.notes;
 CREATE POLICY "notes: insert"
   ON public.notes FOR INSERT
   WITH CHECK (public.is_active() AND auth.uid() = uploader_id);
 
 
 -- â”€â”€ timetables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DROP POLICY IF EXISTS "tt: read" ON public.timetables;
 CREATE POLICY "tt: read"
   ON public.timetables FOR SELECT
   USING (public.is_active() AND (auth.uid() = owner_id OR is_master = TRUE));
 
+DROP POLICY IF EXISTS "tt: personal write" ON public.timetables;
 CREATE POLICY "tt: personal write"
   ON public.timetables FOR ALL
   USING (public.is_active() AND auth.uid() = owner_id AND is_master = FALSE)
