@@ -12,29 +12,28 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 
-// Mount all routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/admin', require('./routes/admin'));
-
-// Stubs
-app.use('/api/feed', require('./routes/feed'));
-app.use('/api/anon', require('./routes/anon'));
-app.use('/api/dm', require('./routes/dm'));
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/profile', require('./routes/profile'));
-app.use('/api/bookmarks', require('./routes/bookmarks'));
-app.use('/api/reports', require('./routes/reports'));
-app.use('/api/pyq', require('./routes/pyq'));
-app.use('/api/notices', require('./routes/notices'));
-app.use('/api/timetable', require('./routes/timetable'));
-app.use('/api/lostfound', require('./routes/lostfound'));
-app.use('/api/notes', require('./routes/notes'));
+// Mount all routes (files live in src/routes/ — outside api/ so Vercel
+// treats only api/index.js as a serverless function, not each route file)
+app.use('/api/auth',          require('../src/routes/auth'));
+app.use('/api/admin',         require('../src/routes/admin'));
+app.use('/api/feed',          require('../src/routes/feed'));
+app.use('/api/anon',          require('../src/routes/anon'));
+app.use('/api/dm',            require('../src/routes/dm'));
+app.use('/api/notifications', require('../src/routes/notifications'));
+app.use('/api/profile',       require('../src/routes/profile'));
+app.use('/api/bookmarks',     require('../src/routes/bookmarks'));
+app.use('/api/reports',       require('../src/routes/reports'));
+app.use('/api/pyq',           require('../src/routes/pyq'));
+app.use('/api/notices',       require('../src/routes/notices'));
+app.use('/api/timetable',     require('../src/routes/timetable'));
+app.use('/api/lostfound',     require('../src/routes/lostfound'));
+app.use('/api/notes',         require('../src/routes/notes'));
 
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     ts: new Date().toISOString(),
-    version: '1.0.0-phase1'
+    version: '1.0.0'
   });
 });
 
