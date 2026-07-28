@@ -1,21 +1,21 @@
--- ============================================================
---  CAMPUS WALL — Supabase SQL Schema
+﻿-- ============================================================
+--  CAMPUS WALL â€” Supabase SQL Schema
 --  Run in Supabase SQL Editor in the order written below.
 --
 --  Supabase: Postgres 15+, auth.users managed by Supabase Auth.
 --  All tables live in the public schema.
---  Backend: SUPABASE_SERVICE_ROLE_KEY → bypasses RLS.
---  Frontend: ANON KEY → subject to RLS.
+--  Backend: SUPABASE_SERVICE_ROLE_KEY â†’ bypasses RLS.
+--  Frontend: ANON KEY â†’ subject to RLS.
 --
 --  Steps:
---   1. Section 1 — Extensions
---   2. Section 2 — Tables
---   3. Section 3 — Indexes
---   4. Section 4 — Triggers
---   5. Section 5 — RLS
---   6. Section 6 — Realtime  (SQL)
---   7. Section 7 — Storage   (Dashboard)
---   8. Section 8 — Seed      (optional)
+--   1. Section 1 â€” Extensions
+--   2. Section 2 â€” Tables
+--   3. Section 3 â€” Indexes
+--   4. Section 4 â€” Triggers
+--   5. Section 5 â€” RLS
+--   6. Section 6 â€” Realtime  (SQL)
+--   7. Section 7 â€” Storage   (Dashboard)
+--   8. Section 8 â€” Seed      (optional)
 -- ============================================================
 
 
@@ -40,7 +40,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ── profiles ──────────────────────────────────────────────
+-- â”€â”€ profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.profiles (
   id                   UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   university_name      TEXT        NOT NULL DEFAULT 'Chaudhary Ranbir Singh University',
@@ -64,12 +64,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE TRIGGER trg_profiles_updated_at
+DROP TRIGGER IF EXISTS trg_profiles_updated_at ON public.profiles;`nCREATE TRIGGER trg_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
--- ── posts ─────────────────────────────────────────────────
+-- â”€â”€ posts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Named feed posts. 5/day limit enforced in API.
 CREATE TABLE IF NOT EXISTS public.posts (
   id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,12 +85,12 @@ CREATE TABLE IF NOT EXISTS public.posts (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE TRIGGER trg_posts_updated_at
+DROP TRIGGER IF EXISTS trg_posts_updated_at ON public.posts;`nCREATE TRIGGER trg_posts_updated_at
   BEFORE UPDATE ON public.posts
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
--- ── anon_posts ────────────────────────────────────────────
+-- â”€â”€ anon_posts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- user_id stored but NEVER exposed to clients via RLS.
 -- 3/day limit enforced in API.
 CREATE TABLE IF NOT EXISTS public.anon_posts (
@@ -105,12 +105,12 @@ CREATE TABLE IF NOT EXISTS public.anon_posts (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE TRIGGER trg_anon_posts_updated_at
+DROP TRIGGER IF EXISTS trg_anon_posts_updated_at ON public.anon_posts;`nCREATE TRIGGER trg_anon_posts_updated_at
   BEFORE UPDATE ON public.anon_posts
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
--- ── comments ──────────────────────────────────────────────
+-- â”€â”€ comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.comments (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id    UUID        NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS public.comments (
 );
 
 
--- ── anon_comments ─────────────────────────────────────────
+-- â”€â”€ anon_comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- user_id hidden from clients (same policy as anon_posts).
 CREATE TABLE IF NOT EXISTS public.anon_comments (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS public.anon_comments (
 );
 
 
--- ── user_votes (feed post votes) ──────────────────────────
+-- â”€â”€ user_votes (feed post votes) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.user_votes (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS public.user_votes (
 );
 
 
--- ── anon_votes ────────────────────────────────────────────
+-- â”€â”€ anon_votes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.anon_votes (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID        NOT NULL REFERENCES public.profiles(id)    ON DELETE CASCADE,
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS public.anon_votes (
 );
 
 
--- ── bookmarks ─────────────────────────────────────────────
+-- â”€â”€ bookmarks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.bookmarks (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS public.bookmarks (
 );
 
 
--- ── dm_conversations ──────────────────────────────────────
+-- â”€â”€ dm_conversations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- participant_a < participant_b (canonical UUID sort) enforced in API.
 CREATE TABLE IF NOT EXISTS public.dm_conversations (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS public.dm_conversations (
 );
 
 
--- ── dm_messages ───────────────────────────────────────────
+-- â”€â”€ dm_messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.dm_messages (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID        NOT NULL REFERENCES public.dm_conversations(id) ON DELETE CASCADE,
@@ -193,7 +193,7 @@ CREATE TABLE IF NOT EXISTS public.dm_messages (
 );
 
 
--- ── notifications ─────────────────────────────────────────
+-- â”€â”€ notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.notifications (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -207,7 +207,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 );
 
 
--- ── reports ───────────────────────────────────────────────
+-- â”€â”€ reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.reports (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_id  UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS public.reports (
 );
 
 
--- ── password_reset_requests ───────────────────────────────
+-- â”€â”€ password_reset_requests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.password_reset_requests (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   roll_number  TEXT        NOT NULL,
@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS public.password_reset_requests (
 );
 
 
--- ── pyq_files ─────────────────────────────────────────────
+-- â”€â”€ pyq_files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.pyq_files (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   title           TEXT        NOT NULL CHECK (char_length(title) BETWEEN 3 AND 200),
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS public.pyq_files (
 );
 
 
--- ── notices ───────────────────────────────────────────────
+-- â”€â”€ notices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.notices (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   title        TEXT        NOT NULL CHECK (char_length(title) BETWEEN 3 AND 200),
@@ -269,12 +269,12 @@ CREATE TABLE IF NOT EXISTS public.notices (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE TRIGGER trg_notices_updated_at
+DROP TRIGGER IF EXISTS trg_notices_updated_at ON public.notices;`nCREATE TRIGGER trg_notices_updated_at
   BEFORE UPDATE ON public.notices
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
--- ── lost_found ────────────────────────────────────────────
+-- â”€â”€ lost_found â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.lost_found (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   type         TEXT        NOT NULL CHECK (type IN ('lost','found')),
@@ -289,12 +289,12 @@ CREATE TABLE IF NOT EXISTS public.lost_found (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE TRIGGER trg_lost_found_updated_at
+DROP TRIGGER IF EXISTS trg_lost_found_updated_at ON public.lost_found;`nCREATE TRIGGER trg_lost_found_updated_at
   BEFORE UPDATE ON public.lost_found
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
--- ── notes ─────────────────────────────────────────────────
+-- â”€â”€ notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.notes (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   title           TEXT        NOT NULL CHECK (char_length(title) BETWEEN 3 AND 200),
@@ -311,14 +311,14 @@ CREATE TABLE IF NOT EXISTS public.notes (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE TRIGGER trg_notes_updated_at
+DROP TRIGGER IF EXISTS trg_notes_updated_at ON public.notes;`nCREATE TRIGGER trg_notes_updated_at
   BEFORE UPDATE ON public.notes
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
--- ── timetables ────────────────────────────────────────────
--- is_master=TRUE  → admin-uploaded dept timetable (fallback for students)
--- is_master=FALSE → personal timetable (one per user)
+-- â”€â”€ timetables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- is_master=TRUE  â†’ admin-uploaded dept timetable (fallback for students)
+-- is_master=FALSE â†’ personal timetable (one per user)
 -- slots: JSONB array [ { day, period, subject, room? }, ... ]
 CREATE TABLE IF NOT EXISTS public.timetables (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -331,7 +331,7 @@ CREATE TABLE IF NOT EXISTS public.timetables (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE TRIGGER trg_timetables_updated_at
+DROP TRIGGER IF EXISTS trg_timetables_updated_at ON public.timetables;`nCREATE TRIGGER trg_timetables_updated_at
   BEFORE UPDATE ON public.timetables
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -412,7 +412,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER trg_post_count_inc
+DROP TRIGGER IF EXISTS trg_post_count_inc ON public.posts;`nCREATE TRIGGER trg_post_count_inc
   AFTER INSERT OR UPDATE OF status ON public.posts
   FOR EACH ROW EXECUTE FUNCTION public.inc_posts_count();
 
@@ -430,7 +430,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER trg_notes_count_inc
+DROP TRIGGER IF EXISTS trg_notes_count_inc ON public.notes;`nCREATE TRIGGER trg_notes_count_inc
   AFTER INSERT OR UPDATE OF status ON public.notes
   FOR EACH ROW EXECUTE FUNCTION public.inc_notes_count();
 
@@ -455,11 +455,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER trg_comments_count
+DROP TRIGGER IF EXISTS trg_comments_count ON public.comments;`nCREATE TRIGGER trg_comments_count
   AFTER INSERT OR UPDATE OF status OR DELETE ON public.comments
   FOR EACH ROW EXECUTE FUNCTION public.sync_comments_count();
 
-CREATE TRIGGER trg_anon_comments_count
+DROP TRIGGER IF EXISTS trg_anon_comments_count ON public.anon_comments;`nCREATE TRIGGER trg_anon_comments_count
   AFTER INSERT OR UPDATE OF status OR DELETE ON public.anon_comments
   FOR EACH ROW EXECUTE FUNCTION public.sync_comments_count();
 
@@ -479,7 +479,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER trg_post_votes_sync
+DROP TRIGGER IF EXISTS trg_post_votes_sync ON public.user_votes;`nCREATE TRIGGER trg_post_votes_sync
   AFTER INSERT OR DELETE ON public.user_votes
   FOR EACH ROW EXECUTE FUNCTION public.sync_post_votes();
 
@@ -499,7 +499,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER trg_anon_post_votes_sync
+DROP TRIGGER IF EXISTS trg_anon_post_votes_sync ON public.anon_votes;`nCREATE TRIGGER trg_anon_post_votes_sync
   AFTER INSERT OR DELETE ON public.anon_votes
   FOR EACH ROW EXECUTE FUNCTION public.sync_anon_post_votes();
 
@@ -513,23 +513,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER trg_touch_conversation
+DROP TRIGGER IF EXISTS trg_touch_conversation ON public.dm_messages;`nCREATE TRIGGER trg_touch_conversation
   AFTER INSERT ON public.dm_messages
   FOR EACH ROW EXECUTE FUNCTION public.touch_conversation();
 
 
--- ── FIX #1: Lock privilege columns on profiles ────────────
+-- â”€â”€ FIX #1: Lock privilege columns on profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Prevents self-privilege-escalation via anon key.
 -- Any UPDATE that goes through RLS (anon/authenticated role) has
 -- role, status, karma, posts_count, notes_uploaded silently reset
--- to their OLD values — the student's new values for those columns
+-- to their OLD values â€” the student's new values for those columns
 -- are simply ignored. Service role (backend) bypasses RLS entirely
 -- so it is unaffected: admin approve/ban/promote routes still work.
 --
 -- Why trigger instead of WITH CHECK subqueries?
---   • No 5× extra SELECT per UPDATE
---   • Silent reset is safer than raising errors (no info leakage)
---   • Backend service role bypasses RLS → trigger not an issue
+--   â€¢ No 5Ã— extra SELECT per UPDATE
+--   â€¢ Silent reset is safer than raising errors (no info leakage)
+--   â€¢ Backend service role bypasses RLS â†’ trigger not an issue
 --
 -- auth.role() returns 'service_role' when called via the service-role
 -- key (as supabaseAdmin does). For anon-key callers it is
@@ -553,7 +553,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER trg_lock_profile_cols
+DROP TRIGGER IF EXISTS trg_lock_profile_cols ON public.profiles;`nCREATE TRIGGER trg_lock_profile_cols
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.lock_profile_immutable_cols();
 
@@ -592,7 +592,7 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 
--- ── profiles ──────────────────────────────────────────────
+-- â”€â”€ profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "profiles: own read"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
@@ -613,7 +613,7 @@ CREATE POLICY "profiles: own update"
   WITH CHECK (auth.uid() = id);
 
 
--- ── posts ─────────────────────────────────────────────────
+-- â”€â”€ posts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "posts: read published"
   ON public.posts FOR SELECT
   USING (public.is_active() AND status = 'published');
@@ -624,23 +624,23 @@ CREATE POLICY "posts: own insert"
 
 -- FIX #2: Explicit WITH CHECK so the policy is correct regardless
 -- of call path. In practice ALL post edit/delete goes through the
--- Express backend (service role → bypasses RLS), so this does not
+-- Express backend (service role â†’ bypasses RLS), so this does not
 -- block anything today. The explicit WITH CHECK future-proofs the
 -- schema in case a client ever calls Supabase directly:
---   • USING  checks the BEFORE state  (row must be mine & published)
---   • WITH CHECK checks the AFTER state (only published/deleted/hidden allowed)
+--   â€¢ USING  checks the BEFORE state  (row must be mine & published)
+--   â€¢ WITH CHECK checks the AFTER state (only published/deleted/hidden allowed)
 CREATE POLICY "posts: own update"
   ON public.posts FOR UPDATE
   USING     (public.is_active() AND auth.uid() = user_id AND status = 'published')
   WITH CHECK (public.is_active() AND auth.uid() = user_id AND status IN ('published','deleted','hidden'));
 
 
--- ── anon_posts ────────────────────────────────────────────
+-- â”€â”€ anon_posts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- DENY ALL to regular clients intentionally.
 -- Service role (backend) bypasses RLS and handles stripping user_id.
 
 
--- ── comments ──────────────────────────────────────────────
+-- â”€â”€ comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "comments: read"
   ON public.comments FOR SELECT
   USING (public.is_active() AND status = 'published');
@@ -654,38 +654,38 @@ CREATE POLICY "comments: own update"
   USING (public.is_active() AND auth.uid() = user_id);
 
 
--- ── anon_comments ─────────────────────────────────────────
+-- â”€â”€ anon_comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- DENY ALL intentionally (same as anon_posts).
 
 
--- ── user_votes ────────────────────────────────────────────
+-- â”€â”€ user_votes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "votes: own"
   ON public.user_votes FOR ALL
   USING (public.is_active() AND auth.uid() = user_id)
   WITH CHECK (public.is_active() AND auth.uid() = user_id);
 
 
--- ── anon_votes ────────────────────────────────────────────
+-- â”€â”€ anon_votes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "anon_votes: own"
   ON public.anon_votes FOR ALL
   USING (public.is_active() AND auth.uid() = user_id)
   WITH CHECK (public.is_active() AND auth.uid() = user_id);
 
 
--- ── bookmarks ─────────────────────────────────────────────
+-- â”€â”€ bookmarks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "bookmarks: own"
   ON public.bookmarks FOR ALL
   USING (public.is_active() AND auth.uid() = user_id)
   WITH CHECK (public.is_active() AND auth.uid() = user_id);
 
 
--- ── dm_conversations ──────────────────────────────────────
+-- â”€â”€ dm_conversations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "dm_conv: participants read"
   ON public.dm_conversations FOR SELECT
   USING (public.is_active() AND (auth.uid() = participant_a OR auth.uid() = participant_b));
 
 
--- ── dm_messages ───────────────────────────────────────────
+-- â”€â”€ dm_messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "dm_messages: participants read"
   ON public.dm_messages FOR SELECT
   USING (
@@ -708,26 +708,26 @@ CREATE POLICY "dm_messages: own insert"
   );
 
 
--- ── notifications ─────────────────────────────────────────
+-- â”€â”€ notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "notifications: own"
   ON public.notifications FOR ALL
   USING (public.is_active() AND auth.uid() = user_id)
   WITH CHECK (public.is_active() AND auth.uid() = user_id);
 
 
--- ── reports ───────────────────────────────────────────────
+-- â”€â”€ reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "reports: insert"
   ON public.reports FOR INSERT
   WITH CHECK (public.is_active() AND auth.uid() = reporter_id);
 
 
--- ── password_reset_requests ───────────────────────────────
+-- â”€â”€ password_reset_requests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "reset_requests: public insert"
   ON public.password_reset_requests FOR INSERT
   WITH CHECK (TRUE);
 
 
--- ── pyq_files ─────────────────────────────────────────────
+-- â”€â”€ pyq_files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "pyq: read"
   ON public.pyq_files FOR SELECT
   USING (public.is_active() AND status = 'published');
@@ -737,13 +737,13 @@ CREATE POLICY "pyq: insert"
   WITH CHECK (public.is_active() AND auth.uid() = uploader_id);
 
 
--- ── notices ───────────────────────────────────────────────
+-- â”€â”€ notices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "notices: read active"
   ON public.notices FOR SELECT
   USING (public.is_active() AND status = 'active');
 
 
--- ── lost_found ────────────────────────────────────────────
+-- â”€â”€ lost_found â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "lf: read open"
   ON public.lost_found FOR SELECT
   USING (public.is_active() AND status = 'open');
@@ -753,7 +753,7 @@ CREATE POLICY "lf: insert"
   WITH CHECK (public.is_active() AND auth.uid() = poster_id);
 
 
--- ── notes ─────────────────────────────────────────────────
+-- â”€â”€ notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "notes: read"
   ON public.notes FOR SELECT
   USING (public.is_active() AND status = 'published');
@@ -763,7 +763,7 @@ CREATE POLICY "notes: insert"
   WITH CHECK (public.is_active() AND auth.uid() = uploader_id);
 
 
--- ── timetables ────────────────────────────────────────────
+-- â”€â”€ timetables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE POLICY "tt: read"
   ON public.timetables FOR SELECT
   USING (public.is_active() AND (auth.uid() = owner_id OR is_master = TRUE));
@@ -792,7 +792,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 -- ============================================================
 --
 --  Bucket Name       | Public | Max Size | Allowed MIME Types
---  ──────────────────┼────────┼──────────┼────────────────────────────────────
+--  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 --  avatars           | YES    | 3 MB     | image/jpeg, image/png, image/webp
 --  feed-images       | YES    | 5 MB     | image/jpeg, image/png, image/gif, image/webp
 --  anon-images       | YES    | 5 MB     | image/jpeg, image/png, image/gif, image/webp
@@ -800,7 +800,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 --  notes-files       | YES    | 10 MB    | application/pdf
 --  lostfound-images  | YES    | 5 MB     | image/jpeg, image/png, image/webp
 --
---  Storage RLS template (run once per bucket — replace 'pyq-files'):
+--  Storage RLS template (run once per bucket â€” replace 'pyq-files'):
 --
 --    CREATE POLICY "read" ON storage.objects
 --      FOR SELECT USING (bucket_id = 'pyq-files');
@@ -840,3 +840,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 --     'Campus Wall is now live for CRSU, Jind. Share on the Feed, find lost items, upload notes, and stay updated with notices.',
 --     'general', TRUE, TRUE, id
 --   FROM public.profiles WHERE role = 'super_admin' LIMIT 1;
+
