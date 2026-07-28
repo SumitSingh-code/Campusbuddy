@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-DROP TRIGGER IF EXISTS trg_profiles_updated_at ON public.profiles;`nCREATE TRIGGER trg_profiles_updated_at
+DROP TRIGGER IF EXISTS trg_profiles_updated_at ON public.profiles;
+CREATE TRIGGER trg_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -85,7 +86,8 @@ CREATE TABLE IF NOT EXISTS public.posts (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-DROP TRIGGER IF EXISTS trg_posts_updated_at ON public.posts;`nCREATE TRIGGER trg_posts_updated_at
+DROP TRIGGER IF EXISTS trg_posts_updated_at ON public.posts;
+CREATE TRIGGER trg_posts_updated_at
   BEFORE UPDATE ON public.posts
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -105,7 +107,8 @@ CREATE TABLE IF NOT EXISTS public.anon_posts (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-DROP TRIGGER IF EXISTS trg_anon_posts_updated_at ON public.anon_posts;`nCREATE TRIGGER trg_anon_posts_updated_at
+DROP TRIGGER IF EXISTS trg_anon_posts_updated_at ON public.anon_posts;
+CREATE TRIGGER trg_anon_posts_updated_at
   BEFORE UPDATE ON public.anon_posts
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -269,7 +272,8 @@ CREATE TABLE IF NOT EXISTS public.notices (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-DROP TRIGGER IF EXISTS trg_notices_updated_at ON public.notices;`nCREATE TRIGGER trg_notices_updated_at
+DROP TRIGGER IF EXISTS trg_notices_updated_at ON public.notices;
+CREATE TRIGGER trg_notices_updated_at
   BEFORE UPDATE ON public.notices
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -289,7 +293,8 @@ CREATE TABLE IF NOT EXISTS public.lost_found (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-DROP TRIGGER IF EXISTS trg_lost_found_updated_at ON public.lost_found;`nCREATE TRIGGER trg_lost_found_updated_at
+DROP TRIGGER IF EXISTS trg_lost_found_updated_at ON public.lost_found;
+CREATE TRIGGER trg_lost_found_updated_at
   BEFORE UPDATE ON public.lost_found
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -311,7 +316,8 @@ CREATE TABLE IF NOT EXISTS public.notes (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-DROP TRIGGER IF EXISTS trg_notes_updated_at ON public.notes;`nCREATE TRIGGER trg_notes_updated_at
+DROP TRIGGER IF EXISTS trg_notes_updated_at ON public.notes;
+CREATE TRIGGER trg_notes_updated_at
   BEFORE UPDATE ON public.notes
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -331,7 +337,8 @@ CREATE TABLE IF NOT EXISTS public.timetables (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-DROP TRIGGER IF EXISTS trg_timetables_updated_at ON public.timetables;`nCREATE TRIGGER trg_timetables_updated_at
+DROP TRIGGER IF EXISTS trg_timetables_updated_at ON public.timetables;
+CREATE TRIGGER trg_timetables_updated_at
   BEFORE UPDATE ON public.timetables
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -412,7 +419,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS trg_post_count_inc ON public.posts;`nCREATE TRIGGER trg_post_count_inc
+DROP TRIGGER IF EXISTS trg_post_count_inc ON public.posts;
+CREATE TRIGGER trg_post_count_inc
   AFTER INSERT OR UPDATE OF status ON public.posts
   FOR EACH ROW EXECUTE FUNCTION public.inc_posts_count();
 
@@ -430,7 +438,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS trg_notes_count_inc ON public.notes;`nCREATE TRIGGER trg_notes_count_inc
+DROP TRIGGER IF EXISTS trg_notes_count_inc ON public.notes;
+CREATE TRIGGER trg_notes_count_inc
   AFTER INSERT OR UPDATE OF status ON public.notes
   FOR EACH ROW EXECUTE FUNCTION public.inc_notes_count();
 
@@ -455,11 +464,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS trg_comments_count ON public.comments;`nCREATE TRIGGER trg_comments_count
+DROP TRIGGER IF EXISTS trg_comments_count ON public.comments;
+CREATE TRIGGER trg_comments_count
   AFTER INSERT OR UPDATE OF status OR DELETE ON public.comments
   FOR EACH ROW EXECUTE FUNCTION public.sync_comments_count();
 
-DROP TRIGGER IF EXISTS trg_anon_comments_count ON public.anon_comments;`nCREATE TRIGGER trg_anon_comments_count
+DROP TRIGGER IF EXISTS trg_anon_comments_count ON public.anon_comments;
+CREATE TRIGGER trg_anon_comments_count
   AFTER INSERT OR UPDATE OF status OR DELETE ON public.anon_comments
   FOR EACH ROW EXECUTE FUNCTION public.sync_comments_count();
 
@@ -479,7 +490,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS trg_post_votes_sync ON public.user_votes;`nCREATE TRIGGER trg_post_votes_sync
+DROP TRIGGER IF EXISTS trg_post_votes_sync ON public.user_votes;
+CREATE TRIGGER trg_post_votes_sync
   AFTER INSERT OR DELETE ON public.user_votes
   FOR EACH ROW EXECUTE FUNCTION public.sync_post_votes();
 
@@ -499,7 +511,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS trg_anon_post_votes_sync ON public.anon_votes;`nCREATE TRIGGER trg_anon_post_votes_sync
+DROP TRIGGER IF EXISTS trg_anon_post_votes_sync ON public.anon_votes;
+CREATE TRIGGER trg_anon_post_votes_sync
   AFTER INSERT OR DELETE ON public.anon_votes
   FOR EACH ROW EXECUTE FUNCTION public.sync_anon_post_votes();
 
@@ -513,7 +526,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS trg_touch_conversation ON public.dm_messages;`nCREATE TRIGGER trg_touch_conversation
+DROP TRIGGER IF EXISTS trg_touch_conversation ON public.dm_messages;
+CREATE TRIGGER trg_touch_conversation
   AFTER INSERT ON public.dm_messages
   FOR EACH ROW EXECUTE FUNCTION public.touch_conversation();
 
@@ -553,7 +567,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS trg_lock_profile_cols ON public.profiles;`nCREATE TRIGGER trg_lock_profile_cols
+DROP TRIGGER IF EXISTS trg_lock_profile_cols ON public.profiles;
+CREATE TRIGGER trg_lock_profile_cols
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.lock_profile_immutable_cols();
 
