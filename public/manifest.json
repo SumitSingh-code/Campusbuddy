@@ -1,0 +1,44 @@
+{
+  "name": "Campus Wall",
+  "short_name": "CampusWall",
+  "description": "CRSU campus social feed, PYQs, notices, timetable, notes & more",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FAFAF7",
+  "theme_color": "#1B2340",
+  "lang": "en-IN",
+  "categories": ["education", "social"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Campus Feed",
+      "url": "/#/feed",
+      "description": "Open the named campus feed"
+    },
+    {
+      "name": "Anonymous Feed",
+      "url": "/#/anon",
+      "description": "Open the anonymous feed"
+    }
+  ]
+}

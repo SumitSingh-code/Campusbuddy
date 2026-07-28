@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Campus Wall — CRSU campus social feed, PYQs, notices, timetable, notes and more.">
+  <title>Campus Wall</title>
+  <meta name="theme-color" content="#1B2340">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/components.css">
+</head>
+<body>
+  <div id="toast-container" role="region" aria-label="Notifications"></div>
+
+  <!-- Loading splash -->
+  <div id="splash" style="position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem;">
+    <img src="/icons/icon-192.png" alt="Campus Wall" style="width:56px;height:56px;border-radius:14px;">
+    <div class="spinner"></div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <!-- ── Top Navigation (desktop) ──────────────────────────────────── -->
+    <nav class="nav-top" role="navigation" aria-label="Main navigation">
+      <a href="#/feed" class="nav-brand" id="nav-brand" data-route="/feed" aria-label="Campus Wall home">
+        <img src="/icons/icon-192.png" alt="">
+        <span>Campus Wall</span>
+      </a>
+
+      <div class="nav-links" role="menubar">
+        <a class="nav-link" data-route="/feed" id="nav-top-feed" role="menuitem" tabindex="0">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Feed
+        </a>
+        <a class="nav-link" data-route="/anon" id="nav-top-anon" role="menuitem" tabindex="0">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+          Anonymous
+        </a>
+        <a class="nav-link" data-route="/pyq" id="nav-top-pyq" role="menuitem" tabindex="0">PYQs</a>
+        <a class="nav-link" data-route="/notices" id="nav-top-notices" role="menuitem" tabindex="0">Notices</a>
+        <a class="nav-link" data-route="/timetable" id="nav-top-timetable" role="menuitem" tabindex="0">Timetable</a>
+        <a class="nav-link" data-route="/lost-found" id="nav-top-lf" role="menuitem" tabindex="0">Lost &amp; Found</a>
+        <a class="nav-link" data-route="/notes" id="nav-top-notes" role="menuitem" tabindex="0">Notes</a>
+      </div>
+
+      <div class="nav-actions">
+        <a class="nav-link" data-route="/dm" id="nav-top-dm" role="menuitem" tabindex="0" style="position:relative;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span class="nav-badge" id="dm-badge-top" style="display:none;">0</span>
+        </a>
+        <a class="nav-link" data-route="/notifications" id="nav-top-notif" role="menuitem" tabindex="0" style="position:relative;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="nav-badge" id="notif-badge-top" style="display:none;">0</span>
+        </a>
+        <button class="btn btn-ghost btn-sm" id="nav-top-profile" aria-label="My profile" style="border-radius:50%;width:36px;height:36px;padding:0;overflow:hidden;flex-shrink:0;border:2px solid var(--border);">
+          <div id="nav-avatar" class="avatar avatar--sm" style="border:none;margin:0;width:32px;height:32px;font-size:.7rem;"></div>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ── Bottom Navigation (mobile) ────────────────────────────────── -->
+    <nav class="nav-bottom" role="navigation" aria-label="Mobile navigation">
+      <button class="nav-item active" data-route="/feed" id="nav-feed" role="menuitem" aria-label="Campus Feed">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span class="nav-label">Feed</span>
+      </button>
+      <button class="nav-item" data-route="/anon" id="nav-anon" role="menuitem" aria-label="Anonymous Feed">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+        <span class="nav-label">Anon</span>
+      </button>
+      <button class="nav-item" data-route="/dm" id="nav-dm" role="menuitem" aria-label="Messages" style="position:relative;">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="nav-label">DMs</span>
+        <span class="nav-badge" id="dm-badge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" data-route="/notifications" id="nav-notif" role="menuitem" aria-label="Notifications" style="position:relative;">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="nav-label">Alerts</span>
+        <span class="nav-badge" id="notif-badge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" data-route="/profile" id="nav-profile" role="menuitem" aria-label="My Profile">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span class="nav-label">Me</span>
+      </button>
+    </nav>
+
+    <!-- ── More options menu (mobile utilities) ───────────────────────── -->
+    <div id="more-menu" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="More options">
+      <div class="modal" style="max-width:400px;">
+        <div class="modal__handle"></div>
+        <div class="modal__header">
+          <h3 style="font-size:1rem;">Explore</h3>
+          <button class="btn btn-ghost btn-icon" id="close-more-menu" aria-label="Close">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal__body" style="padding:1rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+            <button class="btn btn-secondary" data-route="/pyq" id="more-pyq" style="justify-content:flex-start;">📄 PYQs</button>
+            <button class="btn btn-secondary" data-route="/notices" id="more-notices" style="justify-content:flex-start;">📌 Notices</button>
+            <button class="btn btn-secondary" data-route="/timetable" id="more-timetable" style="justify-content:flex-start;">🗓️ Timetable</button>
+            <button class="btn btn-secondary" data-route="/lost-found" id="more-lf" style="justify-content:flex-start;">🔍 Lost &amp; Found</button>
+            <button class="btn btn-secondary" data-route="/notes" id="more-notes" style="justify-content:flex-start;">📝 Notes</button>
+            <button class="btn btn-secondary" data-route="/bookmarks" id="more-bookmarks" style="justify-content:flex-start;">🔖 Bookmarks</button>
+          </div>
+          <div class="divider" style="margin:1rem 0;"></div>
+          <button class="btn btn-ghost btn-full" id="btn-sign-out" style="color:var(--danger);justify-content:flex-start;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign Out
+          </button>
+          <div id="admin-menu-section" style="display:none;">
+            <div class="divider" style="margin:.75rem 0;"></div>
+            <a href="/admin.html" class="btn btn-secondary btn-full" style="justify-content:flex-start;">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Admin Panel
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Main page content ───────────────────────────────────────────── -->
+    <main class="main-content" id="page-content" aria-live="polite">
+      <!-- Page-specific content rendered here by router.js -->
+    </main>
+  </div>
+
+  <script type="module">
+    import Auth from '/js/auth.js';
+    import Router from '/js/router.js';
+    import { initRealtime } from '/js/realtime.js';
+    import { showToast, updateNavActive, fmtNum } from '/js/utils.js';
+
+    // ── PWA Service Worker ────────────────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err =>
+          console.warn('[SW] Registration failed:', err)
+        );
+      });
+    }
+
+    // ── Auth init ─────────────────────────────────────────────────────────────
+    async function init() {
+      const { user, profile } = await Auth.init();
+
+      if (!user || !profile) {
+        window.location.href = '/auth.html';
+        return;
+      }
+
+      // Redirect non-active users to auth page
+      if (!['active','suspended'].includes(profile.status)) {
+        window.location.href = '/auth.html';
+        return;
+      }
+
+      // Forced password change
+      if (profile.must_change_password && !Auth.isGoogleOnly()) {
+        window.location.href = '/auth.html';
+        return;
+      }
+
+      // Reveal app
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('app').style.display = '';
+
+      // Populate avatar
+      const initials = (profile.full_name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+      const avatarEl = document.getElementById('nav-avatar');
+      if (avatarEl) avatarEl.textContent = initials;
+
+      // Show admin link if applicable
+      if (Auth.isAdmin()) {
+        document.getElementById('admin-menu-section').style.display = '';
+      }
+
+      // Nav click handlers (both mobile bottom nav and desktop nav links)
+      function makeNavHandler(route) {
+        return (e) => {
+          e.preventDefault();
+          document.getElementById('more-menu').style.display = 'none';
+          window.location.hash = `#${route}`;
+        };
+      }
+
+      // Mobile nav
+      document.querySelectorAll('.nav-item[data-route], .nav-link[data-route]').forEach(el => {
+        el.addEventListener('click', makeNavHandler(el.dataset.route));
+      });
+
+      // More menu nav items
+      document.querySelectorAll('.modal__body .btn[data-route]').forEach(el => {
+        el.addEventListener('click', makeNavHandler(el.dataset.route));
+      });
+
+      // Desktop profile button → /profile
+      document.getElementById('nav-top-profile')?.addEventListener('click', () => {
+        window.location.hash = '#/profile';
+      });
+
+      // Sign out
+      document.getElementById('btn-sign-out').addEventListener('click', async () => {
+        await Auth.signOut();
+      });
+
+      // Close more menu on overlay click
+      document.getElementById('more-menu').addEventListener('click', (e) => {
+        if (e.target.id === 'more-menu') document.getElementById('more-menu').style.display = 'none';
+      });
+      document.getElementById('close-more-menu').addEventListener('click', () => {
+        document.getElementById('more-menu').style.display = 'none';
+      });
+
+      // Initialize realtime subscriptions
+      initRealtime(user.id, {
+        onNotification: (notif) => {
+          _updateBadge('notif-badge', _getCount('notif-badge') + 1);
+          _updateBadge('notif-badge-top', _getCount('notif-badge-top') + 1);
+          // Toast for DMs
+          if (notif.type === 'dm') {
+            showToast('New message received', 'info', 3000);
+            _updateBadge('dm-badge', _getCount('dm-badge') + 1);
+            _updateBadge('dm-badge-top', _getCount('dm-badge-top') + 1);
+          }
+        },
+        onMessage: () => {
+          // Handled by notification trigger
+        },
+      });
+
+      // Initialize router
+      Router.init();
+    }
+
+    function _getCount(id) {
+      const el = document.getElementById(id);
+      return el ? (parseInt(el.textContent) || 0) : 0;
+    }
+
+    function _updateBadge(id, count) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (count > 0) {
+        el.textContent = count > 99 ? '99+' : String(count);
+        el.style.display = 'flex';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    // ── Notify count reset on nav to section ─────────────────────────────────
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash;
+      if (hash === '#/notifications') { _updateBadge('notif-badge', 0); _updateBadge('notif-badge-top', 0); }
+      if (hash === '#/dm')            { _updateBadge('dm-badge', 0);    _updateBadge('dm-badge-top', 0); }
+    });
+
+    init().catch(err => {
+      console.error('[App] Init error:', err);
+      window.location.href = '/auth.html';
+    });
+  </script>
+</body>
+</html>

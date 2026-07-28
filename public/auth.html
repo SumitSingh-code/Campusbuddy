@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Sign in or join Campus Wall — the unofficial social hub for CRSU students.">
+  <title>Sign In — Campus Wall</title>
+  <meta name="theme-color" content="#1B2340">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/components.css">
+</head>
+<body>
+  <div id="toast-container" role="region" aria-label="Notifications"></div>
+
+  <!-- Loading splash -->
+  <div id="splash" class="auth-page" style="position:fixed;inset:0;z-index:999;background:var(--bg);">
+    <div style="text-align:center">
+      <div class="spinner" style="width:32px;height:32px;margin:0 auto 1rem;"></div>
+      <p class="text-subtle" style="font-family:var(--font-heading);font-size:.875rem;">Loading…</p>
+    </div>
+  </div>
+
+  <!-- ── Auth views (shown/hidden by JS) ─────────────────────────── -->
+  <main id="auth-root" class="auth-page" style="display:none;">
+
+    <!-- VIEW: Login -->
+    <div id="view-login" class="auth-box" style="display:none;">
+      <div class="auth-brand">
+        <img src="/icons/icon-192.png" alt="Campus Wall" class="auth-brand__logo" id="brand-logo-login">
+        <div>
+          <div class="auth-brand__name">Campus Wall</div>
+          <div class="auth-brand__tagline">CRSU, Jind</div>
+        </div>
+      </div>
+
+      <div class="auth-card">
+        <h1 style="font-size:1.375rem;margin-bottom:.25rem;">Welcome back</h1>
+        <p class="text-muted" style="font-size:.875rem;margin-bottom:1.5rem;">Sign in to your Campus Wall account</p>
+
+        <!-- Google Sign In -->
+        <button class="btn btn-google btn-full btn-lg" id="btn-google-login" type="button" aria-label="Sign in with Google">
+          <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Continue with Google
+        </button>
+
+        <div class="divider-text" style="margin:1.5rem 0;">or sign in with email</div>
+
+        <form id="form-login" novalidate>
+          <div class="form-group">
+            <label class="form-label required" for="login-email">Email</label>
+            <input type="email" id="login-email" class="form-input" placeholder="your.email@example.com" autocomplete="email" required>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem;">
+              <label class="form-label required" for="login-password" style="margin-bottom:0;">Password</label>
+              <button type="button" class="btn btn-ghost btn-sm" id="link-forgot-pw" style="font-size:.75rem;min-height:auto;padding:.25rem .5rem;">Forgot password?</button>
+            </div>
+            <input type="password" id="login-password" class="form-input" placeholder="••••••••" autocomplete="current-password" required>
+          </div>
+          <div id="login-error" class="alert alert--error" style="display:none;"></div>
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-login" style="margin-bottom:1rem;">Sign In</button>
+        </form>
+
+        <p style="text-align:center;font-size:.875rem;color:var(--ink-muted);">
+          Don't have an account?
+          <button type="button" class="btn btn-ghost btn-sm" id="link-to-signup" style="font-weight:700;color:var(--accent);min-height:auto;padding:.25rem .25rem;">Join Campus Wall</button>
+        </p>
+      </div>
+    </div>
+
+    <!-- VIEW: Sign Up Step 1 (Account Creation) -->
+    <div id="view-signup-email" class="auth-box" style="display:none;">
+      <div class="auth-brand">
+        <img src="/icons/icon-192.png" alt="Campus Wall" class="auth-brand__logo">
+        <div>
+          <div class="auth-brand__name">Join Campus Wall</div>
+          <div class="auth-brand__tagline">Step 1 of 2 — Create account</div>
+        </div>
+      </div>
+
+      <div class="auth-card">
+        <button type="button" class="btn btn-ghost btn-sm" id="back-from-signup-email" style="margin-bottom:1rem;color:var(--ink-muted);">← Back</button>
+
+        <button class="btn btn-google btn-full" id="btn-google-signup" type="button" aria-label="Continue with Google">
+          <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Continue with Google
+        </button>
+
+        <div class="divider-text" style="margin:1.25rem 0;">or use email & password</div>
+
+        <form id="form-signup-email" novalidate>
+          <div class="form-group">
+            <label class="form-label required" for="signup-email">Email</label>
+            <input type="email" id="signup-email" class="form-input" placeholder="your.email@example.com" autocomplete="email" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required" for="signup-password">Password</label>
+            <input type="password" id="signup-password" class="form-input" placeholder="Min. 8 chars with a letter and number" autocomplete="new-password" required>
+            <span class="form-hint">At least 8 characters — must include a letter and a number</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label required" for="signup-confirm">Confirm Password</label>
+            <input type="password" id="signup-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required>
+          </div>
+          <div id="signup-email-error" class="alert alert--error" style="display:none;"></div>
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-signup-email">Continue →</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- VIEW: Sign Up Step 2 (Profile) -->
+    <div id="view-signup-profile" class="auth-box" style="display:none;">
+      <div class="auth-brand">
+        <img src="/icons/icon-192.png" alt="Campus Wall" class="auth-brand__logo">
+        <div>
+          <div class="auth-brand__name">Almost there!</div>
+          <div class="auth-brand__tagline">Step 2 of 2 — Your profile</div>
+        </div>
+      </div>
+
+      <div class="auth-card">
+        <div class="alert alert--info" style="font-size:.8125rem;margin-bottom:1.25rem;">
+          Your details will be verified by an admin before your account is activated. Use your real university info.
+        </div>
+
+        <form id="form-signup-profile" novalidate>
+          <div class="form-group">
+            <label class="form-label required" for="p-full-name">Full Name</label>
+            <input type="text" id="p-full-name" class="form-input" placeholder="As on your university ID" autocomplete="name" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required" for="p-roll">Roll Number</label>
+            <input type="text" id="p-roll" class="form-input" placeholder="e.g. 2021-CS-045" autocomplete="off" style="font-family:var(--font-mono);" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required" for="p-dept">Department</label>
+            <input type="text" id="p-dept" class="form-input" placeholder="e.g. Computer Science & Engineering" autocomplete="off" list="dept-list" required>
+            <datalist id="dept-list">
+              <option value="Computer Science & Engineering">
+              <option value="Information Technology">
+              <option value="Electronics & Communication Engineering">
+              <option value="Electrical Engineering">
+              <option value="Mechanical Engineering">
+              <option value="Civil Engineering">
+              <option value="Commerce">
+              <option value="Law">
+              <option value="Management Studies">
+              <option value="Mathematics">
+              <option value="Physics">
+              <option value="Chemistry">
+              <option value="English">
+              <option value="Hindi">
+              <option value="Economics">
+              <option value="History">
+              <option value="Political Science">
+            </datalist>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" for="p-sem">Semester</label>
+              <select id="p-sem" class="form-select" style="background-image:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%236B7280\" stroke-width=\"2\"><polyline points=\"6 9 12 15 18 9\"/></svg>');background-repeat:no-repeat;background-position:right .75rem center;background-size:18px;padding-right:2.5rem;">
+                <option value="">Select</option>
+                <option value="1">1st</option><option value="2">2nd</option>
+                <option value="3">3rd</option><option value="4">4th</option>
+                <option value="5">5th</option><option value="6">6th</option>
+                <option value="7">7th</option><option value="8">8th</option>
+                <option value="9">9th</option><option value="10">10th</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label required" for="p-phone">Phone</label>
+              <input type="tel" id="p-phone" class="form-input" placeholder="10-digit mobile" autocomplete="tel" style="font-family:var(--font-mono);" required>
+            </div>
+          </div>
+          <p class="form-hint" style="margin-bottom:1rem;margin-top:.25rem;">Phone number is used for account recovery — never publicly shown.</p>
+          <div id="signup-profile-error" class="alert alert--error" style="display:none;"></div>
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-signup-profile">Submit for Approval</button>
+        </form>
+
+        <p style="font-size:.75rem;color:var(--ink-subtle);text-align:center;margin-top:1rem;">
+          By joining, you agree to the
+          <a href="/guidelines.html" target="_blank" style="color:var(--accent);font-weight:600;">Community Guidelines</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- VIEW: Pending Approval -->
+    <div id="view-pending" class="auth-box" style="display:none;">
+      <div class="pending-screen" style="min-height:auto;padding:2.5rem 1.5rem;">
+        <div class="pending-screen__icon">
+          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <h2 class="pending-screen__title" id="pending-name">Your application is being reviewed</h2>
+        <p class="pending-screen__subtitle">
+          An admin from Campus Wall will verify your details and approve your account shortly.
+          You'll be able to sign in once approved.
+        </p>
+        <div class="alert alert--info" style="text-align:left;font-size:.8125rem;">
+          <div>
+            <strong>What happens next?</strong><br>
+            Approvals typically happen within 24–48 hours. If you used Google to sign up, just sign back in later — there's nothing else to do.
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-full" id="btn-sign-out-pending" style="margin-top:1rem;">Sign Out</button>
+      </div>
+    </div>
+
+    <!-- VIEW: Forgot Password -->
+    <div id="view-forgot-pw" class="auth-box" style="display:none;">
+      <div class="auth-brand">
+        <img src="/icons/icon-192.png" alt="Campus Wall" class="auth-brand__logo">
+        <div>
+          <div class="auth-brand__name">Reset Password</div>
+          <div class="auth-brand__tagline">Admin-verified recovery</div>
+        </div>
+      </div>
+
+      <div class="auth-card">
+        <button type="button" class="btn btn-ghost btn-sm" id="back-from-forgot" style="margin-bottom:1rem;color:var(--ink-muted);">← Back to Login</button>
+
+        <div class="alert alert--info" style="font-size:.8125rem;margin-bottom:1.25rem;">
+          Password resets are processed manually by a Campus Wall admin to protect account security. Enter your roll number and the phone number on your account.
+        </div>
+
+        <form id="form-forgot-pw" novalidate>
+          <div class="form-group">
+            <label class="form-label required" for="forgot-roll">Roll Number</label>
+            <input type="text" id="forgot-roll" class="form-input" placeholder="e.g. 2021-CS-045" style="font-family:var(--font-mono);" autocomplete="off" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required" for="forgot-phone">Phone Number</label>
+            <input type="tel" id="forgot-phone" class="form-input" placeholder="10-digit mobile" style="font-family:var(--font-mono);" required>
+          </div>
+          <div id="forgot-msg" class="alert" style="display:none;"></div>
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-forgot-submit">Submit Request</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- VIEW: Change Password (forced) -->
+    <div id="view-change-pw" class="auth-box" style="display:none;">
+      <div class="auth-brand">
+        <img src="/icons/icon-192.png" alt="Campus Wall" class="auth-brand__logo">
+        <div>
+          <div class="auth-brand__name">Set New Password</div>
+          <div class="auth-brand__tagline">Choose a secure password</div>
+        </div>
+      </div>
+
+      <div class="auth-card">
+        <div class="alert alert--warning" style="font-size:.8125rem;margin-bottom:1.25rem;">
+          An admin set a temporary password for you. Please set your own password before continuing.
+        </div>
+
+        <form id="form-change-pw" novalidate>
+          <div class="form-group">
+            <label class="form-label required" for="new-password">New Password</label>
+            <input type="password" id="new-password" class="form-input" placeholder="Min. 8 chars — letter + number" autocomplete="new-password" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required" for="new-password-confirm">Confirm Password</label>
+            <input type="password" id="new-password-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required>
+          </div>
+          <div id="change-pw-error" class="alert alert--error" style="display:none;"></div>
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-change-pw-submit">Update Password</button>
+        </form>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    import Auth from '/js/auth.js';
+    import { showToast, validatePhone, validateEmail, validatePassword } from '/js/utils.js';
+
+    // ── View switching ────────────────────────────────────────────────────────
+    const views = ['login','signup-email','signup-profile','pending','forgot-pw','change-pw'];
+
+    function showView(name) {
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        if (el) el.style.display = v === name ? '' : 'none';
+      });
+      document.getElementById('auth-root').style.display = '';
+      document.getElementById('splash').style.display = 'none';
+    }
+
+    // ── Initialization ────────────────────────────────────────────────────────
+    async function init() {
+      const { user, profile } = await Auth.init();
+
+      if (!user) { showView('login'); return; }
+
+      // Google user who just OAuth'd back — may need profile
+      if (!profile) {
+        // User has auth but no profile — go to profile form
+        document.getElementById('view-signup-profile').style.display = '';
+        showView('signup-profile');
+        return;
+      }
+
+      // Has profile — check status
+      if (profile.status === 'pending') {
+        document.getElementById('pending-name').textContent =
+          `Hi ${profile.full_name?.split(' ')[0] || ''}! Your application is being reviewed.`;
+        showView('pending');
+        return;
+      }
+
+      if (profile.status === 'rejected') {
+        showView('login');
+        showToast('Your application was rejected. Contact admin for details.', 'error', 6000);
+        await Auth.signOut();
+        return;
+      }
+
+      if (profile.status === 'banned') {
+        showView('login');
+        showToast('Your account has been banned. Contact admin if you believe this is an error.', 'error', 8000);
+        await Auth.signOut();
+        return;
+      }
+
+      if (profile.must_change_password && !Auth.isGoogleOnly()) {
+        showView('change-pw');
+        return;
+      }
+
+      // All good — redirect to main app
+      window.location.href = '/index.html';
+    }
+
+    init().catch(err => {
+      console.error('[Auth] Init error:', err);
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('auth-root').style.display = '';
+      showView('login');
+    });
+
+    // ── Stored intermediate state (email/pass before profile step) ───────────
+    let _pendingEmailCreds = null;
+
+    // ── Navigation buttons ────────────────────────────────────────────────────
+    document.getElementById('link-to-signup').addEventListener('click', () => showView('signup-email'));
+    document.getElementById('back-from-signup-email').addEventListener('click', () => showView('login'));
+    document.getElementById('link-forgot-pw').addEventListener('click', () => showView('forgot-pw'));
+    document.getElementById('back-from-forgot').addEventListener('click', () => showView('login'));
+
+    // ── Google OAuth ─────────────────────────────────────────────────────────
+    ['btn-google-login','btn-google-signup'].forEach(id => {
+      document.getElementById(id)?.addEventListener('click', async () => {
+        try { await Auth.signInWithGoogle(); }
+        catch (e) { showToast(e.message, 'error'); }
+      });
+    });
+
+    // ── Email Login ───────────────────────────────────────────────────────────
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login');
+      const errEl = document.getElementById('login-error');
+      errEl.style.display = 'none';
+
+      const email    = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      if (!email || !password) { errEl.textContent = 'Please fill in all fields.'; errEl.style.display = 'flex'; return; }
+
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+
+      try {
+        const { profile } = await Auth.signInWithEmail(email, password);
+
+        if (profile?.status === 'pending') { showView('pending'); return; }
+        if (profile?.must_change_password) { showView('change-pw'); return; }
+        if (profile?.status === 'active')  { window.location.href = '/index.html'; return; }
+
+        // Unknown state — redirect anyway
+        window.location.href = '/index.html';
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'flex';
+      } finally {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+      }
+    });
+
+    // ── Email Signup Step 1 ───────────────────────────────────────────────────
+    document.getElementById('form-signup-email').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('signup-email-error');
+      errEl.style.display = 'none';
+
+      const email    = document.getElementById('signup-email').value.trim();
+      const password = document.getElementById('signup-password').value;
+      const confirm  = document.getElementById('signup-confirm').value;
+
+      if (!validateEmail(email)) { errEl.textContent = 'Please enter a valid email address.'; errEl.style.display = 'flex'; return; }
+      const pwErr = validatePassword(password);
+      if (pwErr) { errEl.textContent = pwErr; errEl.style.display = 'flex'; return; }
+      if (password !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'flex'; return; }
+
+      _pendingEmailCreds = { email, password };
+      showView('signup-profile');
+    });
+
+    // ── Email Signup Step 2 (Profile) ─────────────────────────────────────────
+    document.getElementById('form-signup-profile').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn   = document.getElementById('btn-signup-profile');
+      const errEl = document.getElementById('signup-profile-error');
+      errEl.style.display = 'none';
+
+      const fullName = document.getElementById('p-full-name').value.trim();
+      const roll     = document.getElementById('p-roll').value.trim();
+      const dept     = document.getElementById('p-dept').value.trim();
+      const semEl    = document.getElementById('p-sem');
+      const semester = semEl.value ? parseInt(semEl.value) : null;
+      const phoneRaw = document.getElementById('p-phone').value.trim();
+      const phone    = validatePhone(phoneRaw);
+
+      if (!fullName || fullName.length < 2)  { errEl.textContent = 'Full name must be at least 2 characters.'; errEl.style.display = 'flex'; return; }
+      if (!roll || roll.length < 3)           { errEl.textContent = 'Please enter a valid roll number.'; errEl.style.display = 'flex'; return; }
+      if (!dept || dept.length < 2)           { errEl.textContent = 'Please enter your department.'; errEl.style.display = 'flex'; return; }
+      if (!phone)                             { errEl.textContent = 'Please enter a valid 10-digit phone number.'; errEl.style.display = 'flex'; return; }
+
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+
+      const profileData = {
+        full_name:    fullName,
+        roll_number:  roll.toUpperCase(),
+        department:   dept,
+        phone_number: phone,
+        semester:     semester,
+      };
+
+      try {
+        if (_pendingEmailCreds) {
+          // Email signup
+          await Auth.signUpWithEmail(_pendingEmailCreds.email, _pendingEmailCreds.password, profileData);
+          _pendingEmailCreds = null;
+        } else {
+          // Google signup (user already authenticated)
+          await Auth.completeProfile(profileData);
+        }
+
+        showView('pending');
+        showToast('Application submitted! You\'ll be notified once approved.', 'success', 5000);
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'flex';
+      } finally {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+      }
+    });
+
+    // ── Forgot Password ───────────────────────────────────────────────────────
+    document.getElementById('form-forgot-pw').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn   = document.getElementById('btn-forgot-submit');
+      const msgEl = document.getElementById('forgot-msg');
+      msgEl.style.display = 'none';
+
+      const roll  = document.getElementById('forgot-roll').value.trim().toUpperCase();
+      const phone = validatePhone(document.getElementById('forgot-phone').value.trim());
+
+      if (!roll)  { msgEl.className = 'alert alert--error'; msgEl.textContent = 'Please enter your roll number.'; msgEl.style.display = 'flex'; return; }
+      if (!phone) { msgEl.className = 'alert alert--error'; msgEl.textContent = 'Please enter a valid 10-digit phone number.'; msgEl.style.display = 'flex'; return; }
+
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+
+      try {
+        await Auth.forgotPassword(roll, phone);
+        msgEl.className = 'alert alert--success';
+        msgEl.textContent = 'Request submitted. If your details match, an admin will reset your password and contact you. Check back in 24–48 hours.';
+        msgEl.style.display = 'flex';
+        document.getElementById('form-forgot-pw').reset();
+      } catch (err) {
+        msgEl.className = 'alert alert--error';
+        msgEl.textContent = err.message;
+        msgEl.style.display = 'flex';
+      } finally {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+      }
+    });
+
+    // ── Change Password ───────────────────────────────────────────────────────
+    document.getElementById('form-change-pw').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn   = document.getElementById('btn-change-pw-submit');
+      const errEl = document.getElementById('change-pw-error');
+      errEl.style.display = 'none';
+
+      const pw      = document.getElementById('new-password').value;
+      const confirm = document.getElementById('new-password-confirm').value;
+
+      const pwErr = validatePassword(pw);
+      if (pwErr)         { errEl.textContent = pwErr; errEl.style.display = 'flex'; return; }
+      if (pw !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'flex'; return; }
+
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+
+      try {
+        await Auth.changePassword(pw);
+        showToast('Password updated successfully!', 'success');
+        window.location.href = '/index.html';
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'flex';
+      } finally {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+      }
+    });
+
+    // ── Sign Out from pending screen ──────────────────────────────────────────
+    document.getElementById('btn-sign-out-pending').addEventListener('click', async () => {
+      await Auth.signOut();
+    });
+  </script>
+</body>
+</html>

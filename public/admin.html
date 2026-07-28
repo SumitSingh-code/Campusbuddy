@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Campus Wall Admin Panel — manage users, signups, resets and more.">
+  <title>Admin Panel — Campus Wall</title>
+  <meta name="theme-color" content="#1B2340">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <style>
+    /* Admin-only overrides */
+    body { background: var(--bg); }
+    .admin-app { display: flex; min-height: 100vh; }
+    .section-panel { display: none; }
+    .section-panel.active { display: block; }
+  </style>
+</head>
+<body>
+  <div id="toast-container" role="region" aria-label="Notifications"></div>
+
+  <!-- Loading splash -->
+  <div id="splash" style="position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
+    <div class="spinner" style="width:32px;height:32px;"></div>
+  </div>
+
+  <div id="admin-app" class="admin-app" style="display:none;">
+
+    <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+    <aside class="admin-sidebar" role="navigation" aria-label="Admin navigation">
+      <div class="admin-brand">
+        Campus Wall
+        <span>Admin Panel</span>
+      </div>
+
+      <button class="admin-nav-item active" data-section="overview" id="nav-overview">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Overview
+      </button>
+      <button class="admin-nav-item" data-section="pending" id="nav-pending">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Pending Signups
+        <span class="admin-nav-badge" id="nav-pending-count" style="display:none;">0</span>
+      </button>
+      <button class="admin-nav-item" data-section="users" id="nav-users">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Users
+      </button>
+      <button class="admin-nav-item" data-section="resets" id="nav-resets">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Password Resets
+        <span class="admin-nav-badge" id="nav-resets-count" style="display:none;">0</span>
+      </button>
+      <button class="admin-nav-item" data-section="reports" id="nav-reports">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Reports
+        <span class="admin-nav-badge" id="nav-reports-count" style="display:none;">0</span>
+      </button>
+      <button class="admin-nav-item" data-section="admins" id="nav-admins" style="display:none;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Admin Team
+      </button>
+
+      <div style="margin-top:auto;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.12);">
+        <a href="/index.html" class="admin-nav-item">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Back to App
+        </a>
+        <button class="admin-nav-item" id="btn-admin-signout" style="width:100%;text-align:left;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── Main content ────────────────────────────────────────────── -->
+    <main class="admin-main" id="admin-main" role="main">
+
+      <!-- ── OVERVIEW ──────────────────────────────────────────── -->
+      <div class="section-panel active" id="panel-overview">
+        <div class="admin-section-header">
+          <h2>Overview</h2>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-stats">↻ Refresh</button>
+        </div>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Pending Signups</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Open Reports</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Reset Requests</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Total Students</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Active Students</div></div>
+        </div>
+        <div class="alert alert--info" style="font-size:.875rem;">
+          👋 Welcome to the Campus Wall Admin Panel. Use the sidebar to manage signups, users, password reset requests, and reports.
+        </div>
+      </div>
+
+      <!-- ── PENDING SIGNUPS ──────────────────────────────────── -->
+      <div class="section-panel" id="panel-pending">
+        <div class="admin-section-header">
+          <h2>Pending Signups</h2>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-pending">↻ Refresh</button>
+        </div>
+        <div id="pending-list">
+          <div class="empty-state"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ── USERS ──────────────────────────────────────────────── -->
+      <div class="section-panel" id="panel-users">
+        <div class="admin-section-header">
+          <h2>Users</h2>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-users">↻ Refresh</button>
+        </div>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+          <div class="search-bar" style="flex:1;min-width:200px;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="user-search" placeholder="Search name or roll no.">
+          </div>
+          <select class="form-select" id="user-filter-status" style="width:auto;min-height:44px;padding:.5rem .75rem;flex-shrink:0;">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="suspended">Suspended</option>
+            <option value="banned">Banned</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div id="users-list">
+          <div class="empty-state"><div class="spinner"></div></div>
+        </div>
+        <div style="display:flex;justify-content:center;gap:.75rem;margin-top:1rem;" id="users-pagination" style="display:none;"></div>
+      </div>
+
+      <!-- ── PASSWORD RESETS ──────────────────────────────────── -->
+      <div class="section-panel" id="panel-resets">
+        <div class="admin-section-header">
+          <h2>Password Reset Requests</h2>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-resets">↻ Refresh</button>
+        </div>
+        <div id="resets-list">
+          <div class="empty-state"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ── REPORTS ──────────────────────────────────────────── -->
+      <div class="section-panel" id="panel-reports">
+        <div class="admin-section-header">
+          <h2>Reports</h2>
+          <span class="text-muted" style="font-size:.875rem;">Full moderation coming in Phase 5</span>
+        </div>
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <h3>Reports coming in Phase 5</h3>
+          <p class="text-muted">Full content moderation, report resolution, and post deletion will be available then.</p>
+        </div>
+      </div>
+
+      <!-- ── ADMIN TEAM ─────────────────────────────────────── -->
+      <div class="section-panel" id="panel-admins">
+        <div class="admin-section-header">
+          <h2>Admin Team</h2>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-admins">↻ Refresh</button>
+        </div>
+        <div id="admins-list">
+          <div class="empty-state"><div class="spinner"></div></div>
+        </div>
+
+        <div class="admin-section" style="margin-top:2rem;">
+          <h3 style="font-size:1rem;margin-bottom:1rem;">Promote a User to Admin</h3>
+          <div class="card card-body" style="max-width:460px;">
+            <div class="form-group">
+              <label class="form-label required" for="promote-roll">User Roll Number</label>
+              <input type="text" id="promote-roll" class="form-input" placeholder="e.g. 2021-CS-001" style="font-family:var(--font-mono);">
+            </div>
+            <div class="form-group">
+              <label class="form-label required" for="promote-role">Assign Role</label>
+              <select id="promote-role" class="form-select" style="background-image:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%236B7280\" stroke-width=\"2\"><polyline points=\"6 9 12 15 18 9\"/></svg>');background-repeat:no-repeat;background-position:right .75rem center;background-size:18px;padding-right:2.5rem;">
+                <option value="moderator">Moderator</option>
+                <option value="super_admin">Super Admin</option>
+              </select>
+            </div>
+            <div id="promote-msg" class="alert" style="display:none;"></div>
+            <button class="btn btn-primary" id="btn-promote">Promote User</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ── Resolve Reset Modal ─────────────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-resolve-reset" style="display:none;" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width:460px;">
+      <div class="modal__handle"></div>
+      <div class="modal__header">
+        <h3>Resolve Password Reset</h3>
+        <button class="btn btn-ghost btn-icon" id="close-reset-modal">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <p class="text-muted" id="reset-modal-info" style="font-size:.875rem;margin-bottom:1rem;"></p>
+        <div class="form-group">
+          <label class="form-label required" for="temp-password">Temporary Password</label>
+          <input type="text" id="temp-password" class="form-input" placeholder="Min. 8 chars — letter + number" style="font-family:var(--font-mono);">
+          <span class="form-hint">The user will be forced to change this on next login.</span>
+        </div>
+        <div id="reset-modal-error" class="alert alert--error" style="display:none;"></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn-secondary" id="btn-cancel-reset">Cancel</button>
+        <button class="btn btn-primary" id="btn-submit-reset">Set Password &amp; Resolve</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import Auth from '/js/auth.js';
+    import API from '/js/api.js';
+    import { showToast, timeAgo, escHtml } from '/js/utils.js';
+
+    let currentProfile = null;
+    let userPage = 1;
+    let resolveResetId = null;
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    async function init() {
+      const { user, profile } = await Auth.init();
+
+      if (!user || !profile || !Auth.isAdmin()) {
+        window.location.href = profile ? '/index.html' : '/auth.html';
+        return;
+      }
+
+      currentProfile = profile;
+
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('admin-app').style.display = 'flex';
+
+      // Show admin team section for super_admin only
+      if (Auth.isSuperAdmin()) {
+        document.getElementById('nav-admins').style.display = 'flex';
+      }
+
+      // Load initial stats
+      loadStats();
+
+      // Nav
+      document.querySelectorAll('.admin-nav-item[data-section]').forEach(btn => {
+        btn.addEventListener('click', () => showSection(btn.dataset.section));
+      });
+
+      // Refresh buttons
+      document.getElementById('btn-refresh-stats').addEventListener('click', loadStats);
+      document.getElementById('btn-refresh-pending').addEventListener('click', loadPending);
+      document.getElementById('btn-refresh-users').addEventListener('click', () => loadUsers(1));
+      document.getElementById('btn-refresh-resets').addEventListener('click', loadResets);
+      document.getElementById('btn-refresh-admins')?.addEventListener('click', loadAdmins);
+
+      // Sign out
+      document.getElementById('btn-admin-signout').addEventListener('click', () => Auth.signOut());
+
+      // User search + filter
+      let searchTimer;
+      document.getElementById('user-search').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadUsers(1), 350);
+      });
+      document.getElementById('user-filter-status').addEventListener('change', () => loadUsers(1));
+
+      // Promote modal
+      document.getElementById('btn-promote').addEventListener('click', promoteUser);
+
+      // Reset modal
+      document.getElementById('close-reset-modal').addEventListener('click', () => closeResetModal());
+      document.getElementById('btn-cancel-reset').addEventListener('click', () => closeResetModal());
+      document.getElementById('btn-submit-reset').addEventListener('click', submitResolveReset);
+    }
+
+    // ── Section navigation ────────────────────────────────────────────────────
+    function showSection(section) {
+      document.querySelectorAll('.admin-nav-item[data-section]').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+      document.querySelector(`.admin-nav-item[data-section="${section}"]`)?.classList.add('active');
+      document.getElementById(`panel-${section}`)?.classList.add('active');
+
+      // Lazy-load data
+      switch (section) {
+        case 'pending':  loadPending(); break;
+        case 'users':    loadUsers(1); break;
+        case 'resets':   loadResets(); break;
+        case 'admins':   loadAdmins(); break;
+      }
+    }
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+    async function loadStats() {
+      try {
+        const stats = await API.get('/admin/stats');
+        document.getElementById('stats-grid').innerHTML = `
+          <div class="stat-card" style="cursor:pointer;" onclick="adminNav('pending')">
+            <div class="stat-card__value">${stats.pending_signups}</div>
+            <div class="stat-card__label">Pending Signups</div>
+          </div>
+          <div class="stat-card" style="cursor:pointer;" onclick="adminNav('reports')">
+            <div class="stat-card__value">${stats.open_reports}</div>
+            <div class="stat-card__label">Open Reports</div>
+          </div>
+          <div class="stat-card" style="cursor:pointer;" onclick="adminNav('resets')">
+            <div class="stat-card__value">${stats.open_reset_requests}</div>
+            <div class="stat-card__label">Reset Requests</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__value">${stats.total_users}</div>
+            <div class="stat-card__label">Total Students</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__value">${stats.active_users}</div>
+            <div class="stat-card__label">Active Students</div>
+          </div>
+        `;
+
+        // Update nav badges
+        setBadge('nav-pending-count', stats.pending_signups);
+        setBadge('nav-resets-count', stats.open_reset_requests);
+        setBadge('nav-reports-count', stats.open_reports);
+      } catch (err) {
+        showToast('Failed to load stats: ' + err.message, 'error');
+      }
+    }
+
+    window.adminNav = (section) => showSection(section);
+
+    function setBadge(id, count) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = count;
+      el.style.display = count > 0 ? 'flex' : 'none';
+    }
+
+    // ── Pending Signups ───────────────────────────────────────────────────────
+    async function loadPending() {
+      document.getElementById('pending-list').innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+      try {
+        const { data } = await API.get('/admin/pending-signups');
+        if (!data?.length) {
+          document.getElementById('pending-list').innerHTML = `
+            <div class="empty-state"><div class="empty-state-icon">✅</div><h3>No pending signups</h3><p class="text-muted">All caught up!</p></div>`;
+          setBadge('nav-pending-count', 0);
+          return;
+        }
+        setBadge('nav-pending-count', data.length);
+        document.getElementById('pending-list').innerHTML = data.map(u => `
+          <div class="user-row" id="pending-row-${escHtml(u.id)}">
+            <div class="avatar" style="background:var(--accent-light);color:var(--accent-text);font-family:var(--font-heading);font-weight:700;font-size:.8rem;">
+              ${escHtml((u.full_name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase())}
+            </div>
+            <div class="user-row__info">
+              <div class="user-row__name">${escHtml(u.full_name)}</div>
+              <div class="user-row__meta">
+                ${escHtml(u.roll_number)} · ${escHtml(u.department)}
+                ${u.semester ? `· Sem ${u.semester}` : ''}
+              </div>
+              <div class="user-row__meta" style="margin-top:2px;">
+                📱 ${escHtml(u.phone_number)}
+                ${u.email ? `· ✉️ ${escHtml(u.email)}` : ''}
+                · <span class="badge badge--muted">${escHtml(u.auth_provider)}</span>
+                · ${timeAgo(u.created_at)}
+              </div>
+            </div>
+            <div class="user-row__actions">
+              <button class="btn btn-success btn-sm" onclick="approveUser('${escHtml(u.id)}')">Approve</button>
+              <button class="btn btn-danger btn-sm" onclick="rejectUser('${escHtml(u.id)}')">Reject</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        document.getElementById('pending-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+      }
+    }
+
+    window.approveUser = async (id) => {
+      const row = document.getElementById(`pending-row-${id}`);
+      try {
+        await API.patch(`/admin/users/${id}/approve`);
+        row?.remove();
+        showToast('User approved!', 'success');
+        loadStats();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    window.rejectUser = async (id) => {
+      if (!confirm('Reject this signup? This will delete the account.')) return;
+      const row = document.getElementById(`pending-row-${id}`);
+      try {
+        await API.patch(`/admin/users/${id}/reject`);
+        row?.remove();
+        showToast('User rejected and account deleted.', 'info');
+        loadStats();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    async function loadUsers(page = 1) {
+      userPage = page;
+      document.getElementById('users-list').innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+
+      const q      = document.getElementById('user-search').value.trim();
+      const status = document.getElementById('user-filter-status').value;
+      const params = new URLSearchParams({ page, limit: 20 });
+      if (q)      params.set('q', q);
+      if (status) params.set('status', status);
+
+      try {
+        const res = await API.get(`/admin/users?${params}`);
+        const { data, total, has_more } = res;
+
+        if (!data?.length) {
+          document.getElementById('users-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">👤</div><h3>No users found</h3></div>';
+          document.getElementById('users-pagination').style.display = 'none';
+          return;
+        }
+
+        document.getElementById('users-list').innerHTML = `
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name / Roll No.</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                  <th>Role</th>
+                  <th>Joined</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.map(u => `
+                  <tr>
+                    <td>
+                      <div style="font-family:var(--font-heading);font-weight:600;font-size:.875rem;">${escHtml(u.full_name)}</div>
+                      <div style="font-family:var(--font-mono);font-size:.75rem;color:var(--ink-muted);">${escHtml(u.roll_number)}</div>
+                    </td>
+                    <td style="font-size:.8125rem;max-width:180px;word-break:break-word;">${escHtml(u.department)}</td>
+                    <td><span class="badge badge--${escHtml(u.status)}">${escHtml(u.status)}</span></td>
+                    <td><span class="badge badge--${u.role !== 'student' ? 'admin' : 'muted'}">${escHtml(u.role)}</span></td>
+                    <td style="font-family:var(--font-mono);font-size:.75rem;white-space:nowrap;">${timeAgo(u.created_at)}</td>
+                    <td>
+                      <div class="action-cell">
+                        ${u.status !== 'active'    ? `<button class="btn btn-success btn-sm" onclick="setUserStatus('${escHtml(u.id)}','activate')">Activate</button>` : ''}
+                        ${u.status !== 'suspended' ? `<button class="btn btn-secondary btn-sm" onclick="setUserStatus('${escHtml(u.id)}','suspend')">Suspend</button>` : ''}
+                        ${u.status !== 'banned'    ? `<button class="btn btn-danger btn-sm" onclick="setUserStatus('${escHtml(u.id)}','ban')">Ban</button>` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
+
+        // Pagination
+        const pagEl = document.getElementById('users-pagination');
+        pagEl.style.display = 'flex';
+        pagEl.innerHTML = `
+          <button class="btn btn-secondary btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="loadUsers(${page-1})">← Prev</button>
+          <span style="padding:.5rem .75rem;font-size:.875rem;color:var(--ink-muted);align-self:center;">Page ${page} · ${total} total</span>
+          <button class="btn btn-secondary btn-sm" ${!has_more ? 'disabled' : ''} onclick="loadUsers(${page+1})">Next →</button>
+        `;
+      } catch (err) {
+        document.getElementById('users-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+      }
+    }
+
+    window.loadUsers = loadUsers;
+
+    window.setUserStatus = async (id, action) => {
+      try {
+        await API.patch(`/admin/users/${id}/${action}`);
+        showToast(`User ${action}d successfully.`, 'success');
+        loadUsers(userPage);
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    // ── Password Resets ────────────────────────────────────────────────────────
+    async function loadResets() {
+      document.getElementById('resets-list').innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+      try {
+        const { data } = await API.get('/admin/reset-requests?status=pending');
+        if (!data?.length) {
+          document.getElementById('resets-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔒</div><h3>No pending reset requests</h3></div>';
+          setBadge('nav-resets-count', 0);
+          return;
+        }
+        setBadge('nav-resets-count', data.length);
+        document.getElementById('resets-list').innerHTML = data.map(r => `
+          <div class="user-row" id="reset-row-${escHtml(r.id)}">
+            <div class="avatar" style="background:var(--warning-light);color:var(--warning-text);font-family:var(--font-heading);font-weight:700;font-size:1rem;">🔒</div>
+            <div class="user-row__info">
+              <div class="user-row__name" style="font-family:var(--font-mono);">${escHtml(r.roll_number)}</div>
+              <div class="user-row__meta">📱 ${escHtml(r.phone_number)} · Requested ${timeAgo(r.requested_at)}</div>
+            </div>
+            <div class="user-row__actions">
+              <button class="btn btn-success btn-sm" onclick="openResetModal('${escHtml(r.id)}','${escHtml(r.roll_number)}','${escHtml(r.phone_number)}')">Resolve</button>
+              <button class="btn btn-secondary btn-sm" onclick="rejectReset('${escHtml(r.id)}')">Reject</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        document.getElementById('resets-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+      }
+    }
+
+    window.openResetModal = (id, roll, phone) => {
+      resolveResetId = id;
+      document.getElementById('reset-modal-info').textContent = `Roll: ${roll} · Phone: ${phone}`;
+      document.getElementById('temp-password').value = '';
+      document.getElementById('reset-modal-error').style.display = 'none';
+      document.getElementById('modal-resolve-reset').style.display = 'flex';
+    };
+
+    function closeResetModal() {
+      resolveResetId = null;
+      document.getElementById('modal-resolve-reset').style.display = 'none';
+    }
+
+    async function submitResolveReset() {
+      const btn  = document.getElementById('btn-submit-reset');
+      const errEl = document.getElementById('reset-modal-error');
+      errEl.style.display = 'none';
+
+      const tempPw = document.getElementById('temp-password').value.trim();
+      if (!tempPw || tempPw.length < 8 || !/[a-zA-Z]/.test(tempPw) || !/[0-9]/.test(tempPw)) {
+        errEl.textContent = 'Password must be at least 8 characters with a letter and a number.';
+        errEl.style.display = 'flex';
+        return;
+      }
+
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+
+      try {
+        await API.post(`/admin/reset-requests/${resolveResetId}/resolve`, { temp_password: tempPw });
+        showToast('Password set! User will be prompted to change it on next login.', 'success', 5000);
+        closeResetModal();
+        loadResets();
+        loadStats();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'flex';
+      } finally {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+      }
+    }
+
+    window.rejectReset = async (id) => {
+      if (!confirm('Reject this password reset request?')) return;
+      try {
+        await API.patch(`/admin/reset-requests/${id}/reject`);
+        document.getElementById(`reset-row-${id}`)?.remove();
+        showToast('Reset request rejected.', 'info');
+        loadStats();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    // ── Admin Team ─────────────────────────────────────────────────────────────
+    async function loadAdmins() {
+      if (!Auth.isSuperAdmin()) return;
+      document.getElementById('admins-list').innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+      try {
+        const { data } = await API.get('/admin/admins');
+        if (!data?.length) { document.getElementById('admins-list').innerHTML = '<div class="empty-state"><h3>No admins yet</h3></div>'; return; }
+        document.getElementById('admins-list').innerHTML = `
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>Name</th><th>Roll No.</th><th>Department</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>${data.map(a => `
+                <tr>
+                  <td><div style="font-family:var(--font-heading);font-weight:600;">${escHtml(a.full_name)}</div></td>
+                  <td style="font-family:var(--font-mono);font-size:.8125rem;">${escHtml(a.roll_number)}</td>
+                  <td style="font-size:.8125rem;">${escHtml(a.department)}</td>
+                  <td><span class="badge badge--admin">${escHtml(a.role)}</span></td>
+                  <td><span class="badge badge--${escHtml(a.status)}">${escHtml(a.status)}</span></td>
+                  <td>${a.id !== currentProfile.id ? `<button class="btn btn-secondary btn-sm" onclick="demoteAdmin('${escHtml(a.id)}')">Demote</button>` : '<span class="text-subtle" style="font-size:.75rem;">You</span>'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+      } catch (err) { document.getElementById('admins-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`; }
+    }
+
+    window.demoteAdmin = async (id) => {
+      if (!confirm('Demote this admin to student?')) return;
+      try {
+        await API.patch(`/admin/admins/${id}/demote`);
+        showToast('Admin demoted.', 'info');
+        loadAdmins();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    async function promoteUser() {
+      const btn   = document.getElementById('btn-promote');
+      const msgEl = document.getElementById('promote-msg');
+      msgEl.style.display = 'none';
+
+      const roll = document.getElementById('promote-roll').value.trim().toUpperCase();
+      const role = document.getElementById('promote-role').value;
+      if (!roll) { msgEl.className = 'alert alert--error'; msgEl.textContent = 'Enter a roll number.'; msgEl.style.display = 'flex'; return; }
+
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+
+      try {
+        // Find user ID by roll number via users list
+        const { data } = await API.get(`/admin/users?q=${encodeURIComponent(roll)}&limit=50`);
+        const user = data?.find(u => u.roll_number === roll);
+        if (!user) { throw new Error(`No user found with roll number ${roll}`); }
+        await API.post('/admin/admins', { user_id: user.id, role });
+        msgEl.className = 'alert alert--success';
+        msgEl.textContent = `${user.full_name} promoted to ${role} successfully.`;
+        msgEl.style.display = 'flex';
+        document.getElementById('promote-roll').value = '';
+        loadAdmins();
+      } catch (err) {
+        msgEl.className = 'alert alert--error';
+        msgEl.textContent = err.message;
+        msgEl.style.display = 'flex';
+      } finally {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+      }
+    }
+
+    init().catch(err => {
+      console.error('[Admin] Init error:', err);
+      window.location.href = '/auth.html';
+    });
+  </script>
+</body>
+</html>
