@@ -2,6 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 
+// ── Catch any unhandled crash that would otherwise silently kill the function ──
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] uncaughtException:', err.stack || err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] unhandledRejection:', reason?.stack || reason);
+});
+
 // ── Startup diagnostics (visible in Vercel Function logs on cold start) ────────
 console.log('[Startup] Campus Wall API initializing...');
 console.log('[Startup] SUPABASE_URL set:              ', !!process.env.SUPABASE_URL);
@@ -9,6 +17,7 @@ console.log('[Startup] SUPABASE_SERVICE_ROLE_KEY set: ', !!process.env.SUPABASE_
 console.log('[Startup] SUPABASE_ANON_KEY set:         ', !!process.env.SUPABASE_ANON_KEY);
 console.log('[Startup] FRONTEND_URL:                  ', process.env.FRONTEND_URL || '(not set — defaulting to reflect origin)');
 console.log('[Startup] NODE_ENV:                      ', process.env.NODE_ENV || 'not set');
+console.log('[Startup] Node.js version:               ', process.version);
 
 const app = express();
 
@@ -16,22 +25,38 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 
-// Mount all routes (files live in src/routes/ — outside api/ so Vercel
-// treats only api/index.js as a serverless function, not each route file)
-app.use('/api/auth',          require('../src/routes/auth'));
-app.use('/api/admin',         require('../src/routes/admin'));
-app.use('/api/feed',          require('../src/routes/feed'));
-app.use('/api/anon',          require('../src/routes/anon'));
-app.use('/api/dm',            require('../src/routes/dm'));
-app.use('/api/notifications', require('../src/routes/notifications'));
-app.use('/api/profile',       require('../src/routes/profile'));
-app.use('/api/bookmarks',     require('../src/routes/bookmarks'));
-app.use('/api/reports',       require('../src/routes/reports'));
-app.use('/api/pyq',           require('../src/routes/pyq'));
-app.use('/api/notices',       require('../src/routes/notices'));
-app.use('/api/timetable',     require('../src/routes/timetable'));
-app.use('/api/lostfound',     require('../src/routes/lostfound'));
-app.use('/api/notes',         require('../src/routes/notes'));
+// ── Safe route mount ──────────────────────────────────────────────────────────
+// If any single route file throws on require(), this prevents it from
+// crashing the entire Express app — that route returns 503, all others work.
+function safeMount(routePath, modulePath) {
+  try {
+    app.use(routePath, require(modulePath));
+    console.log('[Startup] OK:', routePath);
+  } catch (err) {
+    console.error('[Startup] FAILED to load', routePath, '->', err.message);
+    app.use(routePath, (req, res) =>
+      res.status(503).json({ error: 'Route unavailable', detail: err.message })
+    );
+  }
+}
+
+safeMount('/api/auth',          '../src/routes/auth');
+safeMount('/api/admin',         '../src/routes/admin');
+safeMount('/api/feed',          '../src/routes/feed');
+safeMount('/api/anon',          '../src/routes/anon');
+safeMount('/api/dm',            '../src/routes/dm');
+safeMount('/api/notifications', '../src/routes/notifications');
+safeMount('/api/profile',       '../src/routes/profile');
+safeMount('/api/bookmarks',     '../src/routes/bookmarks');
+safeMount('/api/reports',       '../src/routes/reports');
+safeMount('/api/pyq',           '../src/routes/pyq');
+safeMount('/api/notices',       '../src/routes/notices');
+safeMount('/api/timetable',     '../src/routes/timetable');
+safeMount('/api/lostfound',     '../src/routes/lostfound');
+safeMount('/api/notes',         '../src/routes/notes');
+
+console.log('[Startup] All route mounts attempted.');
+
 
 app.get('/api/health', (req, res) => {
   res.json({
