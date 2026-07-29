@@ -246,3 +246,11 @@ export function fmtNum(n) {
   if (n >= 1_000)     return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
   return String(n);
 }
+
+/** File size formatting — bytes → human-readable string (e.g. "2.4 MB", "340 KB") */
+export function fmtBytes(bytes) {
+  if (!bytes || bytes === 0) return '—';
+  if (bytes < 1024)        return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
