@@ -122,6 +122,7 @@
       </div>
 
       <div class="auth-card">
+        <button type="button" id="back-from-signup-profile" class="btn btn-ghost btn-sm" style="margin-bottom:1rem;color:var(--ink-muted);">← Back</button>
         <div class="alert alert--info" style="font-size:.8125rem;margin-bottom:1.25rem;">
           Your details will be verified by an admin before your account is activated. Use your real university info.
         </div>
@@ -296,11 +297,15 @@
 
       if (!user) { showView('login'); return; }
 
-      // Google user who just OAuth'd back — may need profile
+      // User has auth session but no profile row — could be:
+      //   (a) Google OAuth just completed and needs profile details, OR
+      //   (b) Previous email signup where the profile INSERT failed (orphaned auth user)
+      // Either way: show the profile form so they can complete/retry registration.
       if (!profile) {
-        // User has auth but no profile — go to profile form
-        document.getElementById('view-signup-profile').style.display = '';
         showView('signup-profile');
+        const msgEl = document.getElementById('signup-profile-error');
+        msgEl.textContent = 'Your account was created but profile setup is incomplete. Please fill in your details to continue.';
+        msgEl.style.display = 'flex';
         return;
       }
 
@@ -351,6 +356,17 @@
     document.getElementById('link-forgot-pw').addEventListener('click', () => showView('forgot-pw'));
     document.getElementById('back-from-forgot').addEventListener('click', () => showView('login'));
 
+    // Back from Step 2 (profile form):
+    // — Email flow: return to Step 1 (email/password entry)
+    // — Google / orphaned user: sign out and return to login
+    document.getElementById('back-from-signup-profile')?.addEventListener('click', async () => {
+      if (_pendingEmailCreds) {
+        showView('signup-email');
+      } else {
+        await Auth.signOut();
+      }
+    });
+
     // ── Google OAuth ─────────────────────────────────────────────────────────
     ['btn-google-login','btn-google-signup'].forEach(id => {
       document.getElementById(id)?.addEventListener('click', async () => {
@@ -377,11 +393,31 @@
       try {
         const { profile } = await Auth.signInWithEmail(email, password);
 
-        if (profile?.status === 'pending') { showView('pending'); return; }
-        if (profile?.must_change_password) { showView('change-pw'); return; }
-        if (profile?.status === 'active')  { window.location.href = '/index.html'; return; }
-
-        // Unknown state — redirect anyway
+        if (!profile) {
+          // Auth user exists but profile row is missing (orphaned signup).
+          // Route to profile form so they can complete registration.
+          showView('signup-profile');
+          const msgEl = document.getElementById('signup-profile-error');
+          msgEl.textContent = 'Account setup was incomplete. Please fill in your details to finish registration.';
+          msgEl.style.display = 'flex';
+          return;
+        }
+        if (profile.status === 'pending') { showView('pending'); return; }
+        if (profile.must_change_password)  { showView('change-pw'); return; }
+        if (profile.status === 'active')   { window.location.href = '/index.html'; return; }
+        if (profile.status === 'rejected') {
+          errEl.textContent = 'Your application was rejected. Contact admin for details.';
+          errEl.style.display = 'flex';
+          await Auth.signOut();
+          return;
+        }
+        if (profile.status === 'banned' || profile.status === 'suspended') {
+          errEl.textContent = 'Your account has been restricted. Contact admin if you believe this is an error.';
+          errEl.style.display = 'flex';
+          await Auth.signOut();
+          return;
+        }
+        // Fallback
         window.location.href = '/index.html';
       } catch (err) {
         errEl.textContent = err.message;

@@ -69,11 +69,35 @@ router.post('/signup', verifyJwtOnly, async (req, res) => {
       .insert(newProfile);
 
     if (insertError) {
-      console.error('Signup insert error:', insertError);
-      if (insertError.code === '23505') {
-        return res.status(409).json({ error: 'A profile with this information already exists' });
+      // Log the full Postgres error so it's visible in Vercel Function logs
+      console.error('[Signup] profiles INSERT failed:', {
+        code:    insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint:    insertError.hint,
+        userId:  req.user.id,
+      });
+
+      // ATOMIC ROLLBACK — delete the just-created auth user so the user
+      // can retry signup from scratch without hitting "already registered".
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(req.user.id);
+        console.log('[Signup] Rolled back orphaned auth user:', req.user.id);
+      } catch (deleteErr) {
+        console.error('[Signup] Rollback failed — orphaned auth user remains:', req.user.id, deleteErr.message);
       }
-      return res.status(500).json({ error: 'Database error' });
+
+      if (insertError.code === '23505') {
+        return res.status(409).json({ error: 'A profile with this information already exists. Try logging in instead.' });
+      }
+      if (insertError.code === '42501') {
+        // RLS permission denied — almost always means SUPABASE_SERVICE_ROLE_KEY is not set in env
+        return res.status(500).json({
+          error: 'Server configuration error — please contact the admin.',
+          hint:  'SUPABASE_SERVICE_ROLE_KEY may not be configured on the server.',
+        });
+      }
+      return res.status(500).json({ error: 'Registration failed — please try again.' });
     }
 
     res.json({

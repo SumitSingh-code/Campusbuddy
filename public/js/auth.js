@@ -85,11 +85,22 @@ export const Auth = {
     }
     _user = data.user;
 
-    // Create profile record
-    await API.post('/auth/signup', {
-      ...profileData,
-      auth_provider: 'email',
-    });
+    try {
+      // Create profile record — email is included so it's stored in profiles table
+      await API.post('/auth/signup', {
+        ...profileData,
+        email,                  // ← was missing before; needed for profile row
+        auth_provider: 'email',
+      });
+    } catch (profileErr) {
+      // Profile insert failed. The server already deleted the auth user (atomic rollback).
+      // Sign out locally to clear the Supabase session so the user can retry from scratch.
+      try { await supabase.auth.signOut(); } catch (_) {}
+      _user    = null;
+      _profile = null;
+      localStorage.removeItem('cw_profile');
+      throw profileErr; // re-throw so the UI shows the real error
+    }
 
     await _fetchProfile();
     return { user: _user, profile: _profile };
