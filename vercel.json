@@ -2,7 +2,8 @@
   "version": 2,
   "functions": {
     "api/index.js": {
-      "maxDuration": 10
+      "maxDuration": 10,
+      "includeFiles": "src/**"
     }
   },
   "rewrites": [
