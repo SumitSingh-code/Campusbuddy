@@ -1331,7 +1331,7 @@
   flex-direction: column;
   min-height: calc(100vh - var(--nav-height,64px) - var(--bottom-nav-height,56px));
 }
-.admin-sidebar {
+.admin-page .admin-sidebar {
   display: flex;
   flex-direction: row;
   overflow-x: auto;
@@ -1344,10 +1344,10 @@
   z-index: 10;
   scrollbar-width: none;
 }
-.admin-sidebar::-webkit-scrollbar { display: none; }
+.admin-page .admin-sidebar::-webkit-scrollbar { display: none; }
 @media (min-width: 880px) {
   .admin-page    { flex-direction: row; align-items: flex-start; }
-  .admin-sidebar {
+  .admin-page .admin-sidebar {
     flex-direction: column;
     width: 200px;
     min-width: 200px;
