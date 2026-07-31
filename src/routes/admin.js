@@ -7,31 +7,34 @@ router.use(adminGuard);
 
 router.get('/stats', async (req, res) => {
   try {
-    const [
-      { count: pending_signups, error: err1 },
-      { count: open_reports, error: err2 },
-      { count: open_reset_requests, error: err3 },
-      { count: total_users, error: err4 },
-      { count: active_users, error: err5 }
-    ] = await Promise.all([
-      supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open').catch(() => ({ count: 0, error: null })),
-      supabaseAdmin.from('password_reset_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
-      supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'active')
+    // Each query is individually fault-tolerant: if a table doesn't exist yet
+    // (e.g. password_reset_requests not migrated) we return 0 for that metric
+    // rather than failing the entire stats endpoint.
+    const safe = (p) =>
+      Promise.resolve(p).catch((e) => {
+        console.error('[Admin stats] query error:', e.message);
+        return { count: 0, error: null };
+      });
+
+    const [r1, r2, r3, r4, r5] = await Promise.all([
+      safe(supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
+      safe(supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open')),
+      safe(supabaseAdmin.from('password_reset_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
+      safe(supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student')),
+      safe(supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'active')),
     ]);
 
-    if (err1 || err3 || err4 || err5) {
-      console.error('Admin stats DB error:', err1 || err3 || err4 || err5);
-      return res.status(500).json({ error: 'Database error' });
-    }
+    // Log any DB-level errors (not thrown, just recorded in the result)
+    [r1, r2, r3, r4, r5].forEach((r, i) => {
+      if (r.error) console.error(`[Admin stats] result[${i}] error:`, r.error);
+    });
 
     res.json({
-      pending_signups: pending_signups || 0,
-      open_reports: open_reports || 0,
-      open_reset_requests: open_reset_requests || 0,
-      total_users: total_users || 0,
-      active_users: active_users || 0
+      pending_signups:     r1.count ?? 0,
+      open_reports:        r2.count ?? 0,
+      open_reset_requests: r3.count ?? 0,
+      total_users:         r4.count ?? 0,
+      active_users:        r5.count ?? 0,
     });
   } catch (err) {
     console.error('Admin stats error:', err);
