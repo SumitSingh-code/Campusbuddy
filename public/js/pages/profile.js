@@ -147,8 +147,14 @@ function _renderProfile() {
         <div class="profile-actions">
           <button class="btn btn-secondary btn-sm" id="profile-edit-btn">${Icons.edit} Edit</button>
           ${isEmailUser ? `<button class="btn btn-ghost btn-sm" id="open-change-pw-btn">🔑 Change Password</button>` : ''}
+          ${(p.role === 'moderator' || p.role === 'super_admin') ? `
+            <a href="/admin.html" class="btn btn-sm" style="background:var(--accent);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Admin Panel
+            </a>` : ''}
         </div>
       ` : ''}
+
     </div>
 
     <!-- Stats Row -->
