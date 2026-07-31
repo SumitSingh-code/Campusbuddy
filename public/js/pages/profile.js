@@ -180,6 +180,13 @@ function _renderProfile() {
         <div class="empty-state"><div class="spinner"></div></div>
       </div>
       <div id="profile-posts-sentinel" style="height:1px;"></div>
+      <!-- Sign Out — always reachable on mobile via this page -->
+      <div style="padding:2rem 0 1rem;text-align:center;">
+        <button id="profile-signout-btn" class="btn btn-ghost" style="color:var(--danger);gap:.5rem;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </button>
+      </div>
     ` : `
       <div class="empty-state" style="padding:2rem;">
         <p class="text-muted">Posts are visible on the Campus Feed.</p>
@@ -198,6 +205,21 @@ function _renderProfile() {
     document.getElementById('change-pw-error').style.display = 'none';
     setTimeout(() => document.getElementById('new-pw-input')?.focus(), 100);
   });
+  // Sign Out button (primary mobile logout path)
+  document.getElementById('profile-signout-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('profile-signout-btn');
+    if (btn) btn.disabled = true;
+    try {
+      const { Auth: A } = await import('../auth.js');
+      await A.signOut();
+    } catch {
+      // fallback: direct Supabase sign-out
+      const { default: supabase } = await import('../supabase.js');
+      await supabase.auth.signOut();
+      window.location.href = '/auth.html';
+    }
+  });
+
 }
 
 // ─── Own Post History ─────────────────────────────────────────────────────────

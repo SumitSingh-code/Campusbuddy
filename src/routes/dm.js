@@ -16,17 +16,27 @@ router.use(authGuard);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Returns true if either user has blocked the other */
+/**
+ * Returns true if either user has blocked the other.
+ * NOTE: The 'blocks' table is not yet in schema.sql — this function silently
+ * returns false (no blocking enforced) until the table is created.
+ * Once the blocks table exists, this will auto-enforce without further changes.
+ */
 async function isBlocked(uid1, uid2) {
-  const { data } = await supabaseAdmin
-    .from('blocks')
-    .select('id')
-    .or(
-      `and(blocker_id.eq.${uid1},blocked_id.eq.${uid2}),and(blocker_id.eq.${uid2},blocked_id.eq.${uid1})`
-    )
-    .limit(1)
-    .maybeSingle();
-  return !!data;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('blocks')
+      .select('id')
+      .or(
+        `and(blocker_id.eq.${uid1},blocked_id.eq.${uid2}),and(blocker_id.eq.${uid2},blocked_id.eq.${uid1})`
+      )
+      .limit(1)
+      .maybeSingle();
+    if (error) return false; // table doesn't exist yet → no blocking
+    return !!data;
+  } catch {
+    return false; // fail-open: allow the message
+  }
 }
 
 /** Determine participant slot (1 or 2) for userId in a conversation */
@@ -79,7 +89,7 @@ router.get('/conversations', async (req, res) => {
     const uid = req.profile.id;
 
     const { data: convos, error } = await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .select('id, participant_1, participant_2, last_message_id, last_message_at, unread_count_1, unread_count_2')
       .or(`participant_1.eq.${uid},participant_2.eq.${uid}`)
       .order('last_message_at', { ascending: false, nullsFirst: false })
@@ -106,7 +116,7 @@ router.get('/conversations', async (req, res) => {
     let msgMap = {};
     if (msgIds.length > 0) {
       const { data: msgs } = await supabaseAdmin
-        .from('messages')
+        .from('dm_messages')
         .select('id, content, sender_id')
         .in('id', msgIds);
       (msgs || []).forEach(m => { msgMap[m.id] = m; });
@@ -168,7 +178,7 @@ router.post('/conversations', async (req, res) => {
 
     // Find or create conversation
     let { data: existing } = await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .select('id')
       .eq('participant_1', p1)
       .eq('participant_2', p2)
@@ -179,7 +189,7 @@ router.post('/conversations', async (req, res) => {
       convId = existing.id;
     } else {
       const { data: created, error: createErr } = await supabaseAdmin
-        .from('conversations')
+        .from('dm_conversations')
         .insert({ participant_1: p1, participant_2: p2 })
         .select('id')
         .single();
@@ -193,7 +203,7 @@ router.post('/conversations', async (req, res) => {
     // Insert message
     const trimmed = message.trim();
     const { data: msg, error: msgInsertErr } = await supabaseAdmin
-      .from('messages')
+      .from('dm_messages')
       .insert({ conversation_id: convId, sender_id: uid, content: trimmed })
       .select('id, content, sender_id, is_read, created_at')
       .single();
@@ -209,13 +219,13 @@ router.post('/conversations', async (req, res) => {
 
     // Fetch current unread count to increment
     const { data: conv } = await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .select(`id, ${unreadField}`)
       .eq('id', convId)
       .single();
 
     await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .update({
         last_message_id:   msg.id,
         last_message_at:   msg.created_at,
@@ -256,7 +266,7 @@ router.get('/conversations/:id', async (req, res) => {
 
     // Verify participant
     const { data: conv } = await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .select('id, participant_1, participant_2, unread_count_1, unread_count_2')
       .eq('id', req.params.id)
       .single();
@@ -267,7 +277,7 @@ router.get('/conversations/:id', async (req, res) => {
 
     // Fetch messages (newest first for pagination, reversed before sending)
     const { data: messages, error } = await supabaseAdmin
-      .from('messages')
+      .from('dm_messages')
       .select('id, sender_id, content, is_read, read_at, created_at')
       .eq('conversation_id', req.params.id)
       .lt('created_at', before)
@@ -294,13 +304,13 @@ router.get('/conversations/:id', async (req, res) => {
     const unreadField = `unread_count_${mySlot}`;
     if ((conv[unreadField] || 0) > 0) {
       supabaseAdmin
-        .from('conversations')
+        .from('dm_conversations')
         .update({ [unreadField]: 0 })
         .eq('id', req.params.id)
         .then(() => {
           // Also mark unread messages from other user as read
           supabaseAdmin
-            .from('messages')
+            .from('dm_messages')
             .update({ is_read: true, read_at: new Date().toISOString() })
             .eq('conversation_id', req.params.id)
             .neq('sender_id', uid)
@@ -336,7 +346,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
 
     // Verify participant
     const { data: conv } = await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .select('id, participant_1, participant_2, unread_count_1, unread_count_2')
       .eq('id', req.params.id)
       .single();
@@ -354,7 +364,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
 
     const trimmed = content.trim();
     const { data: msg, error: insertErr } = await supabaseAdmin
-      .from('messages')
+      .from('dm_messages')
       .insert({ conversation_id: req.params.id, sender_id: uid, content: trimmed })
       .select('id, sender_id, content, is_read, created_at')
       .single();
@@ -370,7 +380,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
     const prevUnread    = recipientIsP1 ? conv.unread_count_1 : conv.unread_count_2;
 
     await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .update({
         last_message_id: msg.id,
         last_message_at: msg.created_at,
@@ -400,7 +410,7 @@ router.patch('/conversations/:id/read', async (req, res) => {
   try {
     const uid = req.profile.id;
     const { data: conv } = await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .select('id, participant_1, participant_2')
       .eq('id', req.params.id)
       .single();
@@ -411,12 +421,12 @@ router.patch('/conversations/:id/read', async (req, res) => {
 
     const mySlot = slot(conv, uid);
     await supabaseAdmin
-      .from('conversations')
+      .from('dm_conversations')
       .update({ [`unread_count_${mySlot}`]: 0 })
       .eq('id', req.params.id);
 
     await supabaseAdmin
-      .from('messages')
+      .from('dm_messages')
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('conversation_id', req.params.id)
       .neq('sender_id', uid)
@@ -435,7 +445,7 @@ router.delete('/conversations/:id/messages/:mid', async (req, res) => {
   try {
     const uid = req.profile.id;
     const { data: msg } = await supabaseAdmin
-      .from('messages')
+      .from('dm_messages')
       .select('id, sender_id, conversation_id')
       .eq('id', req.params.mid)
       .eq('conversation_id', req.params.id)
@@ -444,7 +454,7 @@ router.delete('/conversations/:id/messages/:mid', async (req, res) => {
     if (!msg) return res.status(404).json({ error: 'Message not found' });
     if (msg.sender_id !== uid) return res.status(403).json({ error: 'Can only delete your own messages' });
 
-    await supabaseAdmin.from('messages').delete().eq('id', req.params.mid);
+    await supabaseAdmin.from('dm_messages').delete().eq('id', req.params.mid);
 
     res.json({ success: true });
   } catch (err) {

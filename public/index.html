@@ -99,6 +99,10 @@
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span class="nav-label">Me</span>
       </button>
+      <button class="nav-item" id="nav-more" role="menuitem" aria-label="More options">
+        <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+        <span class="nav-label">More</span>
+      </button>
     </nav>
 
     <!-- ── More options menu (mobile utilities) ───────────────────────── -->
@@ -238,6 +242,19 @@
       document.getElementById('close-more-menu').addEventListener('click', () => {
         document.getElementById('more-menu').style.display = 'none';
       });
+      // Open more-menu from bottom nav "More" button
+      document.getElementById('nav-more')?.addEventListener('click', () => {
+        document.getElementById('more-menu').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      });
+      // Close more-menu when a route button inside it is tapped
+      document.getElementById('more-menu').querySelectorAll('[data-route]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('more-menu').style.display = 'none';
+          document.body.style.overflow = '';
+        });
+      });
+
 
       // Initialize realtime subscriptions
       initRealtime(user.id, {
