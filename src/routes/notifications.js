@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
 
     const { data: notifs, error } = await supabaseAdmin
       .from('notifications')
-      .select('id, type, title, body, ref_id, ref_type, is_read, read_at, created_at')
+      .select('id, type, title, body, ref_id, ref_type, is_read, created_at')
       .eq('user_id', uid)
       .lt('created_at', before)
       .order('created_at', { ascending: false })
@@ -65,7 +65,7 @@ router.patch('/:id/read', async (req, res) => {
   try {
     const { error } = await supabaseAdmin
       .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
+      .update({ is_read: true })
       .eq('id', req.params.id)
       .eq('user_id', req.profile.id); // ensures ownership
 
@@ -87,7 +87,7 @@ router.patch('/read-all', async (req, res) => {
   try {
     const { error } = await supabaseAdmin
       .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
+      .update({ is_read: true })
       .eq('user_id', req.profile.id)
       .eq('is_read', false);
 
