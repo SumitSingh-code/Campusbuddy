@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 --  CAMPUS WALL â€” Supabase SQL Schema
 --  Run in Supabase SQL Editor in the order written below.
 --
@@ -820,9 +820,9 @@ CREATE POLICY "tt: personal write"
 --  SECTION 6: Realtime
 -- ============================================================
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.dm_messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.dm_conversations;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.dm_messages;     EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.dm_conversations; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- NOTE: Realtime respects RLS. Clients only receive events
 -- for rows that pass their SELECT policy.

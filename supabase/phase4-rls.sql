@@ -16,7 +16,7 @@ DROP POLICY IF EXISTS "conversations_select"      ON public.dm_conversations;
 DROP POLICY IF EXISTS "conversations_update_self" ON public.dm_conversations;
 
 CREATE POLICY "dm_conversations_select" ON public.dm_conversations FOR SELECT TO authenticated
-  USING (participant_1 = auth.uid() OR participant_2 = auth.uid());
+  USING (participant_a = auth.uid() OR participant_b = auth.uid());
 
 -- INSERT: only via API (service_role) — no client-direct inserts
 -- (We rely on supabaseAdmin for conversation creation to enforce dedup logic)
@@ -24,8 +24,8 @@ CREATE POLICY "dm_conversations_select" ON public.dm_conversations FOR SELECT TO
 -- UPDATE: service_role (via API) updates last_message_id, unread_counts.
 -- Participants CAN mark-read (zero out their own unread count):
 CREATE POLICY "dm_conversations_update_self" ON public.dm_conversations FOR UPDATE TO authenticated
-  USING (participant_1 = auth.uid() OR participant_2 = auth.uid())
-  WITH CHECK (participant_1 = auth.uid() OR participant_2 = auth.uid());
+  USING (participant_a = auth.uid() OR participant_b = auth.uid())
+  WITH CHECK (participant_a = auth.uid() OR participant_b = auth.uid());
 
 -- ── dm_messages ───────────────────────────────────────────────
 -- SELECT: participants can read messages in their conversations

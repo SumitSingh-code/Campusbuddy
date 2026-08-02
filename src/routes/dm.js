@@ -1,16 +1,23 @@
 'use strict';
 
 // Campus Wall — DM (Direct Messages) Route
-// Conversations: deduplicated by sorting participant UUIDs (p1 < p2 lexicographically).
-// Privacy: messages are only visible to the two participants.
-// Blocks: checked before creating conversation or sending message.
+//
+// Schema facts (schema.sql — source of truth):
+//   dm_conversations: id, participant_a, participant_b, last_message_at, created_at
+//     • participant_a < participant_b (UUID string sort, enforced in API)
+//     • NO unread_count columns — computed live from dm_messages
+//     • NO last_message_id FK    — fetched live from dm_messages
+//   dm_messages: id, conversation_id, sender_id, content, read_at, deleted_at, created_at
+//     • read_at IS NULL     = unread
+//     • read_at IS NOT NULL = read (is_read computed field returned to client)
+//     • deleted_at IS NOT NULL = soft-deleted (excluded from all queries)
 
 const express = require('express');
 const router  = express.Router();
-const { authGuard }      = require('../middleware/authGuard');
-const { supabaseAdmin }  = require('../lib/supabase');
+const { authGuard }         = require('../middleware/authGuard');
+const { supabaseAdmin }     = require('../lib/supabase');
 const { containsProfanity } = require('../lib/profanity');
-const { notify }         = require('../lib/notify');
+const { notify }            = require('../lib/notify');
 
 router.use(authGuard);
 
@@ -18,36 +25,32 @@ router.use(authGuard);
 
 /**
  * Returns true if either user has blocked the other.
- * NOTE: The 'blocks' table is not yet in schema.sql — this function silently
- * returns false (no blocking enforced) until the table is created.
- * Once the blocks table exists, this will auto-enforce without further changes.
+ * NOTE: 'blocks' table is not yet in schema.sql — returns false (fail-open)
+ * until the table is created; will auto-enforce once it exists.
  */
 async function isBlocked(uid1, uid2) {
   try {
     const { data, error } = await supabaseAdmin
       .from('blocks')
       .select('id')
-      .or(
-        `and(blocker_id.eq.${uid1},blocked_id.eq.${uid2}),and(blocker_id.eq.${uid2},blocked_id.eq.${uid1})`
-      )
+      .or(`and(blocker_id.eq.${uid1},blocked_id.eq.${uid2}),and(blocker_id.eq.${uid2},blocked_id.eq.${uid1})`)
       .limit(1)
       .maybeSingle();
-    if (error) return false; // table doesn't exist yet → no blocking
+    if (error) return false;
     return !!data;
   } catch {
-    return false; // fail-open: allow the message
+    return false;
   }
 }
 
-/** Determine participant slot (1 or 2) for userId in a conversation */
-function slot(conv, userId) {
-  if (conv.participant_1 === userId) return 1;
-  if (conv.participant_2 === userId) return 2;
-  return null;
+/** The other participant's UUID in a conversation */
+function otherParticipant(conv, userId) {
+  return conv.participant_a === userId ? conv.participant_b : conv.participant_a;
 }
 
-function otherUserId(conv, userId) {
-  return conv.participant_1 === userId ? conv.participant_2 : conv.participant_1;
+/** True if userId is either participant in the conversation */
+function isParticipant(conv, userId) {
+  return conv.participant_a === userId || conv.participant_b === userId;
 }
 
 function validateMessage(content) {
@@ -82,7 +85,7 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// ─── GET /conversations — List all conversations for current user ──────────────
+// ─── GET /conversations — List all conversations (newest first) ───────────────
 
 router.get('/conversations', async (req, res) => {
   try {
@@ -90,9 +93,9 @@ router.get('/conversations', async (req, res) => {
 
     const { data: convos, error } = await supabaseAdmin
       .from('dm_conversations')
-      .select('id, participant_1, participant_2, last_message_id, last_message_at, unread_count_1, unread_count_2')
-      .or(`participant_1.eq.${uid},participant_2.eq.${uid}`)
-      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .select('id, participant_a, participant_b, last_message_at')
+      .or(`participant_a.eq.${uid},participant_b.eq.${uid}`)
+      .order('last_message_at', { ascending: false })
       .limit(50);
 
     if (error) {
@@ -102,37 +105,58 @@ router.get('/conversations', async (req, res) => {
 
     if (!convos || convos.length === 0) return res.json({ data: [] });
 
-    // Batch fetch other users' profiles
-    const otherIds = [...new Set(convos.map(c => otherUserId(c, uid)))];
-    const { data: profiles } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, department, avatar_url, status')
-      .in('id', otherIds);
-    const profileMap = {};
-    (profiles || []).forEach(p => { profileMap[p.id] = p; });
+    const convIds  = convos.map(c => c.id);
+    const otherIds = [...new Set(convos.map(c => otherParticipant(c, uid)))];
 
-    // Batch fetch last messages
-    const msgIds = convos.filter(c => c.last_message_id).map(c => c.last_message_id);
-    let msgMap = {};
-    if (msgIds.length > 0) {
-      const { data: msgs } = await supabaseAdmin
+    // Parallel: fetch other users' profiles, last messages, unread counts
+    const [profilesRes, allMsgsRes, unreadRes] = await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, department, avatar_url, status')
+        .in('id', otherIds),
+
+      // All non-deleted messages in these conversations (to pick the last per conv)
+      supabaseAdmin
         .from('dm_messages')
-        .select('id, content, sender_id')
-        .in('id', msgIds);
-      (msgs || []).forEach(m => { msgMap[m.id] = m; });
-    }
+        .select('conversation_id, content, sender_id, created_at')
+        .in('conversation_id', convIds)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false }),
+
+      // Unread = sent by other person, read_at IS NULL
+      supabaseAdmin
+        .from('dm_messages')
+        .select('conversation_id')
+        .in('conversation_id', convIds)
+        .neq('sender_id', uid)
+        .is('read_at', null)
+        .is('deleted_at', null),
+    ]);
+
+    const profileMap = {};
+    (profilesRes.data || []).forEach(p => { profileMap[p.id] = p; });
+
+    // Pick the latest message per conversation (results are ordered DESC)
+    const lastMsgMap = {};
+    (allMsgsRes.data || []).forEach(m => {
+      if (!lastMsgMap[m.conversation_id]) lastMsgMap[m.conversation_id] = m;
+    });
+
+    // Count unread messages per conversation
+    const unreadMap = {};
+    (unreadRes.data || []).forEach(m => {
+      unreadMap[m.conversation_id] = (unreadMap[m.conversation_id] || 0) + 1;
+    });
 
     const data = convos.map(c => {
-      const mySlot      = slot(c, uid);
-      const lastMsg     = c.last_message_id ? msgMap[c.last_message_id] : null;
-      const otherId     = otherUserId(c, uid);
-      const unreadCount = mySlot === 1 ? c.unread_count_1 : c.unread_count_2;
+      const otherId = otherParticipant(c, uid);
+      const lastMsg = lastMsgMap[c.id];
       return {
         id:              c.id,
         other_user:      profileMap[otherId] || { id: otherId, full_name: 'Unknown User' },
         last_message:    lastMsg ? lastMsg.content.substring(0, 80) : null,
         last_message_at: c.last_message_at,
-        unread_count:    unreadCount || 0,
+        unread_count:    unreadMap[c.id] || 0,
         is_last_mine:    lastMsg ? lastMsg.sender_id === uid : false,
       };
     });
@@ -168,20 +192,19 @@ router.post('/conversations', async (req, res) => {
       return res.status(404).json({ error: 'User not found or not active' });
     }
 
-    // Check blocks
     if (await isBlocked(uid, recipient_id)) {
       return res.status(403).json({ error: 'Cannot send a message to this user', code: 'BLOCKED' });
     }
 
-    // Deduplicate: sort participants so p1 < p2
-    const [p1, p2] = [uid, recipient_id].sort();
+    // Canonical sort: participant_a < participant_b (UUID string comparison)
+    const [p_a, p_b] = [uid, recipient_id].sort();
 
     // Find or create conversation
     let { data: existing } = await supabaseAdmin
       .from('dm_conversations')
       .select('id')
-      .eq('participant_1', p1)
-      .eq('participant_2', p2)
+      .eq('participant_a', p_a)
+      .eq('participant_b', p_b)
       .maybeSingle();
 
     let convId;
@@ -190,7 +213,7 @@ router.post('/conversations', async (req, res) => {
     } else {
       const { data: created, error: createErr } = await supabaseAdmin
         .from('dm_conversations')
-        .insert({ participant_1: p1, participant_2: p2 })
+        .insert({ participant_a: p_a, participant_b: p_b })
         .select('id')
         .single();
       if (createErr) {
@@ -200,38 +223,18 @@ router.post('/conversations', async (req, res) => {
       convId = created.id;
     }
 
-    // Insert message
+    // Insert first message
     const trimmed = message.trim();
-    const { data: msg, error: msgInsertErr } = await supabaseAdmin
+    const { data: msg, error: msgErr2 } = await supabaseAdmin
       .from('dm_messages')
       .insert({ conversation_id: convId, sender_id: uid, content: trimmed })
-      .select('id, content, sender_id, is_read, created_at')
+      .select('id, content, sender_id, read_at, created_at')
       .single();
 
-    if (msgInsertErr) {
-      console.error('[dm POST /conversations] msg insert:', msgInsertErr);
+    if (msgErr2) {
+      console.error('[dm POST /conversations] msg insert:', msgErr2);
       return res.status(500).json({ error: 'Database error' });
     }
-
-    // Update conversation: last message + increment recipient unread count
-    const recipientIsP1 = recipient_id === p1;
-    const unreadField   = recipientIsP1 ? 'unread_count_1' : 'unread_count_2';
-
-    // Fetch current unread count to increment
-    const { data: conv } = await supabaseAdmin
-      .from('dm_conversations')
-      .select(`id, ${unreadField}`)
-      .eq('id', convId)
-      .single();
-
-    await supabaseAdmin
-      .from('dm_conversations')
-      .update({
-        last_message_id:   msg.id,
-        last_message_at:   msg.created_at,
-        [unreadField]:     (conv?.[unreadField] || 0) + 1,
-      })
-      .eq('id', convId);
 
     // Notify recipient
     await notify(recipient_id, {
@@ -245,7 +248,7 @@ router.post('/conversations', async (req, res) => {
     res.status(201).json({
       data: {
         conversation_id: convId,
-        message: { ...msg, is_mine: true },
+        message: { ...msg, is_mine: true, is_read: false },
       },
     });
   } catch (err) {
@@ -254,32 +257,33 @@ router.post('/conversations', async (req, res) => {
   }
 });
 
-// ─── GET /conversations/:id — Messages in thread (cursor paginated) ────────────
-// Newest messages first internally (DESC), reversed to ascending for chat display.
-// Client passes ?before=<timestamp> to load older messages (scroll-up pagination).
+// ─── GET /conversations/:id — Messages thread (cursor paginated) ──────────────
+// Newest messages fetched first (DESC) then reversed to ascending for chat display.
+// Client passes ?before=<timestamp> to load older messages on scroll-up.
 
 router.get('/conversations/:id', async (req, res) => {
   try {
-    const uid   = req.profile.id;
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 30));
+    const uid    = req.profile.id;
+    const limit  = Math.min(50, Math.max(1, parseInt(req.query.limit) || 30));
     const before = req.query.before || new Date().toISOString();
 
     // Verify participant
     const { data: conv } = await supabaseAdmin
       .from('dm_conversations')
-      .select('id, participant_1, participant_2, unread_count_1, unread_count_2')
+      .select('id, participant_a, participant_b')
       .eq('id', req.params.id)
       .single();
 
-    if (!conv || !slot(conv, uid)) {
+    if (!conv || !isParticipant(conv, uid)) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    // Fetch messages (newest first for pagination, reversed before sending)
+    // Fetch messages newest-first, excluding soft-deleted
     const { data: messages, error } = await supabaseAdmin
       .from('dm_messages')
-      .select('id, sender_id, content, is_read, read_at, created_at')
+      .select('id, sender_id, content, read_at, created_at')
       .eq('conversation_id', req.params.id)
+      .is('deleted_at', null)
       .lt('created_at', before)
       .order('created_at', { ascending: false })
       .limit(limit + 1);
@@ -293,34 +297,29 @@ router.get('/conversations/:id', async (req, res) => {
     const slice       = has_more ? messages.slice(0, limit) : messages;
     const next_cursor = has_more ? slice[slice.length - 1].created_at : null;
 
-    // Reverse to ascending order for chat display (oldest first in batch)
+    // Reverse to ascending order for chat display
     const data = slice.reverse().map(m => ({
-      ...m,
-      is_mine: m.sender_id === uid,
+      id:         m.id,
+      sender_id:  m.sender_id,
+      content:    m.content,
+      read_at:    m.read_at,
+      is_read:    m.read_at !== null,
+      created_at: m.created_at,
+      is_mine:    m.sender_id === uid,
     }));
 
-    // Mark conversation as read for current user (async, don't await)
-    const mySlot      = slot(conv, uid);
-    const unreadField = `unread_count_${mySlot}`;
-    if ((conv[unreadField] || 0) > 0) {
-      supabaseAdmin
-        .from('dm_conversations')
-        .update({ [unreadField]: 0 })
-        .eq('id', req.params.id)
-        .then(() => {
-          // Also mark unread messages from other user as read
-          supabaseAdmin
-            .from('dm_messages')
-            .update({ is_read: true, read_at: new Date().toISOString() })
-            .eq('conversation_id', req.params.id)
-            .neq('sender_id', uid)
-            .eq('is_read', false)
-            .then(() => {});
-        });
-    }
+    // Mark unread messages from the other user as read (async, don't block response)
+    supabaseAdmin
+      .from('dm_messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('conversation_id', req.params.id)
+      .neq('sender_id', uid)
+      .is('read_at', null)
+      .is('deleted_at', null)
+      .then(() => {});
 
     // Fetch other user's profile for thread header
-    const otherId = otherUserId(conv, uid);
+    const otherId = otherParticipant(conv, uid);
     const { data: otherProfile } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name, department, avatar_url, status')
@@ -334,7 +333,7 @@ router.get('/conversations/:id', async (req, res) => {
   }
 });
 
-// ─── POST /conversations/:id/messages — Send message ─────────────────────────
+// ─── POST /conversations/:id/messages — Send message in thread ────────────────
 
 router.post('/conversations/:id/messages', async (req, res) => {
   try {
@@ -347,17 +346,16 @@ router.post('/conversations/:id/messages', async (req, res) => {
     // Verify participant
     const { data: conv } = await supabaseAdmin
       .from('dm_conversations')
-      .select('id, participant_1, participant_2, unread_count_1, unread_count_2')
+      .select('id, participant_a, participant_b')
       .eq('id', req.params.id)
       .single();
 
-    if (!conv || !slot(conv, uid)) {
+    if (!conv || !isParticipant(conv, uid)) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    const recipientId = otherUserId(conv, uid);
+    const recipientId = otherParticipant(conv, uid);
 
-    // Check blocks
     if (await isBlocked(uid, recipientId)) {
       return res.status(403).json({ error: 'Cannot send a message to this user', code: 'BLOCKED' });
     }
@@ -366,7 +364,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
     const { data: msg, error: insertErr } = await supabaseAdmin
       .from('dm_messages')
       .insert({ conversation_id: req.params.id, sender_id: uid, content: trimmed })
-      .select('id, sender_id, content, is_read, created_at')
+      .select('id, sender_id, content, read_at, created_at')
       .single();
 
     if (insertErr) {
@@ -374,21 +372,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    // Update conversation
-    const recipientIsP1 = recipientId === conv.participant_1;
-    const unreadField   = recipientIsP1 ? 'unread_count_1' : 'unread_count_2';
-    const prevUnread    = recipientIsP1 ? conv.unread_count_1 : conv.unread_count_2;
-
-    await supabaseAdmin
-      .from('dm_conversations')
-      .update({
-        last_message_id: msg.id,
-        last_message_at: msg.created_at,
-        [unreadField]:   (prevUnread || 0) + 1,
-      })
-      .eq('id', req.params.id);
-
-    // Notify recipient (best-effort, async)
+    // Notify recipient (best-effort)
     notify(recipientId, {
       type:    'dm',
       title:   `New message from ${req.profile.full_name}`,
@@ -397,7 +381,9 @@ router.post('/conversations/:id/messages', async (req, res) => {
       refType: 'conversation',
     });
 
-    res.status(201).json({ data: { ...msg, is_mine: true } });
+    res.status(201).json({
+      data: { ...msg, is_mine: true, is_read: false },
+    });
   } catch (err) {
     console.error('[dm POST /conversations/:id/messages]', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -409,28 +395,24 @@ router.post('/conversations/:id/messages', async (req, res) => {
 router.patch('/conversations/:id/read', async (req, res) => {
   try {
     const uid = req.profile.id;
+
     const { data: conv } = await supabaseAdmin
       .from('dm_conversations')
-      .select('id, participant_1, participant_2')
+      .select('id, participant_a, participant_b')
       .eq('id', req.params.id)
       .single();
 
-    if (!conv || !slot(conv, uid)) {
+    if (!conv || !isParticipant(conv, uid)) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    const mySlot = slot(conv, uid);
-    await supabaseAdmin
-      .from('dm_conversations')
-      .update({ [`unread_count_${mySlot}`]: 0 })
-      .eq('id', req.params.id);
-
     await supabaseAdmin
       .from('dm_messages')
-      .update({ is_read: true, read_at: new Date().toISOString() })
+      .update({ read_at: new Date().toISOString() })
       .eq('conversation_id', req.params.id)
       .neq('sender_id', uid)
-      .eq('is_read', false);
+      .is('read_at', null)
+      .is('deleted_at', null);
 
     res.json({ success: true });
   } catch (err) {
@@ -439,22 +421,27 @@ router.patch('/conversations/:id/read', async (req, res) => {
   }
 });
 
-// ─── DELETE /conversations/:id/messages/:mid — Delete own message ─────────────
+// ─── DELETE /conversations/:id/messages/:mid — Soft-delete own message ─────────
 
 router.delete('/conversations/:id/messages/:mid', async (req, res) => {
   try {
     const uid = req.profile.id;
+
     const { data: msg } = await supabaseAdmin
       .from('dm_messages')
       .select('id, sender_id, conversation_id')
       .eq('id', req.params.mid)
       .eq('conversation_id', req.params.id)
+      .is('deleted_at', null)
       .single();
 
     if (!msg) return res.status(404).json({ error: 'Message not found' });
     if (msg.sender_id !== uid) return res.status(403).json({ error: 'Can only delete your own messages' });
 
-    await supabaseAdmin.from('dm_messages').delete().eq('id', req.params.mid);
+    await supabaseAdmin
+      .from('dm_messages')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', req.params.mid);
 
     res.json({ success: true });
   } catch (err) {
