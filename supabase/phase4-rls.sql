@@ -39,7 +39,7 @@ CREATE POLICY "dm_messages_select" ON public.dm_messages FOR SELECT TO authentic
     EXISTS (
       SELECT 1 FROM public.dm_conversations c
       WHERE c.id = conversation_id
-        AND (c.participant_1 = auth.uid() OR c.participant_2 = auth.uid())
+        AND (c.participant_a = auth.uid() OR c.participant_b = auth.uid())
     )
   );
 
@@ -52,7 +52,7 @@ CREATE POLICY "dm_messages_insert" ON public.dm_messages FOR INSERT TO authentic
     AND EXISTS (
       SELECT 1 FROM public.dm_conversations c
       WHERE c.id = conversation_id
-        AND (c.participant_1 = auth.uid() OR c.participant_2 = auth.uid())
+        AND (c.participant_a = auth.uid() OR c.participant_b = auth.uid())
     )
   );
 
@@ -62,14 +62,14 @@ CREATE POLICY "dm_messages_update" ON public.dm_messages FOR UPDATE TO authentic
     EXISTS (
       SELECT 1 FROM public.dm_conversations c
       WHERE c.id = conversation_id
-        AND (c.participant_1 = auth.uid() OR c.participant_2 = auth.uid())
+        AND (c.participant_a = auth.uid() OR c.participant_b = auth.uid())
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.dm_conversations c
       WHERE c.id = conversation_id
-        AND (c.participant_1 = auth.uid() OR c.participant_2 = auth.uid())
+        AND (c.participant_a = auth.uid() OR c.participant_b = auth.uid())
     )
   );
 
