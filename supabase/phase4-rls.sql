@@ -48,7 +48,7 @@ CREATE POLICY "dm_messages_select" ON public.dm_messages FOR SELECT TO authentic
 CREATE POLICY "dm_messages_insert" ON public.dm_messages FOR INSERT TO authenticated
   WITH CHECK (
     sender_id = auth.uid()
-    AND public.is_active_user()
+    AND public.is_active()
     AND EXISTS (
       SELECT 1 FROM public.dm_conversations c
       WHERE c.id = conversation_id
@@ -105,7 +105,7 @@ CREATE POLICY "notifications_delete" ON public.notifications FOR DELETE TO authe
 --   USING (blocker_id = auth.uid() OR blocked_id = auth.uid());
 
 -- CREATE POLICY "blocks_insert" ON public.blocks FOR INSERT TO authenticated
---   WITH CHECK (blocker_id = auth.uid() AND public.is_active_user());
+--   WITH CHECK (blocker_id = auth.uid() AND public.is_active());
 
 -- CREATE POLICY "blocks_delete" ON public.blocks FOR DELETE TO authenticated
 --   USING (blocker_id = auth.uid());
