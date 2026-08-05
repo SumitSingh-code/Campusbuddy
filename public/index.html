@@ -50,10 +50,7 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span class="nav-badge" id="dm-badge-top" style="display:none;">0</span>
         </a>
-        <a class="nav-link" data-route="/notifications" id="nav-top-notif" role="menuitem" tabindex="0" style="position:relative;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span class="nav-badge" id="notif-badge-top" style="display:none;">0</span>
-        </a>
+
         <!-- Avatar dropdown (desktop) -->
         <div id="nav-avatar-wrap" style="position:relative;">
           <button class="btn btn-ghost btn-sm" id="nav-top-profile" aria-label="My profile" aria-haspopup="true" aria-expanded="false" style="border-radius:50%;width:36px;height:36px;padding:0;overflow:hidden;flex-shrink:0;border:2px solid var(--border);">
@@ -90,11 +87,7 @@
         <span class="nav-label">DMs</span>
         <span class="nav-badge" id="dm-badge" style="display:none;">0</span>
       </button>
-      <button class="nav-item" data-route="/notifications" id="nav-notif" role="menuitem" aria-label="Notifications" style="position:relative;">
-        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <span class="nav-label">Alerts</span>
-        <span class="nav-badge" id="notif-badge" style="display:none;">0</span>
-      </button>
+
       <button class="nav-item" data-route="/profile" id="nav-profile" role="menuitem" aria-label="My Profile">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span class="nav-label">Me</span>
@@ -259,9 +252,7 @@
       // Initialize realtime subscriptions
       initRealtime(user.id, {
         onNotification: (notif) => {
-          _updateBadge('notif-badge', _getCount('notif-badge') + 1);
-          _updateBadge('notif-badge-top', _getCount('notif-badge-top') + 1);
-          // Toast for DMs
+          // Notification bell is currently hidden — only handle DM toasts
           if (notif.type === 'dm') {
             showToast('New message received', 'info', 3000);
             _updateBadge('dm-badge', _getCount('dm-badge') + 1);
@@ -296,7 +287,7 @@
     // ── Notify count reset on nav to section ─────────────────────────────────
     window.addEventListener('hashchange', () => {
       const hash = window.location.hash;
-      if (hash === '#/notifications') { _updateBadge('notif-badge', 0); _updateBadge('notif-badge-top', 0); }
+      if (hash === '#/notifications') { window.location.hash = '/feed'; } // notifications hidden — redirect
       if (hash === '#/dm')            { _updateBadge('dm-badge', 0);    _updateBadge('dm-badge-top', 0); }
     });
 

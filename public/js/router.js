@@ -30,10 +30,12 @@ registerRoute('/dm', {
   load: () => import('./pages/dm.js'),
 });
 
-registerRoute('/notifications', {
-  title: 'Notifications — Campus Wall',
-  load: () => import('./pages/notifications.js'),
-});
+// HIDDEN: notifications route temporarily disabled — re-enable by uncommenting
+// registerRoute('/notifications', {
+//   title: 'Notifications — Campus Wall',
+//   load: () => import('./pages/notifications.js'),
+// });
+
 
 registerRoute('/pyq', {
   title: 'Previous Year Questions — Campus Wall',
