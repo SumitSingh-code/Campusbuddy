@@ -43,7 +43,7 @@ function formatPost(post, currentUserId, isAdmin) {
 function formatComment(comment, currentUserId, isAdmin) {
   return {
     id:           comment.id,
-    anon_post_id: comment.anon_post_id,
+    anon_post_id: comment.post_id,
     content:      comment.content,
     status:       comment.status,
     created_at:   comment.created_at,
@@ -62,9 +62,9 @@ async function enrichPosts(formatted, rawPosts, userId) {
   const [{ data: votes }, { data: bookmarks }] = await Promise.all([
     supabaseAdmin
       .from('anon_votes')
-      .select('anon_post_id, vote_type')
+      .select('post_id, vote_type')
       .eq('user_id', userId)
-      .in('anon_post_id', postIds),
+      .in('post_id', postIds),
     supabaseAdmin
       .from('bookmarks')
       .select('ref_id')
@@ -74,7 +74,7 @@ async function enrichPosts(formatted, rawPosts, userId) {
   ]);
 
   const voteMap     = {};
-  (votes || []).forEach(v => { voteMap[v.anon_post_id] = v.vote_type; });
+  (votes || []).forEach(v => { voteMap[v.post_id] = v.vote_type; });
   const bookmarkSet = new Set((bookmarks || []).map(b => b.ref_id));
 
   return formatted.map(p => ({
@@ -304,8 +304,8 @@ router.get('/:id/comments', async (req, res) => {
 
     const { data: comments, error } = await supabaseAdmin
       .from('anon_comments')
-      .select('id, anon_post_id, user_id, content, status, created_at')
-      .eq('anon_post_id', req.params.id)
+      .select('id, post_id, user_id, content, status, created_at')
+      .eq('post_id', req.params.id)
       .eq('status', 'published')
       .lt('created_at', before)
       .order('created_at', { ascending: true })
@@ -360,12 +360,12 @@ router.post('/:id/comments', async (req, res) => {
     const { data: comment, error } = await supabaseAdmin
       .from('anon_comments')
       .insert({
-        anon_post_id: req.params.id,
+        post_id: req.params.id,
         user_id:      req.profile.id,
         content:      trimmed,
         status:       'published',
       })
-      .select('id, anon_post_id, user_id, content, status, created_at')
+      .select('id, post_id, user_id, content, status, created_at')
       .single();
 
     if (error) {
@@ -389,7 +389,7 @@ router.delete('/:id/comments/:cid', async (req, res) => {
       .from('anon_comments')
       .select('id, user_id, status')
       .eq('id', req.params.cid)
-      .eq('anon_post_id', req.params.id)
+      .eq('post_id', req.params.id)
       .single();
 
     if (!comment || comment.status === 'deleted') {
@@ -446,7 +446,7 @@ router.post('/:id/vote', async (req, res) => {
     const { data: existing } = await supabaseAdmin
       .from('anon_votes')
       .select('id, vote_type')
-      .eq('anon_post_id', req.params.id)
+      .eq('post_id', req.params.id)
       .eq('user_id', req.profile.id)
       .maybeSingle();
 
@@ -465,7 +465,7 @@ router.post('/:id/vote', async (req, res) => {
     } else {
       const { error } = await supabaseAdmin
         .from('anon_votes')
-        .insert({ anon_post_id: req.params.id, user_id: req.profile.id, vote_type });
+        .insert({ post_id: req.params.id, user_id: req.profile.id, vote_type });
       if (error) {
         console.error('[anon POST /:id/vote] insert:', error);
         return res.status(500).json({ error: 'Database error' });
@@ -492,7 +492,7 @@ router.delete('/:id/vote', async (req, res) => {
     const { error } = await supabaseAdmin
       .from('anon_votes')
       .delete()
-      .eq('anon_post_id', req.params.id)
+      .eq('post_id', req.params.id)
       .eq('user_id', req.profile.id);
 
     if (error) {

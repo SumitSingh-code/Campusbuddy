@@ -111,6 +111,9 @@ DROP TRIGGER IF EXISTS trg_anon_posts_updated_at ON public.anon_posts;
 CREATE TRIGGER trg_anon_posts_updated_at
   BEFORE UPDATE ON public.anon_posts
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+-- image_url was omitted from original CREATE TABLE; ADD COLUMN IF NOT EXISTS is idempotent:
+ALTER TABLE public.anon_posts ADD COLUMN IF NOT EXISTS image_url TEXT;
+
 
 
 -- â”€â”€ comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
