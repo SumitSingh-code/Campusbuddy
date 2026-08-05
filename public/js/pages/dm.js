@@ -13,7 +13,9 @@ import { showToast, escHtml, timeAgo, deptPill, fmtNum, Icons } from '../utils.j
 let _currentUser  = null;
 let _activeConvId = null;   // currently open thread
 let _otherUser    = null;   // profile of the other participant
-let _realtimeChannel = null;
+let _realtimeChannel    = null; // per-thread realtime channel
+let _convListChannel    = null; // conversation-list realtime channel
+let _convListClickSetup = false; // guard against duplicate click listeners
 let _hasMoreMessages  = true;
 let _oldestCursor     = null;  // for "load older" pagination
 let _loadingOlder     = false;
@@ -116,15 +118,17 @@ export function render() {
 }
 
 export async function init() {
-  _currentUser = Auth.getUser();
-  _activeConvId = null;
-  _otherUser = null;
+  _currentUser        = Auth.getUser();
+  _activeConvId       = null;
+  _otherUser          = null;
+  _convListClickSetup = false; // reset so fresh listener attaches to new DOM
 
   _setupNewMessageModal();
   _setupCompose();
   _setupBackButton();
 
   await _loadConversationList();
+  _subscribeToConversationList(); // realtime sidebar updates
 }
 
 // ─── Conversation List ────────────────────────────────────────────────────────
@@ -146,11 +150,14 @@ async function _loadConversationList() {
     }
     listEl.innerHTML = data.map(conv => _renderConvItem(conv)).join('');
 
-    // Click handlers via delegation
-    listEl.addEventListener('click', (e) => {
-      const item = e.target.closest('.dm-conv-item');
-      if (item) _openThread(item.dataset.convId);
-    });
+    // Click delegation — only attach once per page visit to avoid accumulation
+    if (!_convListClickSetup) {
+      listEl.addEventListener('click', (e) => {
+        const item = e.target.closest('.dm-conv-item');
+        if (item) _openThread(item.dataset.convId);
+      });
+      _convListClickSetup = true;
+    }
   } catch (err) {
     listEl.innerHTML = `<div class="alert alert--error" style="margin:1rem;">${escHtml(err.message)}</div>`;
   }
@@ -327,7 +334,7 @@ function _subscribeToMessages(convId) {
     .channel(`dm-conv-${convId}`)
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${convId}` },
+      { event: 'INSERT', schema: 'public', table: 'dm_messages', filter: `conversation_id=eq.${convId}` },
       (payload) => {
         const msg = payload.new;
         if (!msg) return;
@@ -520,4 +527,39 @@ async function _startConversation(userId, userName) {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+// ── Conversation List Realtime ──
+// Subscribes to dm_conversations so the sidebar updates automatically when
+// another user sends a new message or starts a new conversation.
+function _subscribeToConversationList() {
+  if (_convListChannel) { supabase.removeChannel(_convListChannel); _convListChannel = null; }
+  const uid = _currentUser?.id;
+  if (!uid) return;
+
+  _convListChannel = supabase
+    .channel(`dm-convlist-${uid}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'dm_conversations' },
+      () => { _loadConversationList(); }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'dm_conversations' },
+      () => { _loadConversationList(); }
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.warn('[DM] Conv list channel error');
+        _convListChannel = null;
+      }
+    });
+}
+
+// ── Exported teardown — called by router.js on navigation away ──
+export function destroy() {
+  if (_realtimeChannel) { supabase.removeChannel(_realtimeChannel); _realtimeChannel = null; }
+  if (_convListChannel) { supabase.removeChannel(_convListChannel); _convListChannel = null; }
+  _activeConvId = null;
 }

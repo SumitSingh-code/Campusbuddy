@@ -85,6 +85,9 @@ async function loadRoute(route) {
 }
 
 // ─── Router core ──────────────────────────────────────────────────────────────
+// Tracks the currently mounted page module so we can call destroy() on navigation.
+let _currentMod = null;
+
 export const Router = {
   async init() {
     await this.navigate(window.location.hash || '#/feed');
@@ -109,6 +112,11 @@ export const Router = {
       }
     }
 
+    // Tear down previous page (disconnect observers, remove realtime channels, etc.)
+    try { _currentMod?.destroy?.(); } catch (_) {}
+    // Reset scroll-lock that may have been set by an open modal
+    document.body.style.overflow = '';
+
     document.title = route.title;
     window.scrollTo(0, 0);
     updateNavActive(path);
@@ -124,6 +132,7 @@ export const Router = {
       if (typeof mod.init === 'function') {
         await mod.init();
       }
+      _currentMod = mod; // save for teardown on next navigation
     } catch (err) {
       console.error('[Router] Render error:', err);
       content.innerHTML = `

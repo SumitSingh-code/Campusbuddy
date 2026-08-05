@@ -3,9 +3,16 @@
 import supabase from './supabase.js';
 import Config from './config.js';
 
+// Token cache — avoids one getSession() call per API request
+let _cachedToken  = null;
+let _tokenExpiry  = 0;
+
 async function getToken() {
+  if (_cachedToken && Date.now() < _tokenExpiry) return _cachedToken;
   const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
+  _cachedToken = session?.access_token || null;
+  _tokenExpiry = _cachedToken ? Date.now() + 50_000 : 0; // 50-second TTL
+  return _cachedToken;
 }
 
 async function request(method, path, body = null, opts = {}) {

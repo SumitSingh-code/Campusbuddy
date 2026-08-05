@@ -23,11 +23,13 @@ import {
 let _cursor      = null;
 let _loading     = false;
 let _hasMore     = true;
-let _currentUser = null;
-let _isAdmin     = false;
+let _currentUser  = null;
+let _isAdmin      = false;
 let _activePostId = null;
 let _pendingImg   = null;
 let _observer     = null;
+let _anonChannel  = null;    // Supabase realtime channel for new anon posts
+let _clickHandler = null;    // stored delegated handler (allows removal)
 
 // ─── Exported API ─────────────────────────────────────────────────────────────
 
@@ -60,8 +62,17 @@ export async function init() {
   _setupRevealModal();
   _setupEventDelegation();
   _setupInfiniteScroll();
+  _subscribeToAnonFeedUpdates();
 
   await _loadFeed(true);
+}
+
+// ── Exported teardown — called by router.js on navigation away ──
+export function destroy() {
+  if (_observer)    { _observer.disconnect(); _observer = null; }
+  if (_anonChannel) { supabase.removeChannel(_anonChannel); _anonChannel = null; }
+  const root = document.getElementById('page-content');
+  if (root && _clickHandler) { root.removeEventListener('click', _clickHandler); _clickHandler = null; }
 }
 
 // ─── Reveal modal HTML ────────────────────────────────────────────────────────
@@ -156,6 +167,7 @@ async function _loadFeed(initial = false) {
 function _setupInfiniteScroll() {
   const sentinel = document.getElementById('anon-sentinel');
   if (!sentinel) return;
+  if (_observer) { _observer.disconnect(); _observer = null; }
   _observer = new IntersectionObserver(
     (entries) => { if (entries[0].isIntersecting && _hasMore && !_loading) _loadFeed(false); },
     { rootMargin: '200px' }
@@ -270,7 +282,9 @@ function _setupEventDelegation() {
   const root = document.getElementById('page-content');
   if (!root) return;
 
-  root.addEventListener('click', async (e) => {
+  if (_clickHandler) root.removeEventListener('click', _clickHandler);
+
+  _clickHandler = async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) { _closeDropdown(); return; }
 
@@ -278,17 +292,18 @@ function _setupEventDelegation() {
     const postId = btn.dataset.postId;
 
     switch (action) {
-      case 'anon-vote':         await _handleVote(btn, postId, btn.dataset.type); break;
-      case 'anon-open-comments': _openComments(postId); break;
-      case 'anon-bookmark':    await _handleBookmark(btn, postId); break;
-      case 'anon-post-menu':   _openPostMenu(btn, postId, btn.dataset.isOwn === 'true'); break;
-      case 'anon-delete-post': _closeDropdown(); await _deletePost(postId); break;
-      case 'anon-report-post': _closeDropdown(); _openReportModal(postId); break;
-      case 'anon-reveal-post': _closeDropdown(); await _revealAuthor(postId); break;
-      case 'anon-copy-link':   _closeDropdown(); _copyPostLink(postId); break;
+      case 'anon-vote':           await _handleVote(btn, postId, btn.dataset.type); break;
+      case 'anon-open-comments':  _openComments(postId); break;
+      case 'anon-bookmark':       await _handleBookmark(btn, postId); break;
+      case 'anon-menu':           _openPostMenu(btn, postId, btn.dataset.isOwn === 'true'); break;
+      case 'anon-delete-post':    _closeDropdown(); await _deletePost(postId); break;
+      case 'anon-report-post':    _closeDropdown(); _openReportModal(postId); break;
+      case 'anon-reveal-post':    _closeDropdown(); await _revealAuthor(postId); break;
+      case 'anon-copy-link':      _closeDropdown(); _copyPostLink(postId); break;
       case 'anon-delete-comment': await _deleteComment(btn.dataset.commentId); break;
     }
-  });
+  };
+  root.addEventListener('click', _clickHandler);
 }
 
 // ─── Vote ─────────────────────────────────────────────────────────────────────
@@ -623,3 +638,57 @@ function _closeRevealModal() {
   document.getElementById('reveal-modal').style.display = 'none';
   document.body.style.overflow = '';
 }
+
+// ── Anon Feed Realtime ──
+// Shows a sticky banner when other users post new anonymous content.
+function _subscribeToAnonFeedUpdates() {
+  if (_anonChannel) { supabase.removeChannel(_anonChannel); _anonChannel = null; }
+  const uid = _currentUser?.id;
+  if (!uid) return;
+
+  _anonChannel = supabase
+    .channel('anon-feed-updates')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'anon_posts', filter: 'status=eq.published' },
+      (payload) => {
+        if (payload.new?.user_id === uid) return; // skip own (already prepended optimistically)
+        _showNewAnonPostsBanner();
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.warn('[AnonFeed] Realtime channel error');
+        _anonChannel = null;
+      }
+    });
+}
+
+function _showNewAnonPostsBanner() {
+  if (document.getElementById('anon-new-posts-banner')) return; // already visible
+  const listEl = document.getElementById('anon-list');
+  if (!listEl) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'anon-new-posts-banner';
+  banner.style.cssText = [
+    'position:sticky', 'top:64px', 'z-index:50', 'display:flex',
+    'align-items:center', 'justify-content:center', 'gap:.5rem',
+    'margin:.75rem 0', 'padding:.625rem 1.25rem',
+    'background:var(--accent)', 'color:#fff',
+    'border-radius:2rem', 'cursor:pointer',
+    'font-size:.875rem', 'font-family:var(--font-heading)',
+    'box-shadow:0 4px 16px rgba(0,0,0,.18)',
+    'animation:slideDown .25s ease',
+  ].join(';');
+  banner.innerHTML = '↑ New posts available — tap to refresh';
+  banner.addEventListener('click', () => {
+    banner.remove();
+    _cursor  = null;
+    _hasMore = true;
+    document.getElementById('anon-list').innerHTML = '';
+    _loadFeed(true);
+  });
+  listEl.before(banner);
+}
+

@@ -85,7 +85,7 @@ function _subscribe() {
         {
           event:  'INSERT',
           schema: 'public',
-          table:  'messages',
+          table:  'dm_messages',
         },
         (payload) => {
           if (onMessageCb) onMessageCb(payload.new);

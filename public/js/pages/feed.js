@@ -25,6 +25,8 @@ let _activePostId = null;    // post ID currently open in comments/report/edit d
 let _pendingImg   = null;    // compressed Blob for compose image
 let _pendingImgUrl = null;   // Supabase Storage public URL after upload
 let _observer     = null;    // IntersectionObserver for infinite scroll
+let _feedChannel  = null;    // Supabase realtime channel for new posts
+let _clickHandler = null;    // delegated click handler (stored to allow removal)
 
 // ─── Exported API (called by router.js) ──────────────────────────────────────
 
@@ -58,8 +60,17 @@ export async function init() {
   _setupEditModal();
   _setupEventDelegation();
   _setupInfiniteScroll();
+  _subscribeToFeedUpdates();
 
   await _loadFeed(true);
+}
+
+// ── Exported teardown — called by router.js on navigation away ──
+export function destroy() {
+  if (_observer)    { _observer.disconnect(); _observer = null; }
+  if (_feedChannel) { supabase.removeChannel(_feedChannel); _feedChannel = null; }
+  const root = document.getElementById('page-content');
+  if (root && _clickHandler) { root.removeEventListener('click', _clickHandler); _clickHandler = null; }
 }
 
 // ─── Feed Loading ─────────────────────────────────────────────────────────────
@@ -137,6 +148,9 @@ async function _loadFeed(initial = false) {
 function _setupInfiniteScroll() {
   const sentinel = document.getElementById('feed-sentinel');
   if (!sentinel) return;
+
+  // Disconnect previous observer before creating a new one
+  if (_observer) { _observer.disconnect(); _observer = null; }
 
   _observer = new IntersectionObserver(
     (entries) => {
@@ -284,7 +298,10 @@ function _setupEventDelegation() {
   const root = document.getElementById('page-content');
   if (!root) return;
 
-  root.addEventListener('click', async (e) => {
+  // Remove previous handler to prevent accumulation across SPA navigations
+  if (_clickHandler) root.removeEventListener('click', _clickHandler);
+
+  _clickHandler = async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) {
       // Close any open dropdown on outside click
@@ -306,8 +323,65 @@ function _setupEventDelegation() {
       case 'copy-link':    _closeDropdown(); _copyPostLink(postId); break;
       case 'delete-comment': await _deleteComment(btn.dataset.commentId); break;
     }
-  });
+  };
+  root.addEventListener('click', _clickHandler);
 }
+
+// ── Feed Realtime ──
+// Shows a sticky banner when other users post new content.
+// Avoids live-inserting posts (which causes layout jumps during scroll).
+function _subscribeToFeedUpdates() {
+  if (_feedChannel) { supabase.removeChannel(_feedChannel); _feedChannel = null; }
+  const uid = _currentUser?.id;
+  if (!uid) return;
+
+  _feedChannel = supabase
+    .channel('feed-updates')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'posts', filter: 'status=eq.published' },
+      (payload) => {
+        // Skip own posts — already prepended optimistically in _submitPost()
+        if (payload.new?.user_id === uid) return;
+        _showNewPostsBanner();
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.warn('[Feed] Realtime channel error');
+        _feedChannel = null;
+      }
+    });
+}
+
+function _showNewPostsBanner() {
+  if (document.getElementById('feed-new-posts-banner')) return; // already showing
+  const listEl = document.getElementById('feed-list');
+  if (!listEl) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'feed-new-posts-banner';
+  banner.style.cssText = [
+    'position:sticky', 'top:64px', 'z-index:50', 'display:flex',
+    'align-items:center', 'justify-content:center', 'gap:.5rem',
+    'margin:.75rem 0', 'padding:.625rem 1.25rem',
+    'background:var(--accent)', 'color:#fff',
+    'border-radius:2rem', 'cursor:pointer',
+    'font-size:.875rem', 'font-family:var(--font-heading)',
+    'box-shadow:0 4px 16px rgba(0,0,0,.18)',
+    'animation:slideDown .25s ease',
+  ].join(';');
+  banner.innerHTML = '↑ New posts available — tap to refresh';
+  banner.addEventListener('click', () => {
+    banner.remove();
+    _cursor  = null;
+    _hasMore = true;
+    document.getElementById('feed-list').innerHTML = '';
+    _loadFeed(true);
+  });
+  listEl.before(banner);
+}
+
 
 // ─── Vote Handling ────────────────────────────────────────────────────────────
 

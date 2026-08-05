@@ -12,6 +12,7 @@ let _cursor     = null;
 let _hasMore    = true;
 let _loading    = false;
 let _channel    = null;
+let _observer   = null; // IntersectionObserver for infinite scroll
 
 // ─── Exported API ─────────────────────────────────────────────────────────────
 
@@ -43,11 +44,12 @@ export async function init() {
   // Infinite scroll
   const sentinel = document.getElementById('notif-sentinel');
   if (sentinel) {
-    const obs = new IntersectionObserver(
+    if (_observer) _observer.disconnect();
+    _observer = new IntersectionObserver(
       (entries) => { if (entries[0].isIntersecting && _hasMore && !_loading) _loadNotifs(); },
       { rootMargin: '200px' }
     );
-    obs.observe(sentinel);
+    _observer.observe(sentinel);
   }
 
   // Click delegation
@@ -267,6 +269,9 @@ function _subscribeToNotifications() {
   const user = Auth.getUser();
   if (!user?.id) return;
 
+  // Remove any stale channel from a previous visit before creating a new one
+  if (_channel) { supabase.removeChannel(_channel); _channel = null; }
+
   _channel = supabase
     .channel('campus-wall-notifications')
     .on(
@@ -281,22 +286,23 @@ function _subscribeToNotifications() {
         const notif = payload.new;
         if (!notif) return;
 
-        // Prepend to list if on notifications page
+        // Only update the visible list — badge + toast are handled by
+        // the global 'cw-notif-global' channel to avoid duplicate updates.
         const listEl = document.getElementById('notif-list');
         if (listEl) {
           const emptyState = listEl.querySelector('.empty-state');
           if (emptyState) listEl.innerHTML = '';
           listEl.insertAdjacentHTML('afterbegin', _renderNotif(notif));
         }
-
-        // Update nav badge
-        _incrementNavBadge();
-
-        // Show toast
-        showToast(notif.title, 'info', 4000);
       }
     )
     .subscribe();
+}
+
+// ── Exported teardown — called by router.js on navigation away ──
+export function destroy() {
+  if (_channel) { supabase.removeChannel(_channel); _channel = null; }
+  if (_observer) { _observer.disconnect(); _observer = null; }
 }
 
 // ─── Global Realtime Init (called from index.html once on login) ──────────────
