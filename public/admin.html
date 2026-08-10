@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Unigram Admin Panel � manage users, signups, resets and more.">
+  <meta name="description" content="Unigram Admin Panel � manage users, signups, resets and more.">
   <title>Admin Panel — Unigram</title>
   <meta name="theme-color" content="#1B2340">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
@@ -91,10 +91,15 @@
           <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Active Students</div></div>
         </div>
         <div class="alert alert--info" style="font-size:.875rem;">
-          👋 Welcome to the Unigram Admin Panel � manage users, signups, resets and more."section-panel" id="panel-pending">
+          Welcome to the Unigram Admin Panel &mdash; manage users, signups, resets and more.
+        </div>
+      </div>
+
+      <!-- ── PENDING SIGNUPS ──────────────────────────────────────── -->
+      <div class="section-panel" id="panel-pending">
         <div class="admin-section-header">
           <h2>Pending Signups</h2>
-          <button class="btn btn-secondary btn-sm" id="btn-refresh-pending">↻ Refresh</button>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-pending">&#x1F504; Refresh</button>
         </div>
         <div id="pending-list">
           <div class="empty-state"><div class="spinner"></div></div>
@@ -285,6 +290,7 @@
         case 'pending':  loadPending(); break;
         case 'users':    loadUsers(1); break;
         case 'resets':   loadResets(); break;
+        case 'reports':  /* static content — no API call needed */ break;
         case 'admins':   loadAdmins(); break;
       }
     }
