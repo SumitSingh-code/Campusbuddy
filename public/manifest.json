@@ -1,15 +1,27 @@
 {
-  "name": "Campus Wall",
-  "short_name": "CampusWall",
-  "description": "CRSU campus social feed, PYQs, notices, timetable, notes & more",
+  "name": "Unigram",
+  "short_name": "Unigram",
+  "description": "Unigram — your campus social hub. Feed, anonymous posts, DMs, PYQs, notices, timetable, notes & more.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#FAFAF7",
+  "background_color": "#0D1117",
   "theme_color": "#1B2340",
   "lang": "en-IN",
   "categories": ["education", "social"],
   "icons": [
+    {
+      "src": "/icons/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
@@ -23,7 +35,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/icon-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -33,7 +45,7 @@
     {
       "name": "Campus Feed",
       "url": "/#/feed",
-      "description": "Open the named campus feed"
+      "description": "Open the campus feed"
     },
     {
       "name": "Anonymous Feed",

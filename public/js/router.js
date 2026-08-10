@@ -1,4 +1,4 @@
-// Campus Wall — Client-Side SPA Router
+// Unigram — Client-Side SPA Router
 // Hash-based routing: #/feed, #/anon, #/dm, etc.
 // All page modules are loaded lazily (dynamic import) on first visit and cached —
 // reduces initial JS payload from ~203KB to just this file + auth.js + utils.js.
@@ -9,71 +9,71 @@ import { updateNavActive } from './utils.js';
 // Each route: { load: () => Promise<module>, title, requiresAuth, _mod (cache) }
 const routes = {};
 
-function registerRoute(path, { load, title = 'Campus Wall', requiresAuth = true }) {
+function registerRoute(path, { load, title = 'Unigram', requiresAuth = true }) {
   routes[path] = { load, title, requiresAuth, _mod: null };
 }
 
 // ─── Page registrations (lazy dynamic imports) ────────────────────────────────
 
 registerRoute('/feed', {
-  title: 'Campus Feed — Campus Wall',
+  title: 'Campus Feed — Unigram',
   load: () => import('./pages/feed.js'),
 });
 
 registerRoute('/anon', {
-  title: 'Anonymous Feed — Campus Wall',
+  title: 'Anonymous Feed — Unigram',
   load: () => import('./pages/anon.js'),
 });
 
 registerRoute('/dm', {
-  title: 'Messages — Campus Wall',
+  title: 'Messages — Unigram',
   load: () => import('./pages/dm.js'),
 });
 
 // HIDDEN: notifications route temporarily disabled — re-enable by uncommenting
 // registerRoute('/notifications', {
-//   title: 'Notifications — Campus Wall',
+//   title: 'Notifications — Unigram',
 //   load: () => import('./pages/notifications.js'),
 // });
 
 
 registerRoute('/pyq', {
-  title: 'Previous Year Questions — Campus Wall',
+  title: 'Previous Year Questions — Unigram',
   load: () => import('./pages/pyq.js'),
 });
 
 registerRoute('/notices', {
-  title: 'Notices — Campus Wall',
+  title: 'Notices — Unigram',
   load: () => import('./pages/notices.js'),
 });
 
 registerRoute('/timetable', {
-  title: 'Timetable — Campus Wall',
+  title: 'Timetable — Unigram',
   load: () => import('./pages/timetable.js'),
 });
 
 registerRoute('/lost-found', {
-  title: 'Lost & Found — Campus Wall',
+  title: 'Lost & Found — Unigram',
   load: () => import('./pages/lostfound.js'),
 });
 
 registerRoute('/notes', {
-  title: 'Study Notes — Campus Wall',
+  title: 'Study Notes — Unigram',
   load: () => import('./pages/notes.js'),
 });
 
 registerRoute('/bookmarks', {
-  title: 'Bookmarks — Campus Wall',
+  title: 'Bookmarks — Unigram',
   load: () => import('./pages/bookmarks.js'),
 });
 
 registerRoute('/profile', {
-  title: 'Profile — Campus Wall',
+  title: 'Profile — Unigram',
   load: () => import('./pages/profile.js'),
 });
 
 registerRoute('/admin', {
-  title: 'Admin Panel — Campus Wall',
+  title: 'Admin Panel — Unigram',
   load: () => import('./pages/admin.js'),
   requiresAuth: true,
 });
