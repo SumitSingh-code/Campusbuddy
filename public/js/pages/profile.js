@@ -1,4 +1,4 @@
-// Campus Wall — Profile Page
+﻿// Campus Wall — Profile Page
 // Own profile: avatar, name, stats, bio (editable), post history, change password.
 // Other user's profile (hash param ?id=xxx): public read-only view.
 
@@ -69,11 +69,17 @@ export function render() {
         <div class="modal__body" style="display:grid;gap:.75rem;">
           <div>
             <label class="form-label" for="new-pw-input">New Password</label>
-            <input type="password" id="new-pw-input" class="form-input" placeholder="Min 8 chars with 1 letter + 1 number" style="width:100%;" autocomplete="new-password">
+            <div class="password-wrap">
+              <input type="password" id="new-pw-input" class="form-input" placeholder="Min 8 chars with 1 letter + 1 number" style="width:100%;" autocomplete="new-password">
+              <button type="button" class="pw-toggle" data-target="new-pw-input" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
           </div>
           <div>
             <label class="form-label" for="confirm-pw-input">Confirm Password</label>
-            <input type="password" id="confirm-pw-input" class="form-input" placeholder="Repeat password" style="width:100%;" autocomplete="new-password">
+            <div class="password-wrap">
+              <input type="password" id="confirm-pw-input" class="form-input" placeholder="Repeat password" style="width:100%;" autocomplete="new-password">
+              <button type="button" class="pw-toggle" data-target="confirm-pw-input" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
           </div>
           <div id="change-pw-error" class="alert alert--error" style="display:none;font-size:.8125rem;"></div>
         </div>
@@ -142,18 +148,18 @@ function _renderProfile() {
         <div style="margin-top:4px;">${deptPill(p.department)}</div>
         ${p.bio ? `<p class="profile-bio">${escHtml(p.bio)}</p>` : ''}
         <div class="profile-joined text-subtle">Joined ${timeAgo(p.created_at)}</div>
+        ${_isOwnProfile ? `
+          <div class="profile-actions">
+            <button class="btn btn-secondary btn-sm" id="profile-edit-btn">${Icons.edit} Edit</button>
+            ${isEmailUser ? `<button class="btn btn-ghost btn-sm" id="open-change-pw-btn">&#x1F511; Change Password</button>` : ''}
+            ${(p.role === 'moderator' || p.role === 'super_admin') ? `
+              <a href="/admin.html" class="btn btn-sm" style="background:var(--accent);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Admin Panel
+              </a>` : ''}
+          </div>
+        ` : ''}
       </div>
-      ${_isOwnProfile ? `
-        <div class="profile-actions">
-          <button class="btn btn-secondary btn-sm" id="profile-edit-btn">${Icons.edit} Edit</button>
-          ${isEmailUser ? `<button class="btn btn-ghost btn-sm" id="open-change-pw-btn">🔑 Change Password</button>` : ''}
-          ${(p.role === 'moderator' || p.role === 'super_admin') ? `
-            <a href="/admin.html" class="btn btn-sm" style="background:var(--accent);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              Admin Panel
-            </a>` : ''}
-        </div>
-      ` : ''}
 
     </div>
 
@@ -205,6 +211,8 @@ function _renderProfile() {
     document.getElementById('change-pw-error').style.display = 'none';
     setTimeout(() => document.getElementById('new-pw-input')?.focus(), 100);
   });
+  // Wire password eye-toggles in modal
+  _initPwToggles();
   // Sign Out button (primary mobile logout path)
   document.getElementById('profile-signout-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('profile-signout-btn');
@@ -439,4 +447,22 @@ async function _submitChangePw() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ─── Password Eye Toggle ────────────────────────────────────────────────────
+function _initPwToggles() {
+  const eyeOn  = `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const eyeOff = `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  document.querySelectorAll('#change-pw-modal .pw-toggle').forEach(btn => {
+    const fresh = btn.cloneNode(true);
+    btn.parentNode.replaceChild(fresh, btn);
+    fresh.addEventListener('click', () => {
+      const inp = document.getElementById(fresh.dataset.target);
+      if (!inp) return;
+      const hidden = inp.type === 'password';
+      inp.type = hidden ? 'text' : 'password';
+      fresh.innerHTML = hidden ? eyeOff : eyeOn;
+      fresh.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
+    });
+  });
 }

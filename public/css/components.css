@@ -1,4 +1,4 @@
-/* ================================================================
+﻿/* ================================================================
    CAMPUS WALL — Components (components.css)
    Import after main.css
    ================================================================ */
@@ -1594,7 +1594,18 @@
 .profile-roll         { font-family: var(--font-mono); font-size: .75rem; color: var(--ink-muted); }
 .profile-bio          { font-size: var(--text-sm); color: var(--ink-light); line-height: 1.6; margin: 2px 0; }
 .profile-joined       { font-size: 11px; font-family: var(--font-mono); margin-top: 4px; }
-.profile-actions      { display: flex; gap: var(--s2); flex-wrap: wrap; position: absolute; top: var(--s4); right: var(--s4); }
+.profile-actions      { display: flex; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s2); }
+
+/* Password show/hide toggle */
+.password-wrap                { position: relative; }
+.password-wrap .form-input    { padding-right: 2.75rem; }
+.pw-toggle {
+  position: absolute; right: .65rem; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; padding: .25rem;
+  color: var(--ink-muted); display: flex; align-items: center; border-radius: 4px;
+  transition: color .15s;
+}
+.pw-toggle:hover { color: var(--ink); }
 
 /* ── Avatar ──────────────────────────────────────────────────────── */
 .avatar {

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -58,7 +58,7 @@
               <label class="form-label required" for="login-password" style="margin-bottom:0;">Password</label>
               <button type="button" class="btn btn-ghost btn-sm" id="link-forgot-pw" style="font-size:.75rem;min-height:auto;padding:.25rem .5rem;">Forgot password?</button>
             </div>
-            <input type="password" id="login-password" class="form-input" placeholder="••••••••" autocomplete="current-password" required>
+            <div class="password-wrap"><input type="password" id="login-password" class="form-input" placeholder="••••••••" autocomplete="current-password" required><button type="button" class="pw-toggle" data-target="login-password" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
           </div>
           <div id="login-error" class="alert alert--error" style="display:none;"></div>
           <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-login" style="margin-bottom:1rem;">Sign In</button>
@@ -98,12 +98,12 @@
           </div>
           <div class="form-group">
             <label class="form-label required" for="signup-password">Password</label>
-            <input type="password" id="signup-password" class="form-input" placeholder="Min. 8 chars with a letter and number" autocomplete="new-password" required>
+            <div class="password-wrap"><input type="password" id="signup-password" class="form-input" placeholder="Min. 8 chars with a letter and number" autocomplete="new-password" required><button type="button" class="pw-toggle" data-target="signup-password" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
             <span class="form-hint">At least 8 characters — must include a letter and a number</span>
           </div>
           <div class="form-group">
             <label class="form-label required" for="signup-confirm">Confirm Password</label>
-            <input type="password" id="signup-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required>
+            <div class="password-wrap"><input type="password" id="signup-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required><button type="button" class="pw-toggle" data-target="signup-confirm" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
           </div>
           <div id="signup-email-error" class="alert alert--error" style="display:none;"></div>
           <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-signup-email">Continue →</button>
@@ -261,11 +261,11 @@
         <form id="form-change-pw" novalidate>
           <div class="form-group">
             <label class="form-label required" for="new-password">New Password</label>
-            <input type="password" id="new-password" class="form-input" placeholder="Min. 8 chars — letter + number" autocomplete="new-password" required>
+            <div class="password-wrap"><input type="password" id="new-password" class="form-input" placeholder="Min. 8 chars — letter + number" autocomplete="new-password" required><button type="button" class="pw-toggle" data-target="new-password" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
           </div>
           <div class="form-group">
             <label class="form-label required" for="new-password-confirm">Confirm Password</label>
-            <input type="password" id="new-password-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required>
+            <div class="password-wrap"><input type="password" id="new-password-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required><button type="button" class="pw-toggle" data-target="new-password-confirm" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
           </div>
           <div id="change-pw-error" class="alert alert--error" style="display:none;"></div>
           <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-change-pw-submit">Update Password</button>
@@ -565,6 +565,22 @@
     document.getElementById('btn-sign-out-pending').addEventListener('click', async () => {
       await Auth.signOut();
     });
-  </script>
+  
+      // Password show/hide toggles
+      (function() {
+        const eyeOn  = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+        const eyeOff = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+        document.querySelectorAll('.pw-toggle').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var inp = document.getElementById(btn.dataset.target);
+            if (!inp) return;
+            var hidden = inp.type === 'password';
+            inp.type = hidden ? 'text' : 'password';
+            btn.innerHTML = hidden ? eyeOff : eyeOn;
+            btn.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
+          });
+        });
+      })();
+    </script>
 </body>
 </html>
