@@ -177,14 +177,22 @@
             </div>
           </div>
           <p class="form-hint" style="margin-bottom:1rem;margin-top:.25rem;">Phone number is used for account recovery — never publicly shown.</p>
+          <!-- Legal disclaimer + consent (DPDP Act 2023 / IT Rules 2021 compliance) -->
+          <div class="auth-disclaimer" style="background:rgba(27,35,64,.06);border:1px solid rgba(27,35,64,.12);border-radius:8px;padding:.625rem .875rem;font-size:.75rem;color:var(--ink-muted);display:flex;gap:.5rem;align-items:flex-start;margin:.5rem 0 .75rem;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Unigram is an independent, student-run platform and is <strong>not officially affiliated with or endorsed by Chaudhary Ranbir Singh University</strong>.
+          </div>
+          <div style="margin-bottom:.75rem;">
+            <label style="display:flex;align-items:flex-start;gap:.5rem;cursor:pointer;font-size:.8125rem;color:var(--ink-light);line-height:1.5;">
+              <input type="checkbox" id="p-consent" style="margin-top:3px;flex-shrink:0;accent-color:var(--accent);width:15px;height:15px;">
+              <span>I have read and agree to the <a href="/privacy.html" target="_blank" style="color:var(--accent);font-weight:600;">Privacy Policy</a> and <a href="/terms.html" target="_blank" style="color:var(--accent);font-weight:600;">Terms &amp; Conditions</a>.</span>
+            </label>
+          </div>
           <div id="signup-profile-error" class="alert alert--error" style="display:none;"></div>
           <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-signup-profile">Submit for Approval</button>
         </form>
 
-        <p style="font-size:.75rem;color:var(--ink-subtle);text-align:center;margin-top:1rem;">
-          By joining, you agree to the
-          <a href="/guidelines.html" target="_blank" style="color:var(--accent);font-weight:600;">Community Guidelines</a>
-        </p>
+        <p style="font-size:.75rem;color:var(--ink-subtle);text-align:center;margin-top:.75rem;">By joining you agree to our <a href="/guidelines.html" target="_blank" style="color:var(--accent);font-weight:600;">Community Guidelines</a>, <a href="/privacy.html" target="_blank" style="color:var(--accent);font-weight:600;">Privacy Policy</a> &amp; <a href="/terms.html" target="_blank" style="color:var(--accent);font-weight:600;">Terms &amp; Conditions</a>.</p>
       </div>
     </div>
 
@@ -466,6 +474,7 @@
       if (!roll || roll.length < 3)           { errEl.textContent = 'Please enter a valid roll number.'; errEl.style.display = 'flex'; return; }
       if (!dept || dept.length < 2)           { errEl.textContent = 'Please enter your department.'; errEl.style.display = 'flex'; return; }
       if (!phone)                             { errEl.textContent = 'Please enter a valid 10-digit phone number.'; errEl.style.display = 'flex'; return; }
+      if (!document.getElementById('p-consent')?.checked) { errEl.textContent = 'Please read and accept the Privacy Policy and Terms \u0026 Conditions to continue.'; errEl.style.display = 'flex'; return; }
 
       btn.classList.add('btn-loading');
       btn.disabled = true;

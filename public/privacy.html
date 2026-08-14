@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Unigram</title>
+  <meta name="description" content="Unigram privacy policy — how we collect, use, and protect your personal data as a student-run PWA for CRSU Jind.">
+  <link rel="canonical" href="/privacy.html">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <style>
+    .guidelines-page { max-width: 680px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    .guidelines-page h1 { margin-bottom: 0.5rem; }
+    .guideline-section { margin-bottom: 2rem; }
+    .guideline-section h2 { font-size: 1.1rem; color: var(--ink); margin-bottom: 0.75rem; padding-bottom: .5rem; border-bottom: 2px solid var(--accent-light); }
+    .guideline-section ul { display: flex; flex-direction: column; gap: .5rem; }
+    .guideline-section li { font-size: .9375rem; color: var(--ink-light); line-height: 1.65; padding-left: 1.25rem; position: relative; }
+    .guideline-section li::before { content: '–'; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+    .guideline-section p { font-size: .9375rem; color: var(--ink-light); line-height: 1.65; }
+    .back-link { display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1.5rem; font-family: var(--font-heading); font-size: .875rem; color: var(--ink-muted); cursor: pointer; text-decoration: none; }
+    .back-link:hover { color: var(--ink); }
+    .legal-nav { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; justify-content: center; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+    .legal-nav a { font-size: .8125rem; color: var(--ink-muted); text-decoration: none; }
+    .legal-nav a:hover { color: var(--ink); text-decoration: underline; }
+    .legal-nav a.current { color: var(--accent); font-weight: 600; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="guidelines-page">
+    <a href="javascript:history.back()" class="back-link">← Back</a>
+
+    <h1>Privacy Policy</h1>
+    <p class="text-muted" style="margin-bottom: .5rem; font-size: .9375rem;">
+      Effective date: <strong>August 2026</strong>
+    </p>
+    <p class="text-muted" style="margin-bottom: 2rem; font-size: .9375rem;">
+      This policy explains what personal data Unigram collects from you, why we collect it, and how we use and protect it. Please read it carefully before using the platform.
+    </p>
+
+    <div class="guideline-section">
+      <h2>1. Who We Are</h2>
+      <ul>
+        <li>Unigram is an <strong>independent, student-run Progressive Web App (PWA)</strong> built for the student community of Chaudhary Ranbir Singh University (CRSU), Jind, Haryana.</li>
+        <li>We are <strong>not officially affiliated with, endorsed by, or part of</strong> CRSU or its administration. The university name is used solely to identify the student community this platform serves.</li>
+        <li>The platform is operated by student developers on a voluntary, non-commercial basis. There is no registered company entity at this time.</li>
+        <li>For any privacy-related concerns, you can contact us at: <strong>grievance@unigram.app</strong></li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>2. Data We Collect</h2>
+      <ul>
+        <li><strong>Required at sign-up:</strong> Full name, roll number, department, and phone number. These are used to verify that you are an enrolled CRSU Jind student.</li>
+        <li><strong>Optional:</strong> Email address (required only if you choose email/password login instead of Google Sign-In); profile avatar photo.</li>
+        <li><strong>Authentication:</strong> We record which sign-in method you used — Google OAuth or email/password — through Supabase Auth.</li>
+        <li><strong>Content you create:</strong> Posts (including anonymous posts), direct messages (DMs), and any other content you submit to the platform.</li>
+        <li><strong>What we do NOT collect:</strong> We do not collect device identifiers, browser fingerprints, precise GPS location, or advertising IDs.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>3. Why We Collect Your Data</h2>
+      <ul>
+        <li><strong>Account creation and verification:</strong> To confirm you are an enrolled CRSU Jind student and to create your profile on the platform.</li>
+        <li><strong>Identity moderation:</strong> Even when you post anonymously, your identity is stored in our backend so that moderators can act on reported content and comply with applicable law.</li>
+        <li><strong>Account recovery:</strong> Your phone number may be used to help you recover access to your account if you lose login credentials.</li>
+        <li><strong>Platform functionality:</strong> To display your profile, enable DMs, show your posts, and provide all core features of Unigram.</li>
+        <li>We do <strong>not</strong> use your data for advertising, profiling, or selling to third parties.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>4. Anonymous Feed — Important Notice</h2>
+      <ul>
+        <li>Unigram has an anonymous feed where posts appear without your name or photo in the UI.</li>
+        <li><strong>Your identity is NOT fully anonymous.</strong> When you post anonymously, your user ID and account information are stored in our database alongside that post.</li>
+        <li>This is necessary for moderation and to comply with India's <strong>IT Rules 2021</strong>, which require intermediaries to be able to identify the originator of content when legally required.</li>
+        <li>If an anonymous post is reported for violating our Terms or applicable law, an authorised admin can identify the author and take appropriate action, including account suspension and disclosure to law enforcement if required.</li>
+        <li>Anonymity on Unigram is a <strong>UI feature</strong>, not a legal protection.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>5. Where Your Data Is Stored</h2>
+      <ul>
+        <li>All data is stored on <strong>Supabase</strong>, a cloud database platform. Supabase servers may be located outside India, including in the United States or European Union.</li>
+        <li>By using Unigram, you consent to your data being stored on Supabase infrastructure in accordance with Supabase's own privacy and security standards.</li>
+        <li>We do <strong>not</strong> sell, rent, or share your personal data with any third parties for commercial purposes.</li>
+        <li>We may disclose data to law enforcement or government authorities if required by a valid legal order under Indian law.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>6. How Long We Keep Your Data</h2>
+      <ul>
+        <li>Your personal data is retained for as long as your account remains active on the platform.</li>
+        <li>Upon a valid account deletion request: your profile information and directly identifiable personal data (name, roll number, phone, email, avatar) will be deleted within <strong>30 days</strong> of the request.</li>
+        <li>Posts and DM content may be retained in <strong>anonymized or pseudonymized form</strong> after account deletion for moderation records, abuse prevention, and legal compliance. No personal identifiers will remain attached to retained content.</li>
+        <li>If your account was banned due to a violation, we may retain relevant records for the duration necessary to enforce the ban and for legal compliance purposes.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>7. Your Rights Under the DPDP Act 2023</h2>
+      <ul>
+        <li><strong>Right to access:</strong> You may request a summary of the personal data we hold about you.</li>
+        <li><strong>Right to correction:</strong> You may request correction of inaccurate or incomplete personal data.</li>
+        <li><strong>Right to deletion (erasure):</strong> You may request deletion of your personal data, subject to our retention obligations described above.</li>
+        <li><strong>Right to grievance redressal:</strong> You may raise any data-related complaint with our Grievance Officer.</li>
+        <li>To exercise any of these rights, email <strong>grievance@unigram.app</strong> with the subject line <em>"Data Request"</em> and describe your request. We will respond within <strong>7 business days</strong>.</li>
+        <li>Some requests may not be possible to fulfill entirely where retention is required by law or for legitimate moderation purposes.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>8. Data Security</h2>
+      <ul>
+        <li>Passwords for email/password accounts are stored as <strong>cryptographic hashes</strong> using Supabase Auth's secure password hashing. Your actual password is never stored in plain text and cannot be read by admins.</li>
+        <li>Access to the database and admin tools is restricted to authorised student developers only.</li>
+        <li>While we take reasonable technical measures to protect your data, no internet-based system can guarantee absolute security. We encourage you to use a strong, unique password and enable any available security features.</li>
+        <li>In the event of a data breach that materially affects your data, we will notify you through the app as soon as reasonably practicable.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>9. Children and Minors</h2>
+      <ul>
+        <li>Unigram is intended for <strong>university students aged 18 and above</strong>.</li>
+        <li>We do not knowingly collect personal data from anyone under the age of 18.</li>
+        <li>If you believe a minor has registered on the platform, please notify us at grievance@unigram.app and we will delete the account promptly.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>10. Changes to This Policy</h2>
+      <ul>
+        <li>We may update this Privacy Policy from time to time to reflect changes in our practices or applicable law.</li>
+        <li>When we make material changes, we will notify you via an in-app notice. The updated effective date will always be displayed at the top of this page.</li>
+        <li>Continued use of Unigram after a policy change constitutes your acceptance of the updated terms.</li>
+      </ul>
+    </div>
+
+    <div class="guideline-section">
+      <h2>11. Contact</h2>
+      <p>For any privacy-related questions, data requests, or concerns, please contact us:</p>
+      <ul>
+        <li><strong>Email:</strong> grievance@unigram.app</li>
+        <li><strong>Subject line for data requests:</strong> "Data Request"</li>
+        <li><strong>Response time:</strong> Within 7 business days</li>
+        <li>For formal grievance filing, see our <a href="/contact.html" style="color: var(--accent);">Grievance Redressal</a> page.</li>
+      </ul>
+    </div>
+
+    <div class="alert alert--info" style="margin-top: 2.5rem; font-size: .875rem;">
+      <div>
+        <strong>Not a university-official platform.</strong> Unigram is independently run by students and is not affiliated with CRSU administration. For serious matters (harassment, threats, etc.), please also report to your university's student grievance cell.
+      </div>
+    </div>
+
+    <p style="font-size: .75rem; color: var(--ink-subtle); text-align: center; margin-top: 2rem;">
+      Effective August 2026 · Questions? Email grievance@unigram.app
+    </p>
+
+    <nav class="legal-nav" aria-label="Legal pages">
+      <a class="current" href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms &amp; Conditions</a>
+      <a href="/guidelines.html">Community Guidelines</a>
+      <a href="/contact.html">Grievance</a>
+    </nav>
+  </div>
+</body>
+</html>
