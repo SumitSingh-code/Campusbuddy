@@ -1,37 +1,632 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" id="admin-html">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Unigram Admin Panel � manage users, signups, resets and more.">
-  <title>Admin Panel — Unigram</title>
-  <meta name="theme-color" content="#1B2340">
+  <meta name="description" content="Unigram Admin Panel — manage users, signups, resets and more.">
+  <title>Admin Panel - Unigram</title>
+  <meta name="theme-color" content="#0D1117">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/components.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
   <style>
-    /* Admin-only overrides */
-    body { background: var(--bg); }
-    .admin-app { display: flex; min-height: 100vh; }
+    /* ═══════════════════════════════════════════════════════════════════════
+       UNIGRAM ADMIN PANEL — Design System
+       Logo palette: #0D1117 (navy) · #D4AF37 (gold) · #1A1F2E (surface)
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    /* ── Light mode tokens ─────────────────────────────────────────────── */
+    #admin-html {
+      --adm-bg:           #F0F2F5;
+      --adm-surface:      #FFFFFF;
+      --adm-surface-2:    #F8F9FB;
+      --adm-sidebar-bg:   #1B2340;
+      --adm-sidebar-2:    #141C35;
+      --adm-topbar-bg:    #1B2340;
+      --adm-nav-txt:      rgba(255,255,255,.6);
+      --adm-nav-txt-act:  #FFFFFF;
+      --adm-text:         #111827;
+      --adm-text-muted:   #6B7280;
+      --adm-border:       #E5E7EB;
+      --adm-gold:         #D4AF37;
+      --adm-gold-soft:    rgba(212,175,55,.12);
+      --adm-gold-border:  rgba(212,175,55,.25);
+      --adm-danger:       #EF4444;
+      --adm-success:      #22C55E;
+      --adm-warning:      #F59E0B;
+      --adm-topbar-h:     56px;
+      --adm-bottom-h:     60px;
+      --adm-sidebar-w:    240px;
+    }
+
+    /* ── Dark mode tokens (matches logo exactly) ───────────────────────── */
+    #admin-html[data-theme="dark"] {
+      --adm-bg:           #0D1117;
+      --adm-surface:      #161B22;
+      --adm-surface-2:    #1C2128;
+      --adm-sidebar-bg:   #161B22;
+      --adm-sidebar-2:    #0D1117;
+      --adm-topbar-bg:    #161B22;
+      --adm-nav-txt:      rgba(230,237,243,.55);
+      --adm-nav-txt-act:  #D4AF37;
+      --adm-text:         #E6EDF3;
+      --adm-text-muted:   #8B949E;
+      --adm-border:       #30363D;
+      --adm-gold:         #D4AF37;
+      --adm-gold-soft:    rgba(212,175,55,.1);
+      --adm-gold-border:  rgba(212,175,55,.2);
+      --adm-danger:       #F85149;
+      --adm-success:      #3FB950;
+      --adm-warning:      #D29922;
+    }
+
+    /* ── Base ──────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; }
+    body {
+      font-family: 'Inter', 'Space Grotesk', system-ui, sans-serif;
+      background: var(--adm-bg);
+      color: var(--adm-text);
+      min-height: 100vh;
+      line-height: 1.5;
+      transition: background .25s, color .25s;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── App shell ─────────────────────────────────────────────────────── */
+    .admin-app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       MOBILE TOP BAR
+       ═══════════════════════════════════════════════════════════════════════ */
+    .admin-topbar {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--adm-topbar-h);
+      background: var(--adm-topbar-bg);
+      border-bottom: 1px solid var(--adm-gold-border);
+      padding: 0 1rem;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 200;
+      gap: .75rem;
+    }
+    .admin-topbar-brand {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: var(--adm-gold);
+      line-height: 1.2;
+    }
+    .admin-topbar-brand small {
+      display: block;
+      font-size: .6rem;
+      font-weight: 500;
+      color: rgba(255,255,255,.4);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       DARK MODE TOGGLE BUTTON (shared style, used in topbar + sidebar)
+       ═══════════════════════════════════════════════════════════════════════ */
+    .dark-toggle {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: var(--adm-gold-soft);
+      border: 1.5px solid var(--adm-gold-border);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--adm-gold);
+      transition: background .2s, transform .3s;
+      flex-shrink: 0;
+    }
+    .dark-toggle:hover { background: rgba(212,175,55,.22); }
+    .dark-toggle:active { transform: rotate(25deg) scale(.95); }
+    /* Sun hidden in light, Moon hidden in dark */
+    .dark-toggle .ico-sun  { display: none; }
+    .dark-toggle .ico-moon { display: block; }
+    #admin-html[data-theme="dark"] .dark-toggle .ico-sun  { display: block; }
+    #admin-html[data-theme="dark"] .dark-toggle .ico-moon { display: none; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       SIDEBAR (desktop)
+       ═══════════════════════════════════════════════════════════════════════ */
+    .admin-sidebar {
+      width: var(--adm-sidebar-w);
+      background: var(--adm-sidebar-bg);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 0 .625rem 1rem;
+      gap: 2px;
+      position: sticky;
+      top: 0; height: 100vh;
+      overflow-y: auto;
+      border-right: 1px solid var(--adm-gold-border);
+      transition: background .25s;
+    }
+    .admin-brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem .625rem 1.25rem;
+      border-bottom: 1px solid var(--adm-gold-border);
+      margin-bottom: .5rem;
+      gap: .5rem;
+    }
+    .admin-brand-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: var(--adm-gold);
+      line-height: 1.2;
+    }
+    .admin-brand-text small {
+      display: block;
+      font-size: .65rem;
+      font-weight: 500;
+      color: rgba(255,255,255,.4);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Nav items */
+    .admin-nav-item {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .625rem .75rem;
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .875rem;
+      font-weight: 600;
+      color: var(--adm-nav-txt);
+      cursor: pointer;
+      transition: all .15s ease;
+      text-decoration: none;
+      border: none; border-left: 3px solid transparent;
+      background: none;
+      width: 100%; text-align: left;
+    }
+    .admin-nav-item:hover {
+      background: var(--adm-gold-soft);
+      color: var(--adm-gold);
+      border-left-color: rgba(212,175,55,.3);
+    }
+    .admin-nav-item.active {
+      background: var(--adm-gold-soft);
+      color: var(--adm-gold);
+      border-left-color: var(--adm-gold);
+    }
+    .admin-nav-item svg { flex-shrink: 0; opacity: .75; }
+    .admin-nav-item.active svg, .admin-nav-item:hover svg { opacity: 1; }
+    .admin-nav-badge {
+      margin-left: auto;
+      background: var(--adm-danger);
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; font-weight: 700;
+      border-radius: 9999px; min-width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 4px;
+    }
+    .admin-sidebar-footer {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid var(--adm-gold-border);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .sidebar-dark-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .5rem .75rem; margin-bottom: .25rem;
+    }
+    .sidebar-dark-row span {
+      font-size: .7rem; color: rgba(255,255,255,.35);
+      text-transform: uppercase; letter-spacing: .07em;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 500;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       MAIN CONTENT
+       ═══════════════════════════════════════════════════════════════════════ */
+    .admin-main {
+      flex: 1; min-width: 0;
+      padding: 2rem;
+      background: var(--adm-bg);
+      transition: background .25s;
+    }
+
+    /* ── Section panels ─────────────────────────────────────────────────── */
     .section-panel { display: none; }
     .section-panel.active { display: block; }
+
+    /* ── Section header ─────────────────────────────────────────────────── */
+    .admin-section-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap; gap: .5rem;
+    }
+    .admin-section-header h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800; font-size: 1.3rem;
+      color: var(--adm-text);
+    }
+
+    /* ── Stats grid ─────────────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: .75rem; margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: var(--adm-surface);
+      border: 1px solid var(--adm-border);
+      border-radius: 12px; padding: 1.25rem 1rem;
+      text-align: center;
+      transition: transform .15s, box-shadow .15s, border-color .15s;
+    }
+    .stat-card[onclick] { cursor: pointer; }
+    .stat-card[onclick]:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(212,175,55,.12);
+      border-color: var(--adm-gold-border);
+    }
+    .stat-card__value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.875rem; font-weight: 800;
+      color: var(--adm-gold); line-height: 1;
+      margin-bottom: .35rem;
+    }
+    .stat-card__label {
+      font-size: .7rem; font-weight: 700;
+      color: var(--adm-text-muted);
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+
+    /* ── Alert info ─────────────────────────────────────────────────────── */
+    .alert--info {
+      background: var(--adm-gold-soft);
+      border: 1px solid var(--adm-gold-border);
+      border-radius: 10px; padding: .875rem 1rem;
+      color: var(--adm-text); font-size: .875rem;
+      margin-bottom: 1rem; line-height: 1.55;
+    }
+
+    /* ── User rows ─────────────────────────────────────────────────────── */
+    .user-row {
+      display: flex; align-items: center; gap: .875rem;
+      padding: .875rem 1rem;
+      background: var(--adm-surface);
+      border: 1px solid var(--adm-border);
+      border-radius: 10px; margin-bottom: .5rem;
+      transition: border-color .15s;
+    }
+    .user-row:hover { border-color: var(--adm-gold-border); }
+    .user-row__info { flex: 1; min-width: 0; }
+    .user-row__name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700; font-size: .9rem;
+      color: var(--adm-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .user-row__meta {
+      font-size: .75rem; color: var(--adm-text-muted);
+      margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .user-row__actions { display: flex; gap: .4rem; flex-shrink: 0; flex-wrap: wrap; }
+
+    /* ── Avatar ─────────────────────────────────────────────────────────── */
+    .avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700; font-size: 1rem; flex-shrink: 0;
+      background: var(--adm-gold-soft); color: var(--adm-gold);
+    }
+
+    /* ── Tables ─────────────────────────────────────────────────────────── */
+    .table-wrapper {
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      border-radius: 10px; border: 1px solid var(--adm-border);
+    }
+    .data-table {
+      width: 100%; border-collapse: collapse;
+      font-size: .875rem; background: var(--adm-surface);
+      min-width: 520px;
+    }
+    .data-table th {
+      background: var(--adm-surface-2);
+      color: var(--adm-text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .7rem; text-transform: uppercase;
+      letter-spacing: .08em; font-weight: 700;
+      padding: .75rem 1rem; text-align: left; white-space: nowrap;
+    }
+    .data-table td {
+      padding: .75rem 1rem;
+      border-top: 1px solid var(--adm-border);
+      color: var(--adm-text); vertical-align: middle;
+    }
+    .data-table tr:hover td { background: var(--adm-surface-2); }
+    .action-cell { display: flex; gap: .35rem; flex-wrap: wrap; }
+
+    /* ── Badges ─────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: .2em .65em; border-radius: 9999px;
+      font-size: .68rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .badge--active    { background: rgba(34,197,94,.12);   color: #16A34A; }
+    .badge--pending   { background: rgba(212,175,55,.15);  color: #B8960A; }
+    .badge--banned    { background: rgba(239,68,68,.12);   color: #DC2626; }
+    .badge--suspended { background: rgba(249,115,22,.12);  color: #EA580C; }
+    .badge--rejected  { background: rgba(107,114,128,.12); color: #6B7280; }
+    .badge--admin     { background: rgba(212,175,55,.2);   color: var(--adm-gold); }
+    .badge--muted     { background: var(--adm-surface-2);  color: var(--adm-text-muted); }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .5rem 1rem; border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600; font-size: .875rem;
+      cursor: pointer; border: none;
+      transition: all .15s; text-decoration: none;
+      white-space: nowrap; line-height: 1;
+    }
+    .btn-primary   { background: var(--adm-gold); color: #0D1117; }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-secondary {
+      background: var(--adm-surface-2); color: var(--adm-text);
+      border: 1px solid var(--adm-border);
+    }
+    .btn-secondary:hover { border-color: var(--adm-gold); color: var(--adm-gold); }
+    .btn-success   { background: rgba(34,197,94,.12); color: #16A34A; border: 1px solid rgba(34,197,94,.25); }
+    .btn-success:hover { background: rgba(34,197,94,.22); }
+    .btn-danger    { background: rgba(239,68,68,.1); color: #DC2626; border: 1px solid rgba(239,68,68,.25); }
+    .btn-danger:hover { background: rgba(239,68,68,.2); }
+    .btn-ghost     { background: none; color: var(--adm-text-muted); border: 1px solid var(--adm-border); }
+    .btn-ghost:hover { color: var(--adm-text); }
+    .btn-icon      { width: 36px; height: 36px; padding: 0; border-radius: 8px; justify-content: center; }
+    .btn-sm        { padding: .35rem .7rem; font-size: .75rem; border-radius: 6px; }
+    .btn:disabled  { opacity: .45; cursor: not-allowed; pointer-events: none; }
+
+    /* ── Form inputs ─────────────────────────────────────────────────────── */
+    .form-group { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .75rem; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-label {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .8rem; font-weight: 600; color: var(--adm-text-muted);
+    }
+    .form-label.required::after { content: ' *'; color: var(--adm-danger); }
+    .form-input, .form-select {
+      width: 100%; padding: .625rem .875rem;
+      border-radius: 8px; border: 1.5px solid var(--adm-border);
+      background: var(--adm-surface); color: var(--adm-text);
+      font-size: .875rem; font-family: inherit;
+      transition: border-color .15s; outline: none;
+    }
+    .form-input:focus, .form-select:focus { border-color: var(--adm-gold); }
+    .form-hint { font-size: .75rem; color: var(--adm-text-muted); }
+
+    /* Search bar */
+    .search-bar {
+      display: flex; align-items: center; gap: .5rem;
+      background: var(--adm-surface); border: 1.5px solid var(--adm-border);
+      border-radius: 8px; padding: .5rem .75rem;
+    }
+    .search-bar:focus-within { border-color: var(--adm-gold); }
+    .search-bar input {
+      border: none; background: none; outline: none;
+      color: var(--adm-text); font-size: .875rem; width: 100%;
+    }
+    .search-bar input::placeholder { color: var(--adm-text-muted); }
+    .search-bar svg { color: var(--adm-text-muted); flex-shrink: 0; }
+
+    /* ── Empty / spinner ─────────────────────────────────────────────────── */
+    .empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 3rem 1rem; gap: .75rem;
+    }
+    .empty-state-icon { font-size: 2.5rem; }
+    .empty-state h3 { font-size: 1.1rem; font-weight: 700; color: var(--adm-text); }
+    .empty-state p, .empty-state .text-muted { font-size: .875rem; color: var(--adm-text-muted); text-align: center; }
+    .spinner {
+      width: 24px; height: 24px;
+      border: 2.5px solid var(--adm-border);
+      border-top-color: var(--adm-gold);
+      border-radius: 50%;
+      animation: adm-spin .7s linear infinite;
+    }
+    @keyframes adm-spin { to { transform: rotate(360deg); } }
+
+    /* ── Alerts ─────────────────────────────────────────────────────────── */
+    .alert {
+      border-radius: 8px; padding: .625rem .875rem;
+      font-size: .8125rem; display: flex; align-items: flex-start; gap: .5rem;
+    }
+    .alert--error   { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2); color: #DC2626; }
+    .alert--success { background: rgba(34,197,94,.08);  border: 1px solid rgba(34,197,94,.2);  color: #16A34A; }
+
+    /* ── Modals ─────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6); backdrop-filter: blur(6px);
+      z-index: 500; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal {
+      background: var(--adm-surface); border-radius: 16px;
+      width: 100%; max-width: 440px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.35);
+      border: 1px solid var(--adm-border); overflow: hidden;
+    }
+    .modal__handle {
+      width: 36px; height: 4px;
+      background: var(--adm-border); border-radius: 2px;
+      margin: .75rem auto 0;
+    }
+    .modal__header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 1.125rem 1.5rem;
+      border-bottom: 1px solid var(--adm-border);
+    }
+    .modal__header h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.05rem; font-weight: 700; color: var(--adm-text);
+    }
+    .modal__body { padding: 1.25rem 1.5rem; }
+    .modal__footer {
+      display: flex; justify-content: flex-end; gap: .5rem;
+      padding: 1rem 1.5rem; border-top: 1px solid var(--adm-border);
+    }
+
+    /* ── Card / section ──────────────────────────────────────────────────── */
+    .card { background: var(--adm-surface); border: 1px solid var(--adm-border); border-radius: 12px; }
+    .card-body { padding: 1.25rem; }
+    .admin-section { background: var(--adm-surface); border: 1px solid var(--adm-border); border-radius: 12px; padding: 1.25rem; }
+
+    /* ── Utilities ───────────────────────────────────────────────────────── */
+    .text-muted   { color: var(--adm-text-muted); }
+    .text-subtle  { color: var(--adm-text-muted); font-size: .8125rem; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       MOBILE BOTTOM NAV
+       ═══════════════════════════════════════════════════════════════════════ */
+    .admin-bottom-nav {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--adm-sidebar-bg);
+      border-top: 1px solid var(--adm-gold-border);
+      z-index: 200;
+      padding-bottom: env(safe-area-inset-bottom);
+      transition: background .25s;
+    }
+    .admin-bnav-inner {
+      display: flex; height: var(--adm-bottom-h);
+      align-items: stretch;
+    }
+    .admin-bnav-item {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 3px; padding: .35rem .25rem;
+      border: none; background: none;
+      cursor: pointer;
+      color: var(--adm-nav-txt);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .58rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .04em;
+      transition: color .15s; position: relative;
+      text-decoration: none;
+    }
+    .admin-bnav-item:hover, .admin-bnav-item.active { color: var(--adm-gold); }
+    .admin-bnav-item svg { opacity: .65; }
+    .admin-bnav-item.active svg { opacity: 1; }
+    .admin-bnav-item.active::after {
+      content: ''; position: absolute; top: 0; left: 20%; right: 20%;
+      height: 2px; background: var(--adm-gold); border-radius: 0 0 2px 2px;
+    }
+    .bnav-badge {
+      position: absolute; top: .3rem; right: 50%;
+      transform: translateX(calc(50% + 8px));
+      background: var(--adm-danger); color: #fff;
+      font-size: 9px; font-weight: 700; border-radius: 9999px;
+      min-width: 15px; height: 15px;
+      display: flex; align-items: center; justify-content: center; padding: 0 3px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       RESPONSIVE BREAKPOINTS
+       ═══════════════════════════════════════════════════════════════════════ */
+    @media (max-width: 767px) {
+      .admin-topbar     { display: flex; }
+      .admin-sidebar    { display: none; }
+      .admin-bottom-nav { display: flex; flex-direction: column; justify-content: center; }
+      .admin-main {
+        padding: calc(var(--adm-topbar-h) + .875rem) .875rem calc(var(--adm-bottom-h) + .875rem);
+      }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: .5rem; }
+      .stat-card { padding: 1rem .75rem; }
+      .stat-card__value { font-size: 1.5rem; }
+      .admin-section-header h2 { font-size: 1.1rem; }
+      /* Tables scroll horizontally */
+      .table-wrapper { border-radius: 8px; }
+      /* Pagination smaller */
+      .pagination { gap: .35rem; }
+    }
+
+    @media (min-width: 768px) {
+      .admin-topbar     { display: none !important; }
+      .admin-sidebar    { display: flex; }
+      .admin-bottom-nav { display: none !important; }
+    }
+
+    /* ── Pagination ───────────────────────────────────────────────────────── */
+    .pagination {
+      display: flex; justify-content: center; align-items: center;
+      gap: .5rem; margin-top: 1rem; flex-wrap: wrap;
+    }
+    .pagination .page-info { font-size: .8125rem; color: var(--adm-text-muted); }
+
+    /* Skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--adm-surface-2) 25%, var(--adm-border) 50%, var(--adm-surface-2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    /* Promote form */
+    #promote-msg { margin-top: .5rem; }
   </style>
 </head>
+
 <body>
-  <div id="toast-container" role="region" aria-label="Notifications"></div>
+  <div id="toast-container" role="region" aria-label="Notifications" style="position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;"></div>
 
   <!-- Loading splash -->
-  <div id="splash" style="position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
-    <div class="spinner" style="width:32px;height:32px;"></div>
+  <div id="splash" style="position:fixed;inset:0;z-index:999;background:#0D1117;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem;">
+    <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:1.25rem;color:#D4AF37;">Unigram</div>
+    <div class="spinner" style="width:32px;height:32px;border-color:#30363D;border-top-color:#D4AF37;"></div>
   </div>
 
   <div id="admin-app" class="admin-app" style="display:none;">
 
-    <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+    <!-- ══ MOBILE TOP BAR ═══════════════════════════════════════════════ -->
+    <header class="admin-topbar">
+      <div class="admin-topbar-brand">
+        Unigram
+        <small>Admin Panel</small>
+      </div>
+      <button class="dark-toggle" id="dark-toggle-mobile" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <span class="ico-moon"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+        <span class="ico-sun"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+      </button>
+    </header>
+
+    <!-- ══ DESKTOP SIDEBAR ══════════════════════════════════════════════ -->
     <aside class="admin-sidebar" role="navigation" aria-label="Admin navigation">
       <div class="admin-brand">
-        Unigram
-        <span>Admin Panel</span>
+        <div class="admin-brand-text">
+          Unigram
+          <small>Admin Panel</small>
+        </div>
+        <button class="dark-toggle" id="dark-toggle-sidebar" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <span class="ico-moon"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+          <span class="ico-sun"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+        </button>
       </div>
 
       <button class="admin-nav-item active" data-section="overview" id="nav-overview">
@@ -62,7 +657,10 @@
         Admin Team
       </button>
 
-      <div style="margin-top:auto;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.12);">
+      <div class="admin-sidebar-footer">
+        <div class="sidebar-dark-row">
+          <span>Appearance</span>
+        </div>
         <a href="/index.html" class="admin-nav-item">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
           Back to App
@@ -74,28 +672,28 @@
       </div>
     </aside>
 
-    <!-- ── Main content ────────────────────────────────────────────── -->
+    <!-- ══ MAIN CONTENT ═════════════════════════════════════════════════ -->
     <main class="admin-main" id="admin-main" role="main">
 
-      <!-- ── OVERVIEW ──────────────────────────────────────────── -->
+      <!-- ── OVERVIEW ─────────────────────────────────────────────────── -->
       <div class="section-panel active" id="panel-overview">
         <div class="admin-section-header">
           <h2>Overview</h2>
-          <button class="btn btn-secondary btn-sm" id="btn-refresh-stats">↻ Refresh</button>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-stats">&#x1F504; Refresh</button>
         </div>
         <div class="stats-grid" id="stats-grid">
-          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Pending Signups</div></div>
-          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Open Reports</div></div>
-          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Reset Requests</div></div>
-          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Total Students</div></div>
-          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Active Students</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Pending</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Reports</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Resets</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Total</div></div>
+          <div class="stat-card"><div class="stat-card__value skeleton" style="height:2rem;width:3rem;margin:0 auto;border-radius:4px;"></div><div class="stat-card__label">Active</div></div>
         </div>
-        <div class="alert alert--info" style="font-size:.875rem;">
-          Welcome to the Unigram Admin Panel &mdash; manage users, signups, resets and more.
+        <div class="alert--info">
+          &#x1F44B; Welcome to the Unigram Admin Panel &mdash; manage users, signups, resets and more.
         </div>
       </div>
 
-      <!-- ── PENDING SIGNUPS ──────────────────────────────────────── -->
+      <!-- ── PENDING SIGNUPS ──────────────────────────────────────────── -->
       <div class="section-panel" id="panel-pending">
         <div class="admin-section-header">
           <h2>Pending Signups</h2>
@@ -106,11 +704,11 @@
         </div>
       </div>
 
-      <!-- ── USERS ──────────────────────────────────────────────── -->
+      <!-- ── USERS ────────────────────────────────────────────────────── -->
       <div class="section-panel" id="panel-users">
         <div class="admin-section-header">
           <h2>Users</h2>
-          <button class="btn btn-secondary btn-sm" id="btn-refresh-users">↻ Refresh</button>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-users">&#x1F504; Refresh</button>
         </div>
         <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
           <div class="search-bar" style="flex:1;min-width:200px;">
@@ -129,53 +727,53 @@
         <div id="users-list">
           <div class="empty-state"><div class="spinner"></div></div>
         </div>
-        <div style="display:flex;justify-content:center;gap:.75rem;margin-top:1rem;" id="users-pagination" style="display:none;"></div>
+        <div id="users-pagination" style="display:none;" class="pagination"></div>
       </div>
 
-      <!-- ── PASSWORD RESETS ──────────────────────────────────── -->
+      <!-- ── PASSWORD RESETS ──────────────────────────────────────────── -->
       <div class="section-panel" id="panel-resets">
         <div class="admin-section-header">
           <h2>Password Reset Requests</h2>
-          <button class="btn btn-secondary btn-sm" id="btn-refresh-resets">↻ Refresh</button>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-resets">&#x1F504; Refresh</button>
         </div>
         <div id="resets-list">
           <div class="empty-state"><div class="spinner"></div></div>
         </div>
       </div>
 
-      <!-- ── REPORTS ──────────────────────────────────────────── -->
+      <!-- ── REPORTS ──────────────────────────────────────────────────── -->
       <div class="section-panel" id="panel-reports">
         <div class="admin-section-header">
           <h2>Reports</h2>
           <span class="text-muted" style="font-size:.875rem;">Full moderation coming in Phase 5</span>
         </div>
         <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
+          <div class="empty-state-icon">&#x26A0;&#xFE0F;</div>
           <h3>Reports coming in Phase 5</h3>
           <p class="text-muted">Full content moderation, report resolution, and post deletion will be available then.</p>
         </div>
       </div>
 
-      <!-- ── ADMIN TEAM ─────────────────────────────────────── -->
+      <!-- ── ADMIN TEAM ────────────────────────────────────────────────── -->
       <div class="section-panel" id="panel-admins">
         <div class="admin-section-header">
           <h2>Admin Team</h2>
-          <button class="btn btn-secondary btn-sm" id="btn-refresh-admins">↻ Refresh</button>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-admins">&#x1F504; Refresh</button>
         </div>
         <div id="admins-list">
           <div class="empty-state"><div class="spinner"></div></div>
         </div>
 
         <div class="admin-section" style="margin-top:2rem;">
-          <h3 style="font-size:1rem;margin-bottom:1rem;">Promote a User to Admin</h3>
+          <h3 style="font-size:1rem;margin-bottom:1rem;font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--adm-text);">Promote a User to Admin</h3>
           <div class="card card-body" style="max-width:460px;">
             <div class="form-group">
               <label class="form-label required" for="promote-roll">User Roll Number</label>
-              <input type="text" id="promote-roll" class="form-input" placeholder="e.g. 2021-CS-001" style="font-family:var(--font-mono);">
+              <input type="text" id="promote-roll" class="form-input" placeholder="e.g. 2021-CS-001" style="font-family:'JetBrains Mono',monospace;">
             </div>
             <div class="form-group">
-              <label class="form-label required" for="promote-role">Assign Role</label>
-              <select id="promote-role" class="form-select" style="background-image:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%236B7280\" stroke-width=\"2\"><polyline points=\"6 9 12 15 18 9\"/></svg>');background-repeat:no-repeat;background-position:right .75rem center;background-size:18px;padding-right:2.5rem;">
+              <label class="form-label required" for="promote-role">Role</label>
+              <select id="promote-role" class="form-select">
                 <option value="moderator">Moderator</option>
                 <option value="super_admin">Super Admin</option>
               </select>
@@ -187,23 +785,52 @@
       </div>
 
     </main>
-  </div>
 
-  <!-- ── Resolve Reset Modal ─────────────────────────────────────────── -->
+    <!-- ══ MOBILE BOTTOM NAV ════════════════════════════════════════════ -->
+    <nav class="admin-bottom-nav" aria-label="Admin sections">
+      <div class="admin-bnav-inner">
+        <button class="admin-bnav-item active" data-section="overview" id="bnav-overview">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Overview
+        </button>
+        <button class="admin-bnav-item" data-section="pending" id="bnav-pending">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Pending
+          <span class="bnav-badge" id="bnav-pending-count" style="display:none;"></span>
+        </button>
+        <button class="admin-bnav-item" data-section="users" id="bnav-users">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </button>
+        <button class="admin-bnav-item" data-section="resets" id="bnav-resets">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Resets
+          <span class="bnav-badge" id="bnav-resets-count" style="display:none;"></span>
+        </button>
+        <button class="admin-bnav-item" data-section="reports" id="bnav-reports">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Reports
+        </button>
+      </div>
+    </nav>
+
+  </div><!-- /admin-app -->
+
+  <!-- ══ RESOLVE RESET MODAL ══════════════════════════════════════════════ -->
   <div class="modal-overlay" id="modal-resolve-reset" style="display:none;" role="dialog" aria-modal="true">
     <div class="modal" style="max-width:460px;">
       <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Resolve Password Reset</h3>
         <button class="btn btn-ghost btn-icon" id="close-reset-modal">
-          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal__body">
         <p class="text-muted" id="reset-modal-info" style="font-size:.875rem;margin-bottom:1rem;"></p>
         <div class="form-group">
           <label class="form-label required" for="temp-password">Temporary Password</label>
-          <input type="text" id="temp-password" class="form-input" placeholder="Min. 8 chars — letter + number" style="font-family:var(--font-mono);">
+          <input type="text" id="temp-password" class="form-input" placeholder="Min. 8 chars - letter + number" style="font-family:'JetBrains Mono',monospace;">
           <span class="form-hint">The user will be forced to change this on next login.</span>
         </div>
         <div id="reset-modal-error" class="alert alert--error" style="display:none;"></div>
@@ -224,7 +851,25 @@
     let userPage = 1;
     let resolveResetId = null;
 
-    // ── Init ──────────────────────────────────────────────────────────────────
+    // ── Dark mode (admin-only, persisted) ──────────────────────────────
+    const DARK_KEY = 'unigram_admin_dark';
+    const htmlEl   = document.getElementById('admin-html');
+
+    function applyDark(on) {
+      if (on) { htmlEl.setAttribute('data-theme','dark'); }
+      else     { htmlEl.removeAttribute('data-theme'); }
+      localStorage.setItem(DARK_KEY, on ? '1' : '0');
+    }
+    function toggleDark() { applyDark(!htmlEl.hasAttribute('data-theme')); }
+
+    // Restore saved preference
+    if (localStorage.getItem(DARK_KEY) === '1') applyDark(true);
+
+    document.querySelectorAll('.dark-toggle').forEach(btn =>
+      btn.addEventListener('click', toggleDark)
+    );
+
+    // ── Init ───────────────────────────────────────────────────────────
     async function init() {
       const { user, profile } = await Auth.init();
 
@@ -246,8 +891,13 @@
       // Load initial stats
       loadStats();
 
-      // Nav
+      // Sidebar nav
       document.querySelectorAll('.admin-nav-item[data-section]').forEach(btn => {
+        btn.addEventListener('click', () => showSection(btn.dataset.section));
+      });
+
+      // Bottom nav
+      document.querySelectorAll('.admin-bnav-item[data-section]').forEach(btn => {
         btn.addEventListener('click', () => showSection(btn.dataset.section));
       });
 
@@ -263,7 +913,7 @@
 
       // User search + filter
       let searchTimer;
-      document.getElementById('user-search').addEventListener('input', (e) => {
+      document.getElementById('user-search').addEventListener('input', () => {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(() => loadUsers(1), 350);
       });
@@ -278,54 +928,66 @@
       document.getElementById('btn-submit-reset').addEventListener('click', submitResolveReset);
     }
 
-    // ── Section navigation ────────────────────────────────────────────────────
+    // ── Section navigation ─────────────────────────────────────────────
     function showSection(section) {
+      // Update sidebar nav
       document.querySelectorAll('.admin-nav-item[data-section]').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
       document.querySelector(`.admin-nav-item[data-section="${section}"]`)?.classList.add('active');
+
+      // Update bottom nav
+      document.querySelectorAll('.admin-bnav-item[data-section]').forEach(b => b.classList.remove('active'));
+      document.querySelector(`.admin-bnav-item[data-section="${section}"]`)?.classList.add('active');
+
+      // Show panel
+      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
       document.getElementById(`panel-${section}`)?.classList.add('active');
+
+      // Scroll to top
+      document.getElementById('admin-main')?.scrollTo(0, 0);
 
       // Lazy-load data
       switch (section) {
         case 'pending':  loadPending(); break;
         case 'users':    loadUsers(1); break;
         case 'resets':   loadResets(); break;
-        case 'reports':  /* static content — no API call needed */ break;
+        case 'reports':  /* static */ break;
         case 'admins':   loadAdmins(); break;
       }
     }
 
-    // ── Stats ─────────────────────────────────────────────────────────────────
+    // ── Stats ──────────────────────────────────────────────────────────
     async function loadStats() {
       try {
         const stats = await API.get('/admin/stats');
         document.getElementById('stats-grid').innerHTML = `
-          <div class="stat-card" style="cursor:pointer;" onclick="adminNav('pending')">
+          <div class="stat-card" onclick="adminNav('pending')" title="View pending signups">
             <div class="stat-card__value">${stats.pending_signups}</div>
-            <div class="stat-card__label">Pending Signups</div>
+            <div class="stat-card__label">Pending</div>
           </div>
-          <div class="stat-card" style="cursor:pointer;" onclick="adminNav('reports')">
+          <div class="stat-card" onclick="adminNav('reports')" title="View reports">
             <div class="stat-card__value">${stats.open_reports}</div>
-            <div class="stat-card__label">Open Reports</div>
+            <div class="stat-card__label">Reports</div>
           </div>
-          <div class="stat-card" style="cursor:pointer;" onclick="adminNav('resets')">
+          <div class="stat-card" onclick="adminNav('resets')" title="View reset requests">
             <div class="stat-card__value">${stats.open_reset_requests}</div>
-            <div class="stat-card__label">Reset Requests</div>
+            <div class="stat-card__label">Resets</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__value">${stats.total_users}</div>
-            <div class="stat-card__label">Total Students</div>
+            <div class="stat-card__label">Students</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__value">${stats.active_users}</div>
-            <div class="stat-card__label">Active Students</div>
+            <div class="stat-card__label">Active</div>
           </div>
         `;
-
-        // Update nav badges
+        // Update sidebar badges
         setBadge('nav-pending-count', stats.pending_signups);
-        setBadge('nav-resets-count', stats.open_reset_requests);
+        setBadge('nav-resets-count',  stats.open_reset_requests);
         setBadge('nav-reports-count', stats.open_reports);
+        // Update bottom nav badges
+        setBadge('bnav-pending-count', stats.pending_signups);
+        setBadge('bnav-resets-count',  stats.open_reset_requests);
       } catch (err) {
         showToast('Failed to load stats: ' + err.message, 'error');
       }
@@ -340,69 +1002,58 @@
       el.style.display = count > 0 ? 'flex' : 'none';
     }
 
-    // ── Pending Signups ───────────────────────────────────────────────────────
+    // ── Pending Signups ────────────────────────────────────────────────
     async function loadPending() {
       document.getElementById('pending-list').innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
       try {
         const { data } = await API.get('/admin/pending-signups');
         if (!data?.length) {
           document.getElementById('pending-list').innerHTML = `
-            <div class="empty-state"><div class="empty-state-icon">✅</div><h3>No pending signups</h3><p class="text-muted">All caught up!</p></div>`;
+            <div class="empty-state"><div class="empty-state-icon">&#x2705;</div><h3>No pending signups</h3><p class="text-muted">All caught up!</p></div>`;
           setBadge('nav-pending-count', 0);
+          setBadge('bnav-pending-count', 0);
           return;
         }
         setBadge('nav-pending-count', data.length);
+        setBadge('bnav-pending-count', data.length);
         document.getElementById('pending-list').innerHTML = data.map(u => `
           <div class="user-row" id="pending-row-${escHtml(u.id)}">
-            <div class="avatar" style="background:var(--accent-light);color:var(--accent-text);font-family:var(--font-heading);font-weight:700;font-size:.8rem;">
-              ${escHtml((u.full_name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase())}
-            </div>
+            <div class="avatar">${escHtml((u.full_name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase())}</div>
             <div class="user-row__info">
               <div class="user-row__name">${escHtml(u.full_name)}</div>
-              <div class="user-row__meta">
-                ${escHtml(u.roll_number)} · ${escHtml(u.department)}
-                ${u.semester ? `· Sem ${u.semester}` : ''}
-              </div>
-              <div class="user-row__meta" style="margin-top:2px;">
-                📱 ${escHtml(u.phone_number)}
-                ${u.email ? `· ✉️ ${escHtml(u.email)}` : ''}
-                · <span class="badge badge--muted">${escHtml(u.auth_provider)}</span>
-                · ${timeAgo(u.created_at)}
-              </div>
+              <div class="user-row__meta">&#x1F393; ${escHtml(u.roll_number)} &middot; ${escHtml(u.department)}</div>
+              <div class="user-row__meta" style="margin-top:2px;">&#x1F4DE; ${escHtml(u.phone_number||'—')} &middot; Applied ${timeAgo(u.created_at)}</div>
             </div>
             <div class="user-row__actions">
               <button class="btn btn-success btn-sm" onclick="approveUser('${escHtml(u.id)}')">Approve</button>
               <button class="btn btn-danger btn-sm" onclick="rejectUser('${escHtml(u.id)}')">Reject</button>
             </div>
-          </div>
-        `).join('');
+          </div>`).join('');
       } catch (err) {
         document.getElementById('pending-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
       }
     }
 
     window.approveUser = async (id) => {
-      const row = document.getElementById(`pending-row-${id}`);
       try {
         await API.patch(`/admin/users/${id}/approve`);
-        row?.remove();
+        document.getElementById(`pending-row-${id}`)?.remove();
         showToast('User approved!', 'success');
         loadStats();
       } catch (err) { showToast(err.message, 'error'); }
     };
 
     window.rejectUser = async (id) => {
-      if (!confirm('Reject this signup? This will delete the account.')) return;
-      const row = document.getElementById(`pending-row-${id}`);
+      if (!confirm('Reject and delete this user account?')) return;
       try {
         await API.patch(`/admin/users/${id}/reject`);
-        row?.remove();
-        showToast('User rejected and account deleted.', 'info');
+        document.getElementById(`pending-row-${id}`)?.remove();
+        showToast('User rejected.', 'info');
         loadStats();
       } catch (err) { showToast(err.message, 'error'); }
     };
 
-    // ── Users ─────────────────────────────────────────────────────────────────
+    // ── Users ──────────────────────────────────────────────────────────
     async function loadUsers(page = 1) {
       userPage = page;
       document.getElementById('users-list').innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
@@ -418,7 +1069,7 @@
         const { data, total, has_more } = res;
 
         if (!data?.length) {
-          document.getElementById('users-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">👤</div><h3>No users found</h3></div>';
+          document.getElementById('users-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#x1F465;</div><h3>No users found</h3></div>';
           document.getElementById('users-pagination').style.display = 'none';
           return;
         }
@@ -440,13 +1091,13 @@
                 ${data.map(u => `
                   <tr>
                     <td>
-                      <div style="font-family:var(--font-heading);font-weight:600;font-size:.875rem;">${escHtml(u.full_name)}</div>
-                      <div style="font-family:var(--font-mono);font-size:.75rem;color:var(--ink-muted);">${escHtml(u.roll_number)}</div>
+                      <div style="font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:.875rem;">${escHtml(u.full_name)}</div>
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--adm-text-muted);">${escHtml(u.roll_number)}</div>
                     </td>
                     <td style="font-size:.8125rem;max-width:180px;word-break:break-word;">${escHtml(u.department)}</td>
                     <td><span class="badge badge--${escHtml(u.status)}">${escHtml(u.status)}</span></td>
                     <td><span class="badge badge--${u.role !== 'student' ? 'admin' : 'muted'}">${escHtml(u.role)}</span></td>
-                    <td style="font-family:var(--font-mono);font-size:.75rem;white-space:nowrap;">${timeAgo(u.created_at)}</td>
+                    <td style="font-family:'JetBrains Mono',monospace;font-size:.75rem;white-space:nowrap;">${timeAgo(u.created_at)}</td>
                     <td>
                       <div class="action-cell">
                         ${u.status !== 'active'    ? `<button class="btn btn-success btn-sm" onclick="setUserStatus('${escHtml(u.id)}','activate')">Activate</button>` : ''}
@@ -454,19 +1105,17 @@
                         ${u.status !== 'banned'    ? `<button class="btn btn-danger btn-sm" onclick="setUserStatus('${escHtml(u.id)}','ban')">Ban</button>` : ''}
                       </div>
                     </td>
-                  </tr>
-                `).join('')}
+                  </tr>`).join('')}
               </tbody>
             </table>
           </div>`;
 
-        // Pagination
         const pagEl = document.getElementById('users-pagination');
         pagEl.style.display = 'flex';
         pagEl.innerHTML = `
-          <button class="btn btn-secondary btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="loadUsers(${page-1})">← Prev</button>
-          <span style="padding:.5rem .75rem;font-size:.875rem;color:var(--ink-muted);align-self:center;">Page ${page} · ${total} total</span>
-          <button class="btn btn-secondary btn-sm" ${!has_more ? 'disabled' : ''} onclick="loadUsers(${page+1})">Next →</button>
+          <button class="btn btn-secondary btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="loadUsers(${page-1})">&#x2190; Prev</button>
+          <span class="page-info">Page ${page} &bull; ${total} total</span>
+          <button class="btn btn-secondary btn-sm" ${!has_more ? 'disabled' : ''} onclick="loadUsers(${page+1})">Next &#x2192;</button>
         `;
       } catch (err) {
         document.getElementById('users-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
@@ -483,30 +1132,31 @@
       } catch (err) { showToast(err.message, 'error'); }
     };
 
-    // ── Password Resets ────────────────────────────────────────────────────────
+    // ── Password Resets ────────────────────────────────────────────────
     async function loadResets() {
       document.getElementById('resets-list').innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
       try {
         const { data } = await API.get('/admin/reset-requests?status=pending');
         if (!data?.length) {
-          document.getElementById('resets-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔒</div><h3>No pending reset requests</h3></div>';
+          document.getElementById('resets-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#x1F512;</div><h3>No pending reset requests</h3></div>';
           setBadge('nav-resets-count', 0);
+          setBadge('bnav-resets-count', 0);
           return;
         }
         setBadge('nav-resets-count', data.length);
+        setBadge('bnav-resets-count', data.length);
         document.getElementById('resets-list').innerHTML = data.map(r => `
           <div class="user-row" id="reset-row-${escHtml(r.id)}">
-            <div class="avatar" style="background:var(--warning-light);color:var(--warning-text);font-family:var(--font-heading);font-weight:700;font-size:1rem;">🔒</div>
+            <div class="avatar">&#x1F512;</div>
             <div class="user-row__info">
-              <div class="user-row__name" style="font-family:var(--font-mono);">${escHtml(r.roll_number)}</div>
-              <div class="user-row__meta">📱 ${escHtml(r.phone_number)} · Requested ${timeAgo(r.requested_at)}</div>
+              <div class="user-row__name" style="font-family:'JetBrains Mono',monospace;">${escHtml(r.roll_number)}</div>
+              <div class="user-row__meta">&#x1F4DE; ${escHtml(r.phone_number)} &middot; Requested ${timeAgo(r.requested_at)}</div>
             </div>
             <div class="user-row__actions">
               <button class="btn btn-success btn-sm" onclick="openResetModal('${escHtml(r.id)}','${escHtml(r.roll_number)}','${escHtml(r.phone_number)}')">Resolve</button>
               <button class="btn btn-secondary btn-sm" onclick="rejectReset('${escHtml(r.id)}')">Reject</button>
             </div>
-          </div>
-        `).join('');
+          </div>`).join('');
       } catch (err) {
         document.getElementById('resets-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
       }
@@ -526,7 +1176,7 @@
     }
 
     async function submitResolveReset() {
-      const btn  = document.getElementById('btn-submit-reset');
+      const btn   = document.getElementById('btn-submit-reset');
       const errEl = document.getElementById('reset-modal-error');
       errEl.style.display = 'none';
 
@@ -537,9 +1187,7 @@
         return;
       }
 
-      btn.classList.add('btn-loading');
       btn.disabled = true;
-
       try {
         await API.post(`/admin/reset-requests/${resolveResetId}/resolve`, { temp_password: tempPw });
         showToast('Password set! User will be prompted to change it on next login.', 'success', 5000);
@@ -550,7 +1198,6 @@
         errEl.textContent = err.message;
         errEl.style.display = 'flex';
       } finally {
-        btn.classList.remove('btn-loading');
         btn.disabled = false;
       }
     }
@@ -565,7 +1212,7 @@
       } catch (err) { showToast(err.message, 'error'); }
     };
 
-    // ── Admin Team ─────────────────────────────────────────────────────────────
+    // ── Admin Team ─────────────────────────────────────────────────────
     async function loadAdmins() {
       if (!Auth.isSuperAdmin()) return;
       document.getElementById('admins-list').innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
@@ -578,12 +1225,12 @@
               <thead><tr><th>Name</th><th>Roll No.</th><th>Department</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>${data.map(a => `
                 <tr>
-                  <td><div style="font-family:var(--font-heading);font-weight:600;">${escHtml(a.full_name)}</div></td>
-                  <td style="font-family:var(--font-mono);font-size:.8125rem;">${escHtml(a.roll_number)}</td>
+                  <td><div style="font-family:'Space Grotesk',sans-serif;font-weight:600;">${escHtml(a.full_name)}</div></td>
+                  <td style="font-family:'JetBrains Mono',monospace;font-size:.8125rem;">${escHtml(a.roll_number)}</td>
                   <td style="font-size:.8125rem;">${escHtml(a.department)}</td>
                   <td><span class="badge badge--admin">${escHtml(a.role)}</span></td>
                   <td><span class="badge badge--${escHtml(a.status)}">${escHtml(a.status)}</span></td>
-                  <td>${a.id !== currentProfile.id ? `<button class="btn btn-secondary btn-sm" onclick="demoteAdmin('${escHtml(a.id)}')">Demote</button>` : '<span class="text-subtle" style="font-size:.75rem;">You</span>'}</td>
+                  <td>${a.id !== currentProfile.id ? `<button class="btn btn-secondary btn-sm" onclick="demoteAdmin('${escHtml(a.id)}')">Demote</button>` : '<span class="text-subtle">You</span>'}</td>
                 </tr>`).join('')}
               </tbody>
             </table>
@@ -609,11 +1256,8 @@
       const role = document.getElementById('promote-role').value;
       if (!roll) { msgEl.className = 'alert alert--error'; msgEl.textContent = 'Enter a roll number.'; msgEl.style.display = 'flex'; return; }
 
-      btn.classList.add('btn-loading');
       btn.disabled = true;
-
       try {
-        // Find user ID by roll number via users list
         const { data } = await API.get(`/admin/users?q=${encodeURIComponent(roll)}&limit=50`);
         const user = data?.find(u => u.roll_number === roll);
         if (!user) { throw new Error(`No user found with roll number ${roll}`); }
@@ -628,7 +1272,6 @@
         msgEl.textContent = err.message;
         msgEl.style.display = 'flex';
       } finally {
-        btn.classList.remove('btn-loading');
         btn.disabled = false;
       }
     }
