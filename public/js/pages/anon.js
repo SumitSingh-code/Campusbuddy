@@ -17,6 +17,7 @@ import {
   renderCommentsModal,
   renderReportModal,
   renderOptionsDropdown,
+  renderAnonHeader,
 } from '../components.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ let _clickHandler = null;    // stored delegated handler (allows removal)
 export function render() {
   const profile = Auth.getProfile();
   return `
+    ${renderAnonHeader()}
     ${renderAnonComposeArea(profile)}
     <div id="anon-list" role="feed" aria-label="Anonymous feed" aria-busy="true">
       ${skeletonPostCards(4)}
@@ -63,6 +65,11 @@ export async function init() {
   _setupEventDelegation();
   _setupInfiniteScroll();
   _subscribeToAnonFeedUpdates();
+
+  // Info button — explains anonymity to users
+  document.getElementById('anon-info-btn')?.addEventListener('click', () => {
+    showToast('🔒 Your identity is hidden from other students. Admins can reveal it if a post is reported for a violation.', 'info', 5000);
+  });
 
   await _loadFeed(true);
 }

@@ -1,4 +1,4 @@
-// Campus Wall — Shared UI Component Renderers
+﻿// Campus Wall — Shared UI Component Renderers
 // All functions return HTML strings. They are called by page modules
 // and inserted into the DOM via innerHTML.
 import { escHtml, timeAgo, deptPill, avatarHtml, fmtNum, Icons } from './utils.js';
@@ -175,6 +175,40 @@ export function renderPostMenuItems(postId, isOwn, isAdmin, createdAt) {
 }
 
 // ─── Compose Area ─────────────────────────────────────────────────────────────
+
+// ─── Feed Header ──────────────────────────────────────────────────────────────
+
+export function renderFeedHeader() {
+  return `
+    <div class="feed-header" id="feed-header">
+      <a class="feed-wordmark" href="#/feed" aria-label="Unigram home">
+        <img src="/icons/icon-192.png" class="feed-wordmark__logo" alt="">
+        <span class="feed-wordmark__text">Unigram</span>
+      </a>
+      <div class="feed-header-actions">
+        <button class="btn btn-ghost btn-icon" id="feed-search-btn" aria-label="Search" title="Search posts">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// ─── Anon Header ──────────────────────────────────────────────────────────────
+
+export function renderAnonHeader() {
+  return `
+    <div class="anon-header" id="anon-header">
+      <div class="anon-header__title">
+        Anonymous Feed
+        <span class="anon-header__badge">3 posts/day</span>
+      </div>
+      <button class="anon-info-btn" id="anon-info-btn" aria-label="About anonymity" title="How anonymity works">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </button>
+    </div>
+  `;
+}
 
 export function renderComposeArea(profile) {
   const initials = (profile.full_name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();

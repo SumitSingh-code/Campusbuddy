@@ -1,4 +1,4 @@
-// Campus Wall — Profile Page
+﻿// Campus Wall — Profile Page
 // Own profile: avatar, name, stats, bio (editable), post history, change password.
 // Other user's profile (hash param ?id=xxx): public read-only view.
 
@@ -138,39 +138,74 @@ function _renderProfile() {
   const initials = (p.full_name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
   const hasAvatar = !!p.avatar_url;
 
+  // Parse year from roll number (e.g. "2022-CS-045" → "2022 Batch")
+  const rollYear = p.roll_number ? p.roll_number.match(/\b(20\d{2})\b/)?.[1] : null;
+  const yearTag  = rollYear ? `<span class="profile-year-tag">${escHtml(rollYear)} Batch</span>` : '';
+
+  // Profile completion score (simple: name + avatar + bio + phone)
+  const completionScore = [
+    !!p.full_name, !!p.avatar_url, !!p.bio, !!p.phone_number
+  ].filter(Boolean).length;
+  const completionPct = Math.round((completionScore / 4) * 100);
+
   document.getElementById('profile-page').innerHTML = `
-    <!-- Profile Header -->
-    <div class="profile-header" style="position:relative;">
+    <!-- Cover Banner -->
+    <div class="profile-cover">
       ${_isOwnProfile ? `
-        <a href="#/settings" class="btn btn-ghost btn-icon" style="position:absolute;top:0;right:0;color:var(--ink-muted);" title="Settings" aria-label="Open Settings">
-          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <a href="#/settings" class="btn btn-ghost profile-cover-gear" title="Settings" aria-label="Open Settings">
+          <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </a>
       ` : ''}
-      <div class="profile-avatar-wrap">
+    </div>
+
+    <!-- Avatar + Name row (overlaps cover bottom) -->
+    <div class="profile-avatar-outer">
+      <div class="profile-avatar-frame">
         ${hasAvatar
           ? `<img src="${escHtml(p.avatar_url)}" alt="${escHtml(p.full_name)}" class="avatar avatar--xl profile-avatar-img">`
           : `<div class="avatar avatar--xl" id="profile-avatar-initials">${escHtml(initials)}</div>`}
       </div>
-      <div class="profile-info">
+      <div class="profile-info-below">
         <div class="profile-name">${escHtml(p.full_name)}</div>
-        <div class="profile-roll">${p.roll_number ? escHtml(p.roll_number) : ''}</div>
-        <div style="margin-top:4px;">${deptPill(p.department)}</div>
-        ${p.bio ? `<p class="profile-bio">${escHtml(p.bio)}</p>` : ''}
-        <div class="profile-joined text-subtle">Joined ${timeAgo(p.created_at)}</div>
+        ${p.roll_number ? `<div class="profile-roll">${escHtml(p.roll_number)}</div>` : ''}
+        <div class="profile-tags">
+          ${deptPill(p.department)}
+          ${yearTag}
+        </div>
       </div>
     </div>
+
+    <!-- Bio + joined -->
+    <div style="padding:0 var(--s4) .75rem;">
+      ${p.bio ? `<p class="profile-bio">${escHtml(p.bio)}</p>` : ''}
+      <div class="profile-joined text-subtle">Joined ${timeAgo(p.created_at)}</div>
+    </div>
+
+    ${_isOwnProfile && completionPct < 100 ? `
+    <!-- Profile Completion Nudge -->
+    <div class="profile-completion">
+      <svg width="16" height="16" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <div class="profile-completion__bar-track">
+        <div class="profile-completion__bar-fill" style="width:${completionPct}%;"></div>
+      </div>
+      <span class="profile-completion__text">${completionPct}% complete</span>
+    </div>
+    ` : ''}
 
     <!-- Stats Row -->
     <div class="profile-stats">
       <div class="profile-stat">
+        <span class="profile-stat__icon">⚡</span>
         <div class="profile-stat__value">${fmtNum(p.karma || 0)}</div>
         <div class="profile-stat__label">Karma</div>
       </div>
       <div class="profile-stat">
+        <span class="profile-stat__icon">📝</span>
         <div class="profile-stat__value">${fmtNum(p.posts_count || 0)}</div>
         <div class="profile-stat__label">Posts</div>
       </div>
       <div class="profile-stat">
+        <span class="profile-stat__icon">📚</span>
         <div class="profile-stat__value">${fmtNum(p.notes_uploaded || 0)}</div>
         <div class="profile-stat__label">Notes</div>
       </div>

@@ -14,6 +14,7 @@ import {
   renderEditModal,
   renderPostMenuItems,
   renderOptionsDropdown,
+  renderFeedHeader,
 } from '../components.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -34,13 +35,14 @@ let _clickHandler = null;    // delegated click handler (stored to allow removal
 export function render() {
   const profile = Auth.getProfile();
   return `
+    ${renderFeedHeader()}
     ${renderComposeArea(profile)}
     <div id="feed-list" role="feed" aria-label="Campus feed" aria-busy="true">
       ${skeletonPostCards(4)}
     </div>
     <div id="feed-sentinel" style="height:1px;"></div>
     <div id="feed-end-msg" style="display:none;text-align:center;padding:2rem 0;color:var(--ink-subtle);font-size:.8125rem;font-family:var(--font-heading);">
-      You're all caught up ✓
+      You're all caught up 🎉
     </div>
     ${renderCommentsModal()}
     ${renderReportModal()}
@@ -61,6 +63,11 @@ export async function init() {
   _setupEventDelegation();
   _setupInfiniteScroll();
   _subscribeToFeedUpdates();
+
+  // Search button — shows toast until search feature is built
+  document.getElementById('feed-search-btn')?.addEventListener('click', () => {
+    showToast('Search coming soon! 🔍', 'info', 2500);
+  });
 
   await _loadFeed(true);
 }

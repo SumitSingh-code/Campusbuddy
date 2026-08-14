@@ -1,4 +1,4 @@
-// Campus Wall — DM Page Module
+﻿// Campus Wall — DM Page Module
 // Two-panel SPA: conversation list → thread view.
 // Mobile: single panel at a time (list → thread with back button).
 // Desktop: side-by-side.
@@ -27,6 +27,7 @@ export function render() {
   return `
     <div class="dm-page" id="dm-page">
       <!-- ── Left panel: Conversation List ────────── -->
+      <!-- Left panel: Conversation List -->
       <div class="dm-panel dm-list-panel" id="dm-list-panel">
         <div class="dm-list-header">
           <h2 style="font-family:var(--font-heading);font-size:1.125rem;font-weight:800;">Messages</h2>
@@ -34,22 +35,28 @@ export function render() {
             ${Icons.plus} New
           </button>
         </div>
+        <div class="dm-search-wrap">
+          <input type="search" id="dm-search" class="dm-search-input" placeholder="Search conversations\u2026" autocomplete="off" aria-label="Search conversations">
+        </div>
         <div id="dm-conversations-list">
           <div class="empty-state" style="padding:3rem 1rem;">
             <div class="spinner"></div>
           </div>
         </div>
       </div>
+      </div>
 
       <!-- ── Right panel: Thread View ─────────────── -->
-      <div class="dm-panel dm-thread-panel" id="dm-thread-panel">
-        <div class="dm-empty-state" id="dm-empty-state">
-          <div class="empty-state-icon" style="font-size:3rem;">💬</div>
-          <h3>Your Messages</h3>
-          <p class="text-muted">Select a conversation or start a new one.</p>
-          <button class="btn btn-primary" id="dm-new-btn-2">
+        <div class="dm-empty-prompt" id="dm-empty-state">
+          <div class="dm-empty-prompt__icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="13" y2="14"/></svg>
+          </div>
+          <div class="dm-empty-prompt__title">Your Messages</div>
+          <p class="dm-empty-prompt__sub">Send a private message to any student on Unigram.</p>
+          <button class="btn btn-primary btn-sm" id="dm-new-btn-2">
             ${Icons.plus} Start Conversation
           </button>
+        </div>
         </div>
 
         <!-- Thread (hidden until conversation selected) -->
@@ -128,6 +135,16 @@ export async function init() {
   _setupBackButton();
 
   await _loadConversationList();
+
+  // DM search — client-side filter by name
+  document.getElementById('dm-search')?.addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    const items = document.querySelectorAll('.conv-item');
+    items.forEach(item => {
+      const name = item.querySelector('.conv-name')?.textContent?.toLowerCase() || '';
+      item.style.display = name.includes(q) ? '' : 'none';
+    });
+  });
   _subscribeToConversationList(); // realtime sidebar updates
 }
 
