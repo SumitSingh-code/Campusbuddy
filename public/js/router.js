@@ -72,6 +72,31 @@ registerRoute('/profile', {
   load: () => import('./pages/profile.js'),
 });
 
+registerRoute('/settings', {
+  title: 'Settings — Unigram',
+  load: () => import('./pages/settings.js'),
+});
+
+registerRoute('/about', {
+  title: 'About — Unigram',
+  load: () => import('./pages/about.js'),
+});
+
+registerRoute('/privacy', {
+  title: 'Privacy Policy — Unigram',
+  load: () => import('./pages/privacy.js'),
+});
+
+registerRoute('/terms', {
+  title: 'Terms & Conditions — Unigram',
+  load: () => import('./pages/terms.js'),
+});
+
+registerRoute('/contact', {
+  title: 'Contact Us — Unigram',
+  load: () => import('./pages/contact.js'),
+});
+
 registerRoute('/admin', {
   title: 'Admin Panel — Unigram',
   load: () => import('./pages/admin.js'),

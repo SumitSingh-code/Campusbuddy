@@ -1,4 +1,4 @@
-﻿// Campus Wall — Profile Page
+// Campus Wall — Profile Page
 // Own profile: avatar, name, stats, bio (editable), post history, change password.
 // Other user's profile (hash param ?id=xxx): public read-only view.
 
@@ -123,6 +123,11 @@ export async function init() {
     _setupChangePasswordModal();
     _setupPostScroll();
     await _loadPosts(true);
+    // Auto-open edit modal if coming from Settings "Edit Profile"
+    if (sessionStorage.getItem('profile_open_edit') === '1') {
+      sessionStorage.removeItem('profile_open_edit');
+      _openEditModal();
+    }
   }
 }
 
@@ -132,11 +137,15 @@ function _renderProfile() {
   const p = _profile;
   const initials = (p.full_name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
   const hasAvatar = !!p.avatar_url;
-  const isEmailUser = _isOwnProfile && p.auth_provider === 'email';
 
   document.getElementById('profile-page').innerHTML = `
     <!-- Profile Header -->
-    <div class="profile-header">
+    <div class="profile-header" style="position:relative;">
+      ${_isOwnProfile ? `
+        <a href="#/settings" class="btn btn-ghost btn-icon" style="position:absolute;top:0;right:0;color:var(--ink-muted);" title="Settings" aria-label="Open Settings">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </a>
+      ` : ''}
       <div class="profile-avatar-wrap">
         ${hasAvatar
           ? `<img src="${escHtml(p.avatar_url)}" alt="${escHtml(p.full_name)}" class="avatar avatar--xl profile-avatar-img">`
@@ -148,19 +157,7 @@ function _renderProfile() {
         <div style="margin-top:4px;">${deptPill(p.department)}</div>
         ${p.bio ? `<p class="profile-bio">${escHtml(p.bio)}</p>` : ''}
         <div class="profile-joined text-subtle">Joined ${timeAgo(p.created_at)}</div>
-        ${_isOwnProfile ? `
-          <div class="profile-actions">
-            <button class="btn btn-secondary btn-sm" id="profile-edit-btn">${Icons.edit} Edit</button>
-            ${isEmailUser ? `<button class="btn btn-ghost btn-sm" id="open-change-pw-btn">&#x1F511; Change Password</button>` : ''}
-            ${(p.role === 'moderator' || p.role === 'super_admin') ? `
-              <a href="/admin.html" class="btn btn-sm" style="background:var(--accent);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;">
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                Admin Panel
-              </a>` : ''}
-          </div>
-        ` : ''}
       </div>
-
     </div>
 
     <!-- Stats Row -->
@@ -179,20 +176,13 @@ function _renderProfile() {
       </div>
     </div>
 
-    <!-- Own Posts (own profile only) -->
+    <!-- Own Posts -->
     ${_isOwnProfile ? `
       <div class="profile-section-title">My Posts</div>
       <div id="profile-posts" aria-live="polite">
         <div class="empty-state"><div class="spinner"></div></div>
       </div>
       <div id="profile-posts-sentinel" style="height:1px;"></div>
-      <!-- Sign Out — always reachable on mobile via this page -->
-      <div style="padding:2rem 0 1rem;text-align:center;">
-        <button id="profile-signout-btn" class="btn btn-ghost" style="color:var(--danger);gap:.5rem;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Sign Out
-        </button>
-      </div>
     ` : `
       <div class="empty-state" style="padding:2rem;">
         <p class="text-muted">Posts are visible on the Campus Feed.</p>
@@ -201,33 +191,9 @@ function _renderProfile() {
     `}
   `;
 
-  // Wire edit button
-  document.getElementById('profile-edit-btn')?.addEventListener('click', _openEditModal);
-  document.getElementById('open-change-pw-btn')?.addEventListener('click', () => {
-    document.getElementById('change-pw-modal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    document.getElementById('new-pw-input').value = '';
-    document.getElementById('confirm-pw-input').value = '';
-    document.getElementById('change-pw-error').style.display = 'none';
-    setTimeout(() => document.getElementById('new-pw-input')?.focus(), 100);
-  });
-  // Wire password eye-toggles in modal
+  // Wire eye-toggles on the change-pw modal (opened from Settings)
   _initPwToggles();
-  // Sign Out button (primary mobile logout path)
-  document.getElementById('profile-signout-btn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('profile-signout-btn');
-    if (btn) btn.disabled = true;
-    try {
-      const { Auth: A } = await import('../auth.js');
-      await A.signOut();
-    } catch {
-      // fallback: direct Supabase sign-out
-      const { default: supabase } = await import('../supabase.js');
-      await supabase.auth.signOut();
-      window.location.href = '/auth.html';
-    }
-  });
-
+}
 }
 
 // ─── Own Post History ─────────────────────────────────────────────────────────
