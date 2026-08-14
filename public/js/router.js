@@ -115,6 +115,12 @@ async function loadRoute(route) {
 // Tracks the currently mounted page module so we can call destroy() on navigation.
 let _currentMod = null;
 
+// ─── HTML cache (stale-while-revalidate) ─────────────────────────────────────
+// Keyed by route path → { html: string, time: number }
+const _htmlCache     = new Map();
+const CACHE_TTL      = 5 * 60 * 1000; // 5 minutes
+const NO_CACHE_ROUTES = new Set(['/settings', '/admin']);
+
 export const Router = {
   async init() {
     await this.navigate(window.location.hash || '#/feed');
@@ -145,37 +151,69 @@ export const Router = {
     document.body.style.overflow = '';
 
     document.title = route.title;
-    window.scrollTo(0, 0);
     updateNavActive(path);
 
-    // Brief fade-out for feel
-    content.style.opacity = '0';
+    // ── Cache look-up ────────────────────────────────────────────────────────
+    const cached  = _htmlCache.get(path);
+    const cacheHit = !NO_CACHE_ROUTES.has(path)
+                  && cached !== undefined
+                  && (Date.now() - cached.time) < CACHE_TTL;
 
-    try {
-      const mod  = await loadRoute(route);
-      const html = await mod.render();
-      content.innerHTML = html;
-
-      if (typeof mod.init === 'function') {
-        await mod.init();
-      }
-      _currentMod = mod; // save for teardown on next navigation
-    } catch (err) {
-      console.error('[Router] Render error:', err);
-      content.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">⚠️</div>
-          <h3>Something went wrong</h3>
-          <p>${err.message || 'Failed to load this page.'}</p>
-          <button class="btn btn-secondary btn-sm" onclick="window.location.hash='/feed'">Go to Feed</button>
-        </div>
-      `;
-    }
-
-    requestAnimationFrame(() => {
-      content.style.transition = 'opacity 0.15s ease';
+    if (cacheHit) {
+      // ── CACHE HIT: paint instantly, revalidate in the background ──────────
+      content.style.transition = '';
       content.style.opacity    = '1';
-    });
+      content.innerHTML        = cached.html;
+
+      try {
+        const mod = await loadRoute(route);
+        if (typeof mod.init === 'function') {
+          await mod.init(); // re-fetches fresh data, updates DOM in-place
+        }
+        // Refresh cache with post-init HTML so next visit gets updated markup
+        _htmlCache.set(path, { html: content.innerHTML, time: Date.now() });
+        _currentMod = mod;
+      } catch (err) {
+        console.error('[Router] Revalidation error:', err);
+      }
+    } else {
+      // ── CACHE MISS: existing behavior — skeleton → init → cache ───────────
+      window.scrollTo(0, 0);
+
+      // Brief fade-out for feel
+      content.style.opacity = '0';
+
+      try {
+        const mod  = await loadRoute(route);
+        const html = await mod.render();
+        content.innerHTML = html;
+
+        if (typeof mod.init === 'function') {
+          await mod.init();
+        }
+        _currentMod = mod; // save for teardown on next navigation
+
+        // Store post-init HTML for the next visit (skip no-cache routes)
+        if (!NO_CACHE_ROUTES.has(path)) {
+          _htmlCache.set(path, { html: content.innerHTML, time: Date.now() });
+        }
+      } catch (err) {
+        console.error('[Router] Render error:', err);
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <h3>Something went wrong</h3>
+            <p>${err.message || 'Failed to load this page.'}</p>
+            <button class="btn btn-secondary btn-sm" onclick="window.location.hash='/feed'">Go to Feed</button>
+          </div>
+        `;
+      }
+
+      requestAnimationFrame(() => {
+        content.style.transition = 'opacity 0.15s ease';
+        content.style.opacity    = '1';
+      });
+    }
   },
 };
 
