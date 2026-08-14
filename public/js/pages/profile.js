@@ -194,7 +194,6 @@ function _renderProfile() {
   // Wire eye-toggles on the change-pw modal (opened from Settings)
   _initPwToggles();
 }
-}
 
 // ─── Own Post History ─────────────────────────────────────────────────────────
 

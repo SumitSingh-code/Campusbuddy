@@ -2,7 +2,7 @@
 // Content will be added by the team — static page ready to receive real text.
 
 export function render() {
-  return 
+  return `
     <div class="legal-page">
       <a href="#/settings" class="legal-back">
         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -20,7 +20,7 @@ export function render() {
         </div>
       </div>
     </div>
-  ;
+  `;
 }
 
 export function init() {}
