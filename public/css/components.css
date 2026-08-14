@@ -1858,3 +1858,92 @@ html[data-theme="dark"] .settings-icon-gold { color: #D4AF37; }
   border-radius: 12px; padding: 2rem; text-align: center;
 }
 .legal-placeholder p { font-size: .9375rem; color: var(--ink-muted); margin-bottom: .5rem; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EXPLORE MENU — single-column card list (More / Explore sheet)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Container */
+.explore-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Each row */
+.explore-item {
+  display: flex;
+  align-items: center;
+  gap: .875rem;
+  padding: .875rem 1.125rem;
+  width: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+  text-decoration: none;
+  font-family: inherit;
+  font-size: inherit;
+  transition: background .12s ease;
+  border-bottom: 1px solid var(--border);
+}
+.explore-item:last-child { border-bottom: none; }
+.explore-item:hover,
+.explore-item:focus-visible {
+  background: var(--bg-muted);
+  outline: none;
+}
+.explore-item:active { background: var(--bg-subtle); }
+
+/* Sign-out variant */
+.explore-item--signout { border-bottom: none; }
+
+/* Icon badge — 44x44, rounded square */
+.explore-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity .12s;
+}
+.explore-item:hover .explore-icon { opacity: .9; }
+
+/* Center text block */
+.explore-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.explore-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: .9375rem;
+  color: var(--ink);
+  line-height: 1.25;
+}
+.explore-desc {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: .8rem;
+  color: var(--ink-muted);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chevron */
+.explore-chevron {
+  color: var(--ink-subtle);
+  flex-shrink: 0;
+  opacity: .6;
+}
+.explore-item:hover .explore-chevron { opacity: 1; color: var(--ink-muted); }
+
+/* Dark mode — slightly lighter icon bg tints */
+html[data-theme="dark"] .explore-item { border-bottom-color: var(--border); }
+html[data-theme="dark"] .explore-item:hover { background: var(--bg-muted); }
