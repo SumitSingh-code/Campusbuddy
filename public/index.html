@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -306,6 +306,30 @@
 
       // Initialize router
       Router.init();
+
+      // ── Keepalive ping ──────────────────────────────────────────────────
+      // Vercel free tier cold-starts functions after ~5min of inactivity,
+      // adding 600-1500ms to the first request. Pinging /api/health every
+      // 4 minutes keeps the function warm at zero cost.
+      // Only fires when the tab is visible so background tabs don't waste quota.
+      (function _startKeepalive() {
+        const PING_INTERVAL = 4 * 60 * 1000; // 4 minutes
+        let _pingTimer = null;
+        function _ping() {
+          if (document.visibilityState !== 'hidden') {
+            fetch('/api/health', { method: 'GET', credentials: 'omit' }).catch(() => {});
+          }
+        }
+        function _schedule() {
+          clearInterval(_pingTimer);
+          _pingTimer = setInterval(_ping, PING_INTERVAL);
+        }
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') { _ping(); _schedule(); }
+          else clearInterval(_pingTimer);
+        });
+        _schedule();
+      })();
     }
 
     function _getCount(id) {
