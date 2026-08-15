@@ -5,11 +5,16 @@
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0D1117",
-  "theme_color": "#1B2340",
+  "background_color": "#0D1424",
+  "theme_color": "#0D1424",
   "lang": "en-IN",
   "categories": ["education", "social"],
   "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    },
     {
       "src": "/icons/favicon-16x16.png",
       "sizes": "16x16",
@@ -45,12 +50,14 @@
     {
       "name": "Campus Feed",
       "url": "/#/feed",
-      "description": "Open the campus feed"
+      "description": "Open the campus feed",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Anonymous Feed",
       "url": "/#/anon",
-      "description": "Open the anonymous feed"
+      "description": "Open the anonymous feed",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
