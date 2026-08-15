@@ -145,13 +145,13 @@ export function render() {
         <div class="settings-card">
           <div class="settings-row settings-row--static">
             <span class="settings-row-icon settings-icon-gold">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             </span>
             <span class="settings-row-content">
-              <span class="settings-row-label">Dark Mode</span>
-              <span class="settings-row-sub">Logo-inspired navy &amp; gold</span>
+              <span class="settings-row-label">Light Mode</span>
+              <span class="settings-row-sub">Switch to light theme</span>
             </span>
-            <label class="settings-toggle" aria-label="Toggle dark mode">
+            <label class="settings-toggle" aria-label="Toggle light mode">
               <input type="checkbox" id="settings-dark-toggle" role="switch">
               <span class="settings-toggle-knob"></span>
             </label>
@@ -259,11 +259,12 @@ export async function init() {
   const nameSub = document.getElementById('settings-name-sub');
   if (nameSub) nameSub.textContent = profile.full_name || '—';
 
-  // Dark mode toggle
+  // Theme toggle — ON = light mode, OFF = dark mode (dark is default)
   const darkToggle = document.getElementById('settings-dark-toggle');
   if (darkToggle) {
-    darkToggle.checked = isDark();
-    darkToggle.addEventListener('change', () => applyTheme(darkToggle.checked));
+    // Checked = light mode is active
+    darkToggle.checked = !isDark();
+    darkToggle.addEventListener('change', () => applyTheme(!darkToggle.checked));
   }
 
   // Password row: email vs Google

@@ -237,7 +237,10 @@ export const Router = {
     } else {
       // ── CACHE MISS ────────────────────────────────────────────────────────────
       window.scrollTo(0, 0);
-      content.style.opacity = '0'; // brief fade-out
+      // Slide-up + fade out current page
+      content.style.transition = 'opacity .12s ease, transform .12s ease';
+      content.style.opacity    = '0';
+      content.style.transform  = 'translateY(6px)';
 
       try {
         const mod = await loadRoute(route);
@@ -275,8 +278,11 @@ export const Router = {
       }
 
       requestAnimationFrame(() => {
-        content.style.transition = 'opacity 0.15s ease';
+        content.style.transition = 'opacity .2s ease, transform .2s ease';
+        content.style.transform  = 'translateY(0)';
         content.style.opacity    = '1';
+        // Clean up transform after animation
+        setTimeout(() => { content.style.transform = ''; content.style.transition = ''; }, 220);
       });
 
       // ── Pre-warm all other page modules after first load ─────────────────────
