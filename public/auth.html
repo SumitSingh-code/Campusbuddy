@@ -1,148 +1,567 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Sign in or join Unigram — the unofficial social hub for CRSU students.">
   <title>Sign In — Unigram</title>
-  <meta name="theme-color" content="#1B2340">
+  <meta name="theme-color" content="#0d1424">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/components.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:       #D4AF37;
+      --gold-light: #f0d060;
+      --accent:     #D4AF37;
+      --navy:       #0d1424;
+      --navy-mid:   #1B2340;
+      --navy-card:  rgba(13,20,36,0.82);
+      --border-glass: rgba(212,175,55,0.18);
+      --text:       #e8eaf0;
+      --text-muted: rgba(232,234,240,0.6);
+      --text-subtle:rgba(232,234,240,0.4);
+      --input-bg:   rgba(255,255,255,0.07);
+      --input-border: rgba(255,255,255,0.15);
+      --input-focus: rgba(212,175,55,0.5);
+      --danger:     #f87171;
+      --success:    #4ade80;
+      --info:       #60a5fa;
+      --warning:    #fbbf24;
+      --r:          14px;
+      --r-sm:       8px;
+      --font-head:  'Space Grotesk', sans-serif;
+      --font-body:  'Inter', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-body);
+      color: var(--text);
+      background: var(--navy);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Background ── */
+    #auth-bg {
+      position: fixed; inset: 0; z-index: 0;
+      background: var(--navy);
+      background-image: url('/icons/icon-512.png'); /* fallback tiny */
+      background-size: cover;
+      background-position: center;
+      transition: background-image .4s;
+    }
+    #auth-bg::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(
+        160deg,
+        rgba(13,20,36,0.88) 0%,
+        rgba(13,20,36,0.72) 40%,
+        rgba(13,20,36,0.92) 100%
+      );
+    }
+
+    /* Animated subtle particles */
+    #auth-bg::before {
+      content: '';
+      position: absolute; inset: 0; z-index: 1;
+      background-image:
+        radial-gradient(circle at 20% 50%, rgba(212,175,55,0.06) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(212,175,55,0.04) 0%, transparent 40%);
+      pointer-events: none;
+    }
+
+    /* ── Layout ── */
+    #toast-container {
+      position: fixed; top: 1rem; right: 1rem;
+      z-index: 9999; display: flex; flex-direction: column; gap: .5rem;
+      max-width: min(90vw, 360px);
+    }
+    .toast {
+      padding: .75rem 1rem; border-radius: var(--r-sm);
+      font-size: .875rem; font-family: var(--font-body);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      animation: toastIn .2s ease;
+    }
+    .toast--success { background: rgba(22,101,52,0.85); color: #bbf7d0; }
+    .toast--error   { background: rgba(127,29,29,0.85); color: #fecaca; }
+    .toast--info    { background: rgba(30,58,138,0.85); color: #bfdbfe; }
+    @keyframes toastIn { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:none; } }
+
+    /* ── Splash ── */
+    #splash {
+      position: fixed; inset: 0; z-index: 999;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--navy);
+    }
+    .splash-inner { text-align: center; }
+    .splash-logo {
+      width: 64px; height: 64px; border-radius: 16px;
+      margin: 0 auto 1rem;
+      box-shadow: 0 0 40px rgba(212,175,55,0.3);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 20px rgba(212,175,55,0.2); }
+      50%      { box-shadow: 0 0 40px rgba(212,175,55,0.5); }
+    }
+    .splash-text {
+      font-family: var(--font-head); font-size: .8125rem; font-weight: 600;
+      color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase;
+    }
+    .spinner-ring {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(212,175,55,0.25);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: .75rem auto 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Auth root ── */
+    #auth-root {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem 1rem;
+      padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+
+    /* ── Auth box (view wrapper) ── */
+    .auth-box {
+      width: 100%; max-width: 420px;
+      animation: fadeUp .35s cubic-bezier(.4,0,.2,1) both;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:none; }
+    }
+
+    /* ── Brand header ── */
+    .auth-brand {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1.75rem;
+      padding: 0 .25rem;
+    }
+    .auth-brand__logo {
+      width: 56px; height: 56px; border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(212,175,55,0.3), 0 0 0 1px rgba(212,175,55,0.2);
+      flex-shrink: 0;
+    }
+    .auth-brand__name {
+      font-family: var(--font-head);
+      font-size: 1.625rem; font-weight: 800;
+      color: #fff;
+      letter-spacing: -.02em;
+      line-height: 1.1;
+    }
+    .auth-brand__sub {
+      font-family: var(--font-head);
+      font-size: .75rem; font-weight: 600;
+      color: var(--gold); letter-spacing: .06em;
+      text-transform: uppercase; margin-top: .2rem;
+    }
+    .auth-brand__tagline {
+      font-size: .8125rem;
+      color: var(--text-muted);
+      margin-top: .2rem;
+    }
+    .auth-step-badge {
+      display: inline-flex; align-items: center; gap: .375rem;
+      background: rgba(212,175,55,0.12); border: 1px solid rgba(212,175,55,0.25);
+      color: var(--gold); border-radius: 20px;
+      font-family: var(--font-head); font-size: .7rem; font-weight: 700;
+      letter-spacing: .04em; padding: .2rem .65rem; margin-top: .35rem;
+    }
+
+    /* ── Glass card ── */
+    .auth-card {
+      background: var(--navy-card);
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--r);
+      padding: 1.75rem 1.5rem;
+      box-shadow:
+        0 24px 64px rgba(0,0,0,0.5),
+        0 1px 0 rgba(255,255,255,0.05) inset;
+    }
+
+    /* Card heading */
+    .card-title {
+      font-family: var(--font-head);
+      font-size: 1.25rem; font-weight: 800;
+      color: #fff; margin-bottom: .3rem;
+    }
+    .card-sub {
+      font-size: .8125rem; color: var(--text-muted); margin-bottom: 1.5rem;
+    }
+
+    /* ── Divider ── */
+    .divider-text {
+      display: flex; align-items: center; gap: .75rem;
+      font-size: .72rem; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--text-subtle);
+      margin: 1.25rem 0;
+    }
+    .divider-text::before, .divider-text::after {
+      content: ''; flex: 1; height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* ── Google button ── */
+    .btn-google {
+      display: flex; align-items: center; justify-content: center; gap: .625rem;
+      width: 100%; padding: .7rem 1rem;
+      background: rgba(255,255,255,0.96); color: #1f2937;
+      border: none; border-radius: var(--r-sm);
+      font-family: var(--font-body); font-size: .9375rem; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    }
+    .btn-google:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+    .btn-google:active { transform: none; }
+
+    /* ── Form elements ── */
+    .form-group { margin-bottom: 1rem; }
+    .form-label {
+      display: block;
+      font-size: .8rem; font-weight: 600; letter-spacing: .02em;
+      color: var(--text-muted); margin-bottom: .4rem;
+    }
+    .form-label .req { color: var(--gold); margin-left: 2px; }
+    .form-input, .form-select {
+      width: 100%; padding: .65rem .875rem;
+      background: var(--input-bg);
+      border: 1.5px solid var(--input-border);
+      border-radius: var(--r-sm);
+      color: var(--text);
+      font-family: var(--font-body); font-size: .9375rem;
+      transition: border-color .15s, background .15s;
+      outline: none; -webkit-appearance: none;
+    }
+    .form-input::placeholder { color: var(--text-subtle); }
+    .form-input:focus, .form-select:focus {
+      border-color: rgba(212,175,55,0.6);
+      background: rgba(255,255,255,0.09);
+    }
+    .form-select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right .75rem center;
+      background-size: 18px;
+      padding-right: 2.5rem;
+      cursor: pointer;
+    }
+    .form-select option { background: var(--navy-mid); color: var(--text); }
+    .form-hint {
+      font-size: .75rem; color: var(--text-subtle); margin-top: .3rem; display: block;
+    }
+
+    /* Password wrap */
+    .password-wrap { position: relative; }
+    .password-wrap .form-input { padding-right: 2.75rem; }
+    .pw-toggle {
+      position: absolute; right: .65rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      color: var(--text-subtle); padding: .25rem; display: flex;
+      transition: color .15s;
+    }
+    .pw-toggle:hover { color: var(--text); }
+
+    /* ── Primary button ── */
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      width: 100%; padding: .75rem 1rem;
+      background: linear-gradient(135deg, #D4AF37 0%, #f0c828 100%);
+      color: #0d1424; border: none; border-radius: var(--r-sm);
+      font-family: var(--font-head); font-size: .9375rem; font-weight: 800;
+      cursor: pointer; transition: all .15s; letter-spacing: .01em;
+      box-shadow: 0 4px 16px rgba(212,175,55,0.35);
+    }
+    .btn-primary:hover  { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(212,175,55,0.45); }
+    .btn-primary:active { transform: none; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-primary.btn-loading { opacity: .7; pointer-events: none; }
+
+    /* Ghost / text buttons */
+    .btn-ghost {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-family: var(--font-body);
+      font-size: .8125rem; padding: .3rem .5rem; border-radius: 6px;
+      transition: color .15s, background .15s; text-decoration: none;
+      display: inline-flex; align-items: center; gap: .3rem;
+    }
+    .btn-ghost:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+
+    .btn-secondary {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; padding: .65rem 1rem;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text); border-radius: var(--r-sm);
+      font-family: var(--font-head); font-size: .875rem; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+
+    /* ── Alerts ── */
+    .alert {
+      display: flex; align-items: flex-start; gap: .5rem;
+      padding: .65rem .875rem; border-radius: var(--r-sm);
+      font-size: .8125rem; line-height: 1.5; margin-bottom: .75rem;
+    }
+    .alert--error   { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.25); color: #fca5a5; }
+    .alert--info    { background: rgba(96,165,250,0.1);  border: 1px solid rgba(96,165,250,0.2);  color: #93c5fd; }
+    .alert--warning { background: rgba(251,191,36,0.1);  border: 1px solid rgba(251,191,36,0.2);  color: #fcd34d; }
+    .alert--success { background: rgba(74,222,128,0.1);  border: 1px solid rgba(74,222,128,0.2);  color: #86efac; }
+
+    /* ── Footer link ── */
+    .auth-footer {
+      text-align: center; font-size: .8125rem;
+      color: var(--text-muted); margin-top: 1rem;
+    }
+    .auth-link {
+      background: none; border: none; cursor: pointer;
+      color: var(--gold); font-weight: 700;
+      font-family: var(--font-body); font-size: inherit;
+      padding: 0; text-decoration: none;
+      transition: color .15s;
+    }
+    .auth-link:hover { color: var(--gold-light); }
+
+    /* ── Pending screen ── */
+    .pending-card {
+      text-align: center; padding: 2rem 1.5rem;
+    }
+    .pending-icon {
+      width: 72px; height: 72px;
+      background: rgba(212,175,55,0.1); border: 2px solid rgba(212,175,55,0.25);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.25rem; color: var(--gold);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .pending-title {
+      font-family: var(--font-head); font-size: 1.2rem; font-weight: 800;
+      color: #fff; margin-bottom: .5rem;
+    }
+    .pending-sub {
+      font-size: .875rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.25rem;
+    }
+
+    /* ── Grid ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* ── Disclaimer ── */
+    .disclaimer {
+      display: flex; gap: .5rem; align-items: flex-start;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--r-sm); padding: .625rem .75rem;
+      font-size: .75rem; color: var(--text-subtle); line-height: 1.5;
+      margin: .75rem 0;
+    }
+    .disclaimer svg { flex-shrink: 0; margin-top: 1px; color: var(--info); }
+
+    /* ── Consent ── */
+    .consent-row {
+      display: flex; align-items: flex-start; gap: .5rem;
+      font-size: .8125rem; color: var(--text-muted); line-height: 1.5;
+      margin-bottom: .75rem; cursor: pointer;
+    }
+    .consent-row input[type=checkbox] {
+      flex-shrink: 0; width: 16px; height: 16px;
+      margin-top: 2px; accent-color: var(--gold); cursor: pointer;
+    }
+
+    /* ── Watermark ── */
+    .auth-watermark {
+      text-align: center; margin-top: 1.5rem;
+      font-size: .7rem; color: var(--text-subtle);
+      letter-spacing: .04em;
+    }
+
+    /* ── Scrollbar ── */
+    * { scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.2) transparent; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.2); border-radius: 2px; }
+  </style>
 </head>
 <body>
+
+  <!-- Full-page background (populated by JS from /api/config) -->
+  <div id="auth-bg"></div>
+
   <div id="toast-container" role="region" aria-label="Notifications"></div>
 
   <!-- Loading splash -->
-  <div id="splash" class="auth-page" style="position:fixed;inset:0;z-index:999;background:var(--bg);">
-    <div style="text-align:center">
-      <div class="spinner" style="width:32px;height:32px;margin:0 auto 1rem;"></div>
-      <p class="text-subtle" style="font-family:var(--font-heading);font-size:.875rem;">Loading…</p>
+  <div id="splash">
+    <div class="splash-inner">
+      <img src="/icons/icon-192.png" alt="Unigram" class="splash-logo">
+      <div class="splash-text">Unigram</div>
+      <div class="spinner-ring"></div>
     </div>
   </div>
 
-  <!-- ── Auth views (shown/hidden by JS) ─────────────────────────── -->
-  <main id="auth-root" class="auth-page" style="display:none;">
+  <!-- Auth views -->
+  <main id="auth-root" style="display:none;">
 
-    <!-- VIEW: Login -->
+    <!-- ══ VIEW: Login ══════════════════════════════════════════════════════ -->
     <div id="view-login" class="auth-box" style="display:none;">
       <div class="auth-brand">
-        <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo" id="brand-logo-login">
+        <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo">
         <div>
           <div class="auth-brand__name">Unigram</div>
-          <div class="auth-brand__tagline">CRSU, Jind</div>
+          <div class="auth-brand__sub">CRSU · Jind</div>
+          <div class="auth-brand__tagline">Your campus, connected</div>
         </div>
       </div>
 
       <div class="auth-card">
-        <h1 style="font-size:1.375rem;margin-bottom:.25rem;">Welcome back</h1>
-        <p class="text-muted" style="font-size:.875rem;margin-bottom:1.5rem;">Sign in to your Unigram account</p>
+        <div class="card-title">Welcome back 👋</div>
+        <div class="card-sub">Sign in to your Unigram account</div>
 
-        <!-- Google Sign In -->
-        <button class="btn btn-google btn-full btn-lg" id="btn-google-login" type="button" aria-label="Sign in with Google">
+        <button class="btn-google" id="btn-google-login" type="button" aria-label="Sign in with Google">
           <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           Continue with Google
         </button>
 
-        <div class="divider-text" style="margin:1.5rem 0;">or sign in with email</div>
+        <div class="divider-text">or sign in with email</div>
 
         <form id="form-login" novalidate>
           <div class="form-group">
-            <label class="form-label required" for="login-email">Email</label>
+            <label class="form-label" for="login-email">Email <span class="req">*</span></label>
             <input type="email" id="login-email" class="form-input" placeholder="your.email@example.com" autocomplete="email" required>
           </div>
           <div class="form-group">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem;">
-              <label class="form-label required" for="login-password" style="margin-bottom:0;">Password</label>
-              <button type="button" class="btn btn-ghost btn-sm" id="link-forgot-pw" style="font-size:.75rem;min-height:auto;padding:.25rem .5rem;">Forgot password?</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+              <label class="form-label" for="login-password" style="margin-bottom:0;">Password <span class="req">*</span></label>
+              <button type="button" class="btn-ghost" id="link-forgot-pw" style="font-size:.75rem;padding:.2rem .4rem;">Forgot password?</button>
             </div>
-            <div class="password-wrap"><input type="password" id="login-password" class="form-input" placeholder="••••••••" autocomplete="current-password" required><button type="button" class="pw-toggle" data-target="login-password" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+            <div class="password-wrap">
+              <input type="password" id="login-password" class="form-input" placeholder="••••••••" autocomplete="current-password" required>
+              <button type="button" class="pw-toggle" data-target="login-password" aria-label="Show password">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
           </div>
           <div id="login-error" class="alert alert--error" style="display:none;"></div>
-          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-login" style="margin-bottom:1rem;">Sign In</button>
+          <button type="submit" class="btn-primary" id="btn-login" style="margin-bottom:1rem;">Sign In</button>
         </form>
 
-        <p style="text-align:center;font-size:.875rem;color:var(--ink-muted);">
+        <div class="auth-footer">
           Don't have an account?
-          <button type="button" class="btn btn-ghost btn-sm" id="link-to-signup" style="font-weight:700;color:var(--accent);min-height:auto;padding:.25rem .25rem;">Join Unigram</button>
-        </p>
+          <button type="button" class="auth-link" id="link-to-signup">Join Unigram</button>
+        </div>
       </div>
+
+      <div class="auth-watermark">Unigram · Independent student platform · Not affiliated with CRSU</div>
     </div>
 
-    <!-- VIEW: Sign Up Step 1 (Account Creation) -->
+    <!-- ══ VIEW: Sign Up Step 1 ═════════════════════════════════════════════ -->
     <div id="view-signup-email" class="auth-box" style="display:none;">
       <div class="auth-brand">
         <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo">
         <div>
           <div class="auth-brand__name">Join Unigram</div>
-          <div class="auth-brand__tagline">Step 1 of 2 — Create account</div>
+          <div class="auth-step-badge">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Step 1 of 2 — Create account
+          </div>
         </div>
       </div>
 
       <div class="auth-card">
-        <button type="button" class="btn btn-ghost btn-sm" id="back-from-signup-email" style="margin-bottom:1rem;color:var(--ink-muted);">← Back</button>
+        <button type="button" class="btn-ghost" id="back-from-signup-email" style="margin-bottom:1rem;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Back
+        </button>
 
-        <button class="btn btn-google btn-full" id="btn-google-signup" type="button" aria-label="Continue with Google">
+        <button class="btn-google" id="btn-google-signup" type="button" aria-label="Continue with Google">
           <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           Continue with Google
         </button>
 
-        <div class="divider-text" style="margin:1.25rem 0;">or use email & password</div>
+        <div class="divider-text">or use email &amp; password</div>
 
         <form id="form-signup-email" novalidate>
           <div class="form-group">
-            <label class="form-label required" for="signup-email">Email</label>
+            <label class="form-label" for="signup-email">Email <span class="req">*</span></label>
             <input type="email" id="signup-email" class="form-input" placeholder="your.email@example.com" autocomplete="email" required>
           </div>
           <div class="form-group">
-            <label class="form-label required" for="signup-password">Password</label>
-            <div class="password-wrap"><input type="password" id="signup-password" class="form-input" placeholder="Min. 8 chars with a letter and number" autocomplete="new-password" required><button type="button" class="pw-toggle" data-target="signup-password" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+            <label class="form-label" for="signup-password">Password <span class="req">*</span></label>
+            <div class="password-wrap">
+              <input type="password" id="signup-password" class="form-input" placeholder="Min. 8 chars with a letter and number" autocomplete="new-password" required>
+              <button type="button" class="pw-toggle" data-target="signup-password" aria-label="Show password">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
             <span class="form-hint">At least 8 characters — must include a letter and a number</span>
           </div>
           <div class="form-group">
-            <label class="form-label required" for="signup-confirm">Confirm Password</label>
-            <div class="password-wrap"><input type="password" id="signup-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required><button type="button" class="pw-toggle" data-target="signup-confirm" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+            <label class="form-label" for="signup-confirm">Confirm Password <span class="req">*</span></label>
+            <div class="password-wrap">
+              <input type="password" id="signup-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required>
+              <button type="button" class="pw-toggle" data-target="signup-confirm" aria-label="Show password">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
           </div>
           <div id="signup-email-error" class="alert alert--error" style="display:none;"></div>
-          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-signup-email">Continue →</button>
+          <button type="submit" class="btn-primary" id="btn-signup-email">Continue →</button>
         </form>
       </div>
     </div>
 
-    <!-- VIEW: Sign Up Step 2 (Profile) -->
+    <!-- ══ VIEW: Sign Up Step 2 (Profile) ══════════════════════════════════ -->
     <div id="view-signup-profile" class="auth-box" style="display:none;">
       <div class="auth-brand">
         <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo">
         <div>
           <div class="auth-brand__name">Almost there!</div>
-          <div class="auth-brand__tagline">Step 2 of 2 — Your profile</div>
+          <div class="auth-step-badge">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Step 2 of 2 — Your profile
+          </div>
         </div>
       </div>
 
       <div class="auth-card">
-        <button type="button" id="back-from-signup-profile" class="btn btn-ghost btn-sm" style="margin-bottom:1rem;color:var(--ink-muted);">← Back</button>
-        <div class="alert alert--info" style="font-size:.8125rem;margin-bottom:1.25rem;">
+        <button type="button" id="back-from-signup-profile" class="btn-ghost" style="margin-bottom:1rem;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Back
+        </button>
+
+        <div class="alert alert--info" style="margin-bottom:1.25rem;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           Your details will be verified by an admin before your account is activated. Use your real university info.
         </div>
 
         <form id="form-signup-profile" novalidate>
           <div class="form-group">
-            <label class="form-label required" for="p-full-name">Full Name</label>
+            <label class="form-label" for="p-full-name">Full Name <span class="req">*</span></label>
             <input type="text" id="p-full-name" class="form-input" placeholder="As on your university ID" autocomplete="name" required>
           </div>
           <div class="form-group">
-            <label class="form-label required" for="p-roll">Roll Number</label>
-            <input type="text" id="p-roll" class="form-input" placeholder="e.g. 2021-CS-045" autocomplete="off" style="font-family:var(--font-mono);" required>
+            <label class="form-label" for="p-roll">Roll Number <span class="req">*</span></label>
+            <input type="text" id="p-roll" class="form-input" placeholder="e.g. 2021-CS-045" autocomplete="off" style="font-family:monospace,sans-serif;" required>
           </div>
           <div class="form-group">
-            <label class="form-label required" for="p-dept">Department</label>
-            <input type="text" id="p-dept" class="form-input" placeholder="e.g. Computer Science & Engineering" autocomplete="off" list="dept-list" required>
+            <label class="form-label" for="p-dept">Department <span class="req">*</span></label>
+            <input type="text" id="p-dept" class="form-input" placeholder="e.g. Computer Science &amp; Engineering" autocomplete="off" list="dept-list" required>
             <datalist id="dept-list">
-              <option value="Computer Science & Engineering">
+              <option value="Computer Science &amp; Engineering">
               <option value="Information Technology">
-              <option value="Electronics & Communication Engineering">
+              <option value="Electronics &amp; Communication Engineering">
               <option value="Electrical Engineering">
               <option value="Mechanical Engineering">
               <option value="Civil Engineering">
@@ -159,10 +578,10 @@
               <option value="Political Science">
             </datalist>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div class="grid-2">
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label" for="p-sem">Semester</label>
-              <select id="p-sem" class="form-select" style="background-image:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%236B7280\" stroke-width=\"2\"><polyline points=\"6 9 12 15 18 9\"/></svg>');background-repeat:no-repeat;background-position:right .75rem center;background-size:18px;padding-right:2.5rem;">
+              <select id="p-sem" class="form-select">
                 <option value="">Select</option>
                 <option value="1">1st</option><option value="2">2nd</option>
                 <option value="3">3rd</option><option value="4">4th</option>
@@ -172,54 +591,61 @@
               </select>
             </div>
             <div class="form-group" style="margin-bottom:0">
-              <label class="form-label required" for="p-phone">Phone</label>
-              <input type="tel" id="p-phone" class="form-input" placeholder="10-digit mobile" autocomplete="tel" style="font-family:var(--font-mono);" required>
+              <label class="form-label" for="p-phone">Phone <span class="req">*</span></label>
+              <input type="tel" id="p-phone" class="form-input" placeholder="10-digit mobile" autocomplete="tel" style="font-family:monospace,sans-serif;" required>
             </div>
           </div>
-          <p class="form-hint" style="margin-bottom:1rem;margin-top:.25rem;">Phone number is used for account recovery — never publicly shown.</p>
-          <!-- Legal disclaimer + consent (DPDP Act 2023 / IT Rules 2021 compliance) -->
-          <div class="auth-disclaimer" style="background:rgba(27,35,64,.06);border:1px solid rgba(27,35,64,.12);border-radius:8px;padding:.625rem .875rem;font-size:.75rem;color:var(--ink-muted);display:flex;gap:.5rem;align-items:flex-start;margin:.5rem 0 .75rem;">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Unigram is an independent, student-run platform and is <strong>not officially affiliated with or endorsed by Chaudhary Ranbir Singh University</strong>.
+          <span class="form-hint" style="margin-bottom:1rem;display:block;margin-top:.25rem;">Phone is used for account recovery — never publicly shown.</span>
+
+          <div class="disclaimer">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Unigram is an independent, student-run platform and is <strong>&nbsp;not officially affiliated with or endorsed by Chaudhary Ranbir Singh University</strong>.
           </div>
-          <div style="margin-bottom:.75rem;">
-            <label style="display:flex;align-items:flex-start;gap:.5rem;cursor:pointer;font-size:.8125rem;color:var(--ink-light);line-height:1.5;">
-              <input type="checkbox" id="p-consent" style="margin-top:3px;flex-shrink:0;accent-color:var(--accent);width:15px;height:15px;">
-              <span>I have read and agree to the <a href="/privacy.html" target="_blank" style="color:var(--accent);font-weight:600;">Privacy Policy</a> and <a href="/terms.html" target="_blank" style="color:var(--accent);font-weight:600;">Terms &amp; Conditions</a>.</span>
-            </label>
-          </div>
+
+          <label class="consent-row">
+            <input type="checkbox" id="p-consent">
+            <span>I have read and agree to the <a href="/privacy.html" target="_blank" style="color:var(--gold);font-weight:600;">Privacy Policy</a> and <a href="/terms.html" target="_blank" style="color:var(--gold);font-weight:600;">Terms &amp; Conditions</a>.</span>
+          </label>
+
           <div id="signup-profile-error" class="alert alert--error" style="display:none;"></div>
-          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-signup-profile">Submit for Approval</button>
+          <button type="submit" class="btn-primary" id="btn-signup-profile">Submit for Approval</button>
         </form>
 
-        <p style="font-size:.75rem;color:var(--ink-subtle);text-align:center;margin-top:.75rem;">By joining you agree to our <a href="/guidelines.html" target="_blank" style="color:var(--accent);font-weight:600;">Community Guidelines</a>, <a href="/privacy.html" target="_blank" style="color:var(--accent);font-weight:600;">Privacy Policy</a> &amp; <a href="/terms.html" target="_blank" style="color:var(--accent);font-weight:600;">Terms &amp; Conditions</a>.</p>
+        <div style="font-size:.72rem;color:var(--text-subtle);text-align:center;margin-top:.75rem;">
+          By joining you agree to our <a href="/guidelines.html" target="_blank" style="color:var(--gold);">Community Guidelines</a>, <a href="/privacy.html" target="_blank" style="color:var(--gold);">Privacy Policy</a> &amp; <a href="/terms.html" target="_blank" style="color:var(--gold);">Terms</a>.
+        </div>
       </div>
     </div>
 
-    <!-- VIEW: Pending Approval -->
+    <!-- ══ VIEW: Pending Approval ══════════════════════════════════════════ -->
     <div id="view-pending" class="auth-box" style="display:none;">
-      <div class="pending-screen" style="min-height:auto;padding:2.5rem 1.5rem;">
-        <div class="pending-screen__icon">
-          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
+      <div class="auth-brand">
+        <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo">
+        <div>
+          <div class="auth-brand__name">Unigram</div>
+          <div class="auth-brand__sub">CRSU · Jind</div>
         </div>
-        <h2 class="pending-screen__title" id="pending-name">Your application is being reviewed</h2>
-        <p class="pending-screen__subtitle">
-          An admin from Unigram will verify your details and approve your account shortly.
-          You'll be able to sign in once approved.
-        </p>
-        <div class="alert alert--info" style="text-align:left;font-size:.8125rem;">
-          <div>
-            <strong>What happens next?</strong><br>
-            Approvals typically happen within 24–48 hours. If you used Google to sign up, just sign back in later — there's nothing else to do.
+      </div>
+      <div class="auth-card">
+        <div class="pending-card">
+          <div class="pending-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </div>
+          <div class="pending-title" id="pending-name">Your application is being reviewed</div>
+          <div class="pending-sub">
+            An admin from Unigram will verify your details and approve your account shortly.
+            You'll be able to sign in once approved.
+          </div>
+          <div class="alert alert--info" style="text-align:left;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div><strong>What happens next?</strong><br>Approvals typically happen within 24–48 hours. If you used Google to sign up, just sign back in later.</div>
+          </div>
+          <button type="button" class="btn-secondary" id="btn-sign-out-pending" style="margin-top:1rem;">Sign Out</button>
         </div>
-        <button type="button" class="btn btn-secondary btn-full" id="btn-sign-out-pending" style="margin-top:1rem;">Sign Out</button>
       </div>
     </div>
 
-    <!-- VIEW: Forgot Password -->
+    <!-- ══ VIEW: Forgot Password ═══════════════════════════════════════════ -->
     <div id="view-forgot-pw" class="auth-box" style="display:none;">
       <div class="auth-brand">
         <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo">
@@ -228,30 +654,31 @@
           <div class="auth-brand__tagline">Admin-verified recovery</div>
         </div>
       </div>
-
       <div class="auth-card">
-        <button type="button" class="btn btn-ghost btn-sm" id="back-from-forgot" style="margin-bottom:1rem;color:var(--ink-muted);">← Back to Login</button>
-
-        <div class="alert alert--info" style="font-size:.8125rem;margin-bottom:1.25rem;">
-          Password resets are processed manually by a Unigram admin to protect account security. Enter your roll number and the phone number on your account.
+        <button type="button" class="btn-ghost" id="back-from-forgot" style="margin-bottom:1rem;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Back to Login
+        </button>
+        <div class="alert alert--info" style="margin-bottom:1.25rem;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Password resets are processed manually by a Unigram admin. Enter your roll number and the phone number on your account.
         </div>
-
         <form id="form-forgot-pw" novalidate>
           <div class="form-group">
-            <label class="form-label required" for="forgot-roll">Roll Number</label>
-            <input type="text" id="forgot-roll" class="form-input" placeholder="e.g. 2021-CS-045" style="font-family:var(--font-mono);" autocomplete="off" required>
+            <label class="form-label" for="forgot-roll">Roll Number <span class="req">*</span></label>
+            <input type="text" id="forgot-roll" class="form-input" placeholder="e.g. 2021-CS-045" style="font-family:monospace,sans-serif;" autocomplete="off" required>
           </div>
           <div class="form-group">
-            <label class="form-label required" for="forgot-phone">Phone Number</label>
-            <input type="tel" id="forgot-phone" class="form-input" placeholder="10-digit mobile" style="font-family:var(--font-mono);" required>
+            <label class="form-label" for="forgot-phone">Phone Number <span class="req">*</span></label>
+            <input type="tel" id="forgot-phone" class="form-input" placeholder="10-digit mobile" style="font-family:monospace,sans-serif;" required>
           </div>
           <div id="forgot-msg" class="alert" style="display:none;"></div>
-          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-forgot-submit">Submit Request</button>
+          <button type="submit" class="btn-primary" id="btn-forgot-submit">Submit Request</button>
         </form>
       </div>
     </div>
 
-    <!-- VIEW: Change Password (forced) -->
+    <!-- ══ VIEW: Change Password (forced) ══════════════════════════════════ -->
     <div id="view-change-pw" class="auth-box" style="display:none;">
       <div class="auth-brand">
         <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo">
@@ -260,23 +687,32 @@
           <div class="auth-brand__tagline">Choose a secure password</div>
         </div>
       </div>
-
       <div class="auth-card">
-        <div class="alert alert--warning" style="font-size:.8125rem;margin-bottom:1.25rem;">
+        <div class="alert alert--warning" style="margin-bottom:1.25rem;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           An admin set a temporary password for you. Please set your own password before continuing.
         </div>
-
         <form id="form-change-pw" novalidate>
           <div class="form-group">
-            <label class="form-label required" for="new-password">New Password</label>
-            <div class="password-wrap"><input type="password" id="new-password" class="form-input" placeholder="Min. 8 chars — letter + number" autocomplete="new-password" required><button type="button" class="pw-toggle" data-target="new-password" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+            <label class="form-label" for="new-password">New Password <span class="req">*</span></label>
+            <div class="password-wrap">
+              <input type="password" id="new-password" class="form-input" placeholder="Min. 8 chars — letter + number" autocomplete="new-password" required>
+              <button type="button" class="pw-toggle" data-target="new-password" aria-label="Show password">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
           </div>
           <div class="form-group">
-            <label class="form-label required" for="new-password-confirm">Confirm Password</label>
-            <div class="password-wrap"><input type="password" id="new-password-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required><button type="button" class="pw-toggle" data-target="new-password-confirm" aria-label="Show password"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+            <label class="form-label" for="new-password-confirm">Confirm Password <span class="req">*</span></label>
+            <div class="password-wrap">
+              <input type="password" id="new-password-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required>
+              <button type="button" class="pw-toggle" data-target="new-password-confirm" aria-label="Show password">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
           </div>
           <div id="change-pw-error" class="alert alert--error" style="display:none;"></div>
-          <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-change-pw-submit">Update Password</button>
+          <button type="submit" class="btn-primary" id="btn-change-pw-submit">Update Password</button>
         </form>
       </div>
     </div>
@@ -286,6 +722,20 @@
   <script type="module">
     import Auth from '/js/auth.js';
     import { showToast, validatePhone, validateEmail, validatePassword } from '/js/utils.js';
+
+    // ── Load cover photo from /api/config and apply as background ──────────
+    (async () => {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const cfg = await res.json();
+          if (cfg.profile_cover_url) {
+            const bg = document.getElementById('auth-bg');
+            bg.style.backgroundImage = `url('${cfg.profile_cover_url}')`;
+          }
+        }
+      } catch (_) { /* fallback to default bg */ }
+    })();
 
     // ── View switching ────────────────────────────────────────────────────────
     const views = ['login','signup-email','signup-profile','pending','forgot-pw','change-pw'];
@@ -305,10 +755,6 @@
 
       if (!user) { showView('login'); return; }
 
-      // User has auth session but no profile row — could be:
-      //   (a) Google OAuth just completed and needs profile details, OR
-      //   (b) Previous email signup where the profile INSERT failed (orphaned auth user)
-      // Either way: show the profile form so they can complete/retry registration.
       if (!profile) {
         showView('signup-profile');
         const msgEl = document.getElementById('signup-profile-error');
@@ -317,7 +763,6 @@
         return;
       }
 
-      // Has profile — check status
       if (profile.status === 'pending') {
         document.getElementById('pending-name').textContent =
           `Hi ${profile.full_name?.split(' ')[0] || ''}! Your application is being reviewed.`;
@@ -344,7 +789,6 @@
         return;
       }
 
-      // All good — redirect to main app
       window.location.href = '/index.html';
     }
 
@@ -355,7 +799,7 @@
       showView('login');
     });
 
-    // ── Stored intermediate state (email/pass before profile step) ───────────
+    // ── Stored intermediate state ─────────────────────────────────────────────
     let _pendingEmailCreds = null;
 
     // ── Navigation buttons ────────────────────────────────────────────────────
@@ -364,9 +808,6 @@
     document.getElementById('link-forgot-pw').addEventListener('click', () => showView('forgot-pw'));
     document.getElementById('back-from-forgot').addEventListener('click', () => showView('login'));
 
-    // Back from Step 2 (profile form):
-    // — Email flow: return to Step 1 (email/password entry)
-    // — Google / orphaned user: sign out and return to login
     document.getElementById('back-from-signup-profile')?.addEventListener('click', async () => {
       if (_pendingEmailCreds) {
         showView('signup-email');
@@ -375,7 +816,7 @@
       }
     });
 
-    // ── Google OAuth ─────────────────────────────────────────────────────────
+    // ── Google OAuth ──────────────────────────────────────────────────────────
     ['btn-google-login','btn-google-signup'].forEach(id => {
       document.getElementById(id)?.addEventListener('click', async () => {
         try { await Auth.signInWithGoogle(); }
@@ -402,8 +843,6 @@
         const { profile } = await Auth.signInWithEmail(email, password);
 
         if (!profile) {
-          // Auth user exists but profile row is missing (orphaned signup).
-          // Route to profile form so they can complete registration.
           showView('signup-profile');
           const msgEl = document.getElementById('signup-profile-error');
           msgEl.textContent = 'Account setup was incomplete. Please fill in your details to finish registration.';
@@ -425,7 +864,6 @@
           await Auth.signOut();
           return;
         }
-        // Fallback
         window.location.href = '/index.html';
       } catch (err) {
         errEl.textContent = err.message;
@@ -489,14 +927,11 @@
 
       try {
         if (_pendingEmailCreds) {
-          // Email signup
           await Auth.signUpWithEmail(_pendingEmailCreds.email, _pendingEmailCreds.password, profileData);
           _pendingEmailCreds = null;
         } else {
-          // Google signup (user already authenticated)
           await Auth.completeProfile(profileData);
         }
-
         showView('pending');
         showToast('Application submitted! You\'ll be notified once approved.', 'success', 5000);
       } catch (err) {
@@ -574,22 +1009,22 @@
     document.getElementById('btn-sign-out-pending').addEventListener('click', async () => {
       await Auth.signOut();
     });
-  
-      // Password show/hide toggles
-      (function() {
-        const eyeOn  = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
-        const eyeOff = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-        document.querySelectorAll('.pw-toggle').forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            var inp = document.getElementById(btn.dataset.target);
-            if (!inp) return;
-            var hidden = inp.type === 'password';
-            inp.type = hidden ? 'text' : 'password';
-            btn.innerHTML = hidden ? eyeOff : eyeOn;
-            btn.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
-          });
+
+    // ── Password show/hide toggles ────────────────────────────────────────────
+    (function() {
+      const eyeOn  = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+      const eyeOff = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+      document.querySelectorAll('.pw-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var inp = document.getElementById(btn.dataset.target);
+          if (!inp) return;
+          var hidden = inp.type === 'password';
+          inp.type = hidden ? 'text' : 'password';
+          btn.innerHTML = hidden ? eyeOff : eyeOn;
+          btn.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
         });
-      })();
-    </script>
+      });
+    })();
+  </script>
 </body>
 </html>
