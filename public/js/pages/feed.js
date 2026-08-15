@@ -497,8 +497,26 @@ function _closeDropdown() {
 }
 
 function _copyPostLink(postId) {
-  const url = `${window.location.origin}/#/post/${postId}`;
-  navigator.clipboard?.writeText(url).then(() => showToast('Link copied!', 'success', 1800));
+  const url = `${window.location.origin}/#/feed?post=${postId}`;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('Link copied!', 'success', 1800))
+      .catch(() => _fallbackCopy(url));
+  } else {
+    _fallbackCopy(url);
+  }
+}
+function _fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('Link copied!', 'success', 1800);
+  } catch { showToast('Could not copy link.', 'error'); }
+  ta.remove();
 }
 
 // ─── Delete Post ──────────────────────────────────────────────────────────────

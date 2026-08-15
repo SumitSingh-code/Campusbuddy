@@ -59,6 +59,14 @@ try {
 }
 
 try {
+  app.use('/api/contributors', require('../src/routes/contributors'));
+  console.log('[Startup] OK: /api/contributors');
+} catch (e) {
+  console.error('[Startup] FAILED /api/contributors:', e.message);
+  app.use('/api/contributors', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'contributors', detail: e.message }));
+}
+
+try {
   app.use('/api/dm', require('../src/routes/dm'));
   console.log('[Startup] OK: /api/dm');
 } catch (e) {

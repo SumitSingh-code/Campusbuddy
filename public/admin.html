@@ -725,6 +725,10 @@
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         Branding
       </button>
+      <button class="admin-nav-item" data-section="contributors" id="nav-contributors">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Contribution Wall
+      </button>
 
       <div class="admin-sidebar-footer">
         <div class="sidebar-dark-row">
@@ -910,6 +914,59 @@
               background:var(--adm-gold);color:#1B2340;font-weight:700;
               font-size:.9375rem;cursor:pointer;opacity:.5;transition:.2s;
             ">Upload &amp; Apply Cover</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ CONTRIBUTION WALL PANEL ═══ -->
+      <div class="section-panel" id="panel-contributors">
+        <div class="admin-section-header">
+          <div>
+            <h2>🏆 Contribution Wall</h2>
+            <p style="color:var(--adm-text-muted);font-size:.8125rem;margin-top:.2rem;">Manage contributors shown on the About page.</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-add-contributor">+ Add Contributor</button>
+        </div>
+
+        <div class="admin-section" style="margin-top:1rem;">
+          <div id="contributors-list"><div class="empty-state"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- Add/Edit Contributor Modal -->
+        <div class="modal-overlay" id="contributor-modal" style="display:none;" role="dialog" aria-modal="true">
+          <div class="modal-box" style="max-width:440px;width:90%;background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.35);">
+            <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.5rem;border-bottom:1px solid var(--adm-border);">
+              <h3 id="contributor-modal-title" style="font-family:'Space Grotesk',sans-serif;font-size:1.05rem;font-weight:700;">Add Contributor</h3>
+              <button class="btn btn-ghost btn-icon" id="close-contributor-modal">✕</button>
+            </div>
+            <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:.85rem;">
+              <div>
+                <label class="form-label">Full Name *</label>
+                <input type="text" id="contrib-name" class="form-input" placeholder="e.g. Sumit Singh">
+              </div>
+              <div>
+                <label class="form-label">Role / Title *</label>
+                <input type="text" id="contrib-role" class="form-input" placeholder="e.g. Founder & Developer">
+              </div>
+              <div>
+                <label class="form-label">College / Dept</label>
+                <input type="text" id="contrib-dept" class="form-input" placeholder="e.g. CRSU, Jind">
+              </div>
+              <div>
+                <label class="form-label">How they helped *</label>
+                <textarea id="contrib-detail" class="form-input" rows="3" placeholder="One sentence about their contribution."></textarea>
+              </div>
+              <div>
+                <label class="form-label">Photo URL (optional)</label>
+                <input type="url" id="contrib-photo" class="form-input" placeholder="https://...">
+                <p style="font-size:.72rem;color:var(--adm-text-muted);margin-top:.3rem;">Leave blank to use initials avatar.</p>
+              </div>
+              <div id="contrib-error" class="alert alert--error" style="display:none;"></div>
+              <div style="display:flex;gap:.65rem;justify-content:flex-end;margin-top:1rem;">
+                <button class="btn btn-secondary" id="cancel-contributor">Cancel</button>
+                <button class="btn btn-primary" id="save-contributor">Save</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1161,6 +1218,7 @@
         case 'reports':  /* static */ break;
         case 'admins':   loadAdmins(); break;
         case 'branding': loadBranding(); break;
+        case 'contributors': loadContributors(); break;
       }
     }
 
@@ -1593,6 +1651,99 @@
         btn.disabled = false;
       }
     }
+
+    // ─── Contribution Wall ──────────────────────────────────────────────────────
+    let _editingContributorId = null;
+
+    async function loadContributors() {
+      const list = document.getElementById('contributors-list');
+      if (!list) return;
+      list.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+      try {
+        const res = await fetch('/api/contributors', { headers: { Authorization: `Bearer ${_token}` } });
+        const { data } = await res.json();
+        if (!data || data.length === 0) {
+          list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏆</div><h3>No contributors yet</h3><p>Add the first one!</p></div>';
+          return;
+        }
+        list.innerHTML = data.map(c => `
+          <div style="display:flex;align-items:center;gap:1rem;padding:.85rem;border-bottom:1px solid var(--adm-border);">
+            <div style="width:44px;height:44px;border-radius:12px;background:rgba(212,175,55,.15);display:flex;align-items:center;justify-content:center;font-weight:800;color:#D4AF37;font-size:.9rem;flex-shrink:0;overflow:hidden;">
+              ${c.photo_url ? `<img src="${c.photo_url}" style="width:100%;height:100%;object-fit:cover;">` : c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;color:var(--adm-text);">${c.name}</div>
+              <div style="font-size:.78rem;color:#D4AF37;">${c.role}</div>
+              <div style="font-size:.75rem;color:var(--adm-text-muted);">${c.detail || ''}</div>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-shrink:0;">
+              <button class="btn btn-ghost btn-sm" onclick="editContributor('${c.id}')">Edit</button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--adm-danger);" onclick="deleteContributor('${c.id}')">Delete</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        list.innerHTML = `<div class="alert alert--error">${e.message}</div>`;
+      }
+    }
+
+    window.openContributorModal = function(id = null) {
+      _editingContributorId = id;
+      document.getElementById('contributor-modal-title').textContent = id ? 'Edit Contributor' : 'Add Contributor';
+      ['contrib-name','contrib-role','contrib-dept','contrib-detail','contrib-photo'].forEach(f => { document.getElementById(f).value = ''; });
+      document.getElementById('contrib-error').style.display = 'none';
+      document.getElementById('contributor-modal').style.display = 'flex';
+    };
+
+    window.closeContributorModal = function() {
+      document.getElementById('contributor-modal').style.display = 'none';
+      _editingContributorId = null;
+    };
+
+    window.editContributor = async function(id) {
+      openContributorModal(id);
+      try {
+        const res = await fetch(`/api/contributors/${id}`, { headers: { Authorization: `Bearer ${_token}` } });
+        const { data } = await res.json();
+        if (data) {
+          document.getElementById('contrib-name').value   = data.name || '';
+          document.getElementById('contrib-role').value   = data.role || '';
+          document.getElementById('contrib-dept').value   = data.dept || '';
+          document.getElementById('contrib-detail').value = data.detail || '';
+          document.getElementById('contrib-photo').value  = data.photo_url || '';
+        }
+      } catch(e) {}
+    };
+
+    window.deleteContributor = async function(id) {
+      if (!confirm('Remove this contributor?')) return;
+      await fetch(`/api/contributors/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${_token}` } });
+      loadContributors();
+    };
+
+    window.saveContributor = async function() {
+      const errEl = document.getElementById('contrib-error');
+      errEl.style.display = 'none';
+      const name   = document.getElementById('contrib-name').value.trim();
+      const role   = document.getElementById('contrib-role').value.trim();
+      const dept   = document.getElementById('contrib-dept').value.trim();
+      const detail = document.getElementById('contrib-detail').value.trim();
+      const photo  = document.getElementById('contrib-photo').value.trim();
+      if (!name || !role || !detail) { errEl.textContent = 'Name, Role and Detail are required.'; errEl.style.display = 'block'; return; }
+      const body = JSON.stringify({ name, role, dept, detail, photo_url: photo || null });
+      const url  = _editingContributorId ? `/api/contributors/${_editingContributorId}` : '/api/contributors';
+      const method = _editingContributorId ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_token}` }, body });
+      if (!res.ok) { const e = await res.json(); errEl.textContent = e.error || 'Error'; errEl.style.display = 'block'; return; }
+      closeContributorModal();
+      loadContributors();
+    };
+
+    // Events
+    document.getElementById('btn-add-contributor')?.addEventListener('click', () => openContributorModal());
+    document.getElementById('close-contributor-modal')?.addEventListener('click', closeContributorModal);
+    document.getElementById('cancel-contributor')?.addEventListener('click', closeContributorModal);
+    document.getElementById('save-contributor')?.addEventListener('click', saveContributor);
 
     init().catch(err => {
       console.error('[Admin] Init error:', err);

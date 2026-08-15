@@ -159,6 +159,23 @@ export function render() {
         </div>
       </div>
 
+      <!-- ── COMMUNITY ─────────────────────────────────────────────────── -->
+      <div class="settings-section">
+        <div class="settings-section-label">Community</div>
+        <div class="settings-card">
+          <a class="settings-row" href="#/about">
+            <span class="settings-row-icon" style="background:rgba(212,175,55,.12);color:#D4AF37;">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            <span class="settings-row-content">
+              <span class="settings-row-label">Contribution Wall</span>
+              <span class="settings-row-sub">People who built Unigram</span>
+            </span>
+            ${chevron}
+          </a>
+        </div>
+      </div>
+
       <!-- ── LEGAL ────────────────────────────────────────────────────── -->
       <div class="settings-section">
         <div class="settings-section-label">Legal &amp; Info</div>
@@ -169,7 +186,7 @@ export function render() {
               <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </span>
             <span class="settings-row-content">
-              <span class="settings-row-label">About Unigram</span>
+              <span class="settings-row-label">App Info</span>
             </span>
             ${chevron}
           </a>

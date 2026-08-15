@@ -378,8 +378,10 @@ async function _handleBookmark(btn, postId) {
 function _openPostMenu(triggerBtn, postId, isOwn) {
   _closeDropdown();
 
+  const isAdmin = _isAdmin;
+
   const items = `
-    ${isOwn ? `
+    ${isOwn || isAdmin ? `
       <button class="admin-nav-item" data-action="anon-delete-post" data-post-id="${escHtml(postId)}" style="color:var(--danger);">
         🗑️ Delete post
       </button>
@@ -389,15 +391,10 @@ function _openPostMenu(triggerBtn, postId, isOwn) {
         🚩 Report post
       </button>
     ` : ''}
-    ${_isAdmin ? `
+    ${isAdmin ? `
       <button class="admin-nav-item" data-action="anon-reveal-post" data-post-id="${escHtml(postId)}" style="color:var(--accent);">
         👁️ Reveal author
       </button>
-      ${!isOwn ? `
-        <button class="admin-nav-item" data-action="anon-delete-post" data-post-id="${escHtml(postId)}" style="color:var(--danger);">
-          🗑️ Delete (admin)
-        </button>
-      ` : ''}
     ` : ''}
     <button class="admin-nav-item" data-action="anon-copy-link" data-post-id="${escHtml(postId)}" style="color:var(--ink-muted);">
       🔗 Copy link
@@ -420,8 +417,26 @@ function _openPostMenu(triggerBtn, postId, isOwn) {
 
 function _closeDropdown() { document.getElementById('options-dropdown')?.remove(); }
 function _copyPostLink(postId) {
-  const url = `${window.location.origin}/#/anon-post/${postId}`;
-  navigator.clipboard?.writeText(url).then(() => showToast('Link copied!', 'success', 1800));
+  const url = `${window.location.origin}/#/anon?post=${postId}`;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('Link copied!', 'success', 1800))
+      .catch(() => _fallbackCopy(url));
+  } else {
+    _fallbackCopy(url);
+  }
+}
+function _fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('Link copied!', 'success', 1800);
+  } catch { showToast('Could not copy link.', 'error'); }
+  ta.remove();
 }
 
 async function _deletePost(postId) {
