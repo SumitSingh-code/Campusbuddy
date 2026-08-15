@@ -546,6 +546,52 @@
       display: flex; align-items: center; justify-content: center; padding: 0 3px;
     }
 
+    /* ── Mobile More Drawer ──────────────────────────────────────────────────── */
+    .adm-more-backdrop {
+      display: none;
+      position: fixed; inset: 0; z-index: 290;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(2px);
+    }
+    .adm-more-backdrop.open { display: block; }
+    .adm-more-drawer {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
+      background: var(--adm-sidebar-bg);
+      border-top: 1px solid var(--adm-gold-border);
+      border-radius: 18px 18px 0 0;
+      padding: 0 0 calc(env(safe-area-inset-bottom) + var(--adm-bottom-h));
+      transform: translateY(100%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+    }
+    .adm-more-drawer.open { transform: translateY(0); }
+    .adm-more-handle {
+      width: 36px; height: 4px;
+      background: var(--adm-border);
+      border-radius: 2px;
+      margin: 10px auto 4px;
+    }
+    .adm-more-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .75rem; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--adm-text-muted);
+      padding: .5rem 1.25rem .25rem;
+    }
+    .adm-more-item {
+      display: flex; align-items: center; gap: .875rem;
+      width: 100%; padding: .9rem 1.25rem;
+      border: none; background: none; cursor: pointer;
+      color: var(--adm-nav-txt);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .9375rem; font-weight: 600;
+      text-align: left; transition: background .15s, color .15s;
+    }
+    .adm-more-item:hover, .adm-more-item.active {
+      background: rgba(212,175,55,.08);
+      color: var(--adm-gold);
+    }
+    .adm-more-item svg { flex-shrink: 0; opacity: .7; }
+    .adm-more-item.active svg { opacity: 1; }
+
     /* ═══════════════════════════════════════════════════════════════════════
        RESPONSIVE BREAKPOINTS
        ═══════════════════════════════════════════════════════════════════════ */
@@ -554,16 +600,31 @@
       .admin-sidebar    { display: none; }
       .admin-bottom-nav { display: flex; flex-direction: column; justify-content: center; }
       .admin-main {
-        padding: calc(var(--adm-topbar-h) + .875rem) .875rem calc(var(--adm-bottom-h) + .875rem);
+        padding: calc(var(--adm-topbar-h) + 1rem) 1rem calc(var(--adm-bottom-h) + 1.25rem);
       }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: .5rem; }
-      .stat-card { padding: 1rem .75rem; }
-      .stat-card__value { font-size: 1.5rem; }
-      .admin-section-header h2 { font-size: 1.1rem; }
-      /* Tables scroll horizontally */
-      .table-wrapper { border-radius: 8px; }
+      /* Stats grid: 3 cols on mobile */
+      .stats-grid { grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+      .stat-card { padding: .85rem .5rem; }
+      .stat-card__value { font-size: 1.375rem; }
+      .stat-card__label { font-size: .65rem; }
+      /* Section headers */
+      .admin-section-header { margin-bottom: .75rem; }
+      .admin-section-header h2 { font-size: 1.05rem; }
+      /* Tables — horizontal scroll */
+      .table-wrapper { border-radius: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      /* Cards full-width */
+      .card, .card-body { border-radius: 12px; }
+      /* Branding max-width on mobile */
+      #panel-branding > div { max-width: 100% !important; padding: 0 0 2rem !important; }
       /* Pagination smaller */
-      .pagination { gap: .35rem; }
+      .pagination { gap: .3rem; }
+      .pagination button { padding: .3rem .55rem; font-size: .75rem; }
+      /* Form inputs larger touch targets */
+      .form-input, .form-select { height: 44px; font-size: .9375rem; }
+      /* Buttons */
+      .btn { min-height: 44px; }
+      /* Admin section padding */
+      .admin-section { padding: 0; }
     }
 
     @media (min-width: 768px) {
@@ -876,8 +937,39 @@
           <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           Reports
         </button>
+        <!-- More button — opens slide-up drawer -->
+        <button class="admin-bnav-item" id="bnav-more-btn" aria-label="More options">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          More
+        </button>
       </div>
     </nav>
+
+    <!-- More Drawer (mobile) -->
+    <div class="adm-more-backdrop" id="adm-more-backdrop"></div>
+    <div class="adm-more-drawer" id="adm-more-drawer" role="dialog" aria-label="More options">
+      <div class="adm-more-handle"></div>
+      <div class="adm-more-title">More</div>
+      <button class="adm-more-item" data-section="branding" id="mdrawer-branding">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Branding
+        <span style="font-size:.75rem;opacity:.5;margin-left:auto;">Cover photo</span>
+      </button>
+      <button class="adm-more-item" data-section="admins" id="mdrawer-admins" style="display:none;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Admin Team
+        <span style="font-size:.75rem;opacity:.5;margin-left:auto;">Super admin only</span>
+      </button>
+      <div style="height:1px;background:var(--adm-border);margin:.5rem 1.25rem;"></div>
+      <a href="/index.html" class="adm-more-item">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Back to App
+      </a>
+      <button class="adm-more-item" id="mdrawer-signout">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </button>
+    </div>
 
   </div><!-- /admin-app -->
 
@@ -948,9 +1040,10 @@
       document.getElementById('splash').style.display = 'none';
       document.getElementById('admin-app').style.display = 'flex';
 
-      // Show admin team section for super_admin only
+      // Show admin team section for super_admin only (sidebar + mobile drawer)
       if (Auth.isSuperAdmin()) {
         document.getElementById('nav-admins').style.display = 'flex';
+        document.getElementById('mdrawer-admins').style.display = 'flex';
       }
 
       // Load initial stats
@@ -966,6 +1059,41 @@
         btn.addEventListener('click', () => showSection(btn.dataset.section));
       });
 
+      // More drawer
+      const moreBtn      = document.getElementById('bnav-more-btn');
+      const moreDrawer   = document.getElementById('adm-more-drawer');
+      const moreBackdrop = document.getElementById('adm-more-backdrop');
+
+      function openMoreDrawer() {
+        moreDrawer.classList.add('open');
+        moreBackdrop.classList.add('open');
+        moreBtn.classList.add('active');
+      }
+      function closeMoreDrawer() {
+        moreDrawer.classList.remove('open');
+        moreBackdrop.classList.remove('open');
+        // Only remove active from More btn if current section isn't a drawer section
+        if (!['branding','admins'].includes(window._adminActiveSection)) {
+          moreBtn.classList.remove('active');
+        }
+      }
+
+      moreBtn.addEventListener('click', openMoreDrawer);
+      moreBackdrop.addEventListener('click', closeMoreDrawer);
+
+      // Drawer item navigation
+      document.querySelectorAll('.adm-more-item[data-section]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          closeMoreDrawer();
+          showSection(btn.dataset.section);
+        });
+      });
+
+      // Sign out in drawer
+      document.getElementById('mdrawer-signout')?.addEventListener('click', () => Auth.signOut());
+      // Sign out in sidebar
+      document.getElementById('btn-admin-signout').addEventListener('click', () => Auth.signOut());
+
       // Refresh buttons
       document.getElementById('btn-refresh-stats').addEventListener('click', loadStats);
       document.getElementById('btn-refresh-pending').addEventListener('click', loadPending);
@@ -973,8 +1101,6 @@
       document.getElementById('btn-refresh-resets').addEventListener('click', loadResets);
       document.getElementById('btn-refresh-admins')?.addEventListener('click', loadAdmins);
 
-      // Sign out
-      document.getElementById('btn-admin-signout').addEventListener('click', () => Auth.signOut());
 
       // User search + filter
       let searchTimer;
@@ -995,13 +1121,26 @@
 
     // ── Section navigation ─────────────────────────────────────────────
     function showSection(section) {
+      window._adminActiveSection = section;
       // Update sidebar nav
       document.querySelectorAll('.admin-nav-item[data-section]').forEach(b => b.classList.remove('active'));
       document.querySelector(`.admin-nav-item[data-section="${section}"]`)?.classList.add('active');
 
       // Update bottom nav
+      const drawerSections = ['branding', 'admins'];
       document.querySelectorAll('.admin-bnav-item[data-section]').forEach(b => b.classList.remove('active'));
       document.querySelector(`.admin-bnav-item[data-section="${section}"]`)?.classList.add('active');
+      // Highlight 'More' btn if section lives in the drawer
+      const moreBtn = document.getElementById('bnav-more-btn');
+      if (drawerSections.includes(section)) {
+        moreBtn?.classList.add('active');
+      } else {
+        moreBtn?.classList.remove('active');
+      }
+
+      // Update drawer items
+      document.querySelectorAll('.adm-more-item[data-section]').forEach(b => b.classList.remove('active'));
+      document.querySelector(`.adm-more-item[data-section="${section}"]`)?.classList.add('active');
 
       // Show panel
       document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
