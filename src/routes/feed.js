@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const express = require('express');
 const router = express.Router();
@@ -18,7 +18,7 @@ async function enrichPosts(posts, userId) {
 
   const [{ data: votes }, { data: bookmarks }] = await Promise.all([
     supabaseAdmin
-      .from('votes')
+      .from('user_votes')
       .select('post_id, vote_type')
       .eq('user_id', userId)
       .in('post_id', postIds),
@@ -450,7 +450,7 @@ router.post('/:id/vote', async (req, res) => {
 
     // Upsert (insert or update existing vote)
     const { data: existingVote } = await supabaseAdmin
-      .from('votes')
+      .from('user_votes')
       .select('id, vote_type')
       .eq('post_id', req.params.id)
       .eq('user_id', req.profile.id)
@@ -463,7 +463,7 @@ router.post('/:id/vote', async (req, res) => {
       }
       // Different vote — update
       const { error } = await supabaseAdmin
-        .from('votes')
+        .from('user_votes')
         .update({ vote_type })
         .eq('id', existingVote.id);
       if (error) {
@@ -473,7 +473,7 @@ router.post('/:id/vote', async (req, res) => {
     } else {
       // New vote
       const { error } = await supabaseAdmin
-        .from('votes')
+        .from('user_votes')
         .insert({ post_id: req.params.id, user_id: req.profile.id, vote_type });
       if (error) {
         console.error('[feed POST /:id/vote] insert error:', error);
@@ -500,7 +500,7 @@ router.post('/:id/vote', async (req, res) => {
 router.delete('/:id/vote', async (req, res) => {
   try {
     const { error } = await supabaseAdmin
-      .from('votes')
+      .from('user_votes')
       .delete()
       .eq('post_id', req.params.id)
       .eq('user_id', req.profile.id);
