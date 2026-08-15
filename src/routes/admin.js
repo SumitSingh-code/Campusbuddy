@@ -387,4 +387,126 @@ router.patch('/admins/:id/demote', superAdminGuard, async (req, res) => {
   }
 });
 
+// ─── GET /app-config ─────────────────────────────────────────────────────────
+// Returns global app configuration (cover photo URL etc.)
+// Used by admin panel to show current state.
+
+router.get('/app-config', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('app_config')
+      .select('key, value, updated_at');
+
+    if (error) {
+      console.error('[admin GET /app-config]', error);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Convert rows to object: { profile_cover_url: '...', ... }
+    const config = {};
+    (data || []).forEach(row => { config[row.key] = row.value; });
+    res.json({ data: config });
+  } catch (err) {
+    console.error('[admin GET /app-config]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── POST /cover-photo ────────────────────────────────────────────────────────
+// Upload a new global profile cover photo (adminGuard — moderator+ only).
+// Body: { image_base64: string (data URL), mime_type: string }
+// - Uploads to Supabase Storage bucket 'app-assets'
+// - Updates app_config row 'profile_cover_url'
+// - Deletes the OLD file from storage to free space
+
+router.post('/cover-photo', async (req, res) => {
+  try {
+    const { image_base64, mime_type } = req.body;
+
+    if (!image_base64 || !mime_type) {
+      return res.status(400).json({ error: 'image_base64 and mime_type are required' });
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(mime_type)) {
+      return res.status(400).json({ error: 'Only JPEG, PNG, or WebP images allowed' });
+    }
+
+    // Decode base64 → Buffer
+    const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Size check: max 2MB
+    if (buffer.length > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Image too large. Max 2MB.' });
+    }
+
+    const ext      = mime_type.split('/')[1].replace('jpeg', 'jpg');
+    const filename = `profile-cover-${Date.now()}.${ext}`;
+    const path     = `covers/${filename}`;
+
+    // ── Fetch current cover URL (to delete old file after upload) ─────────────
+    const { data: configRow } = await supabaseAdmin
+      .from('app_config')
+      .select('value')
+      .eq('key', 'profile_cover_url')
+      .single();
+
+    const oldUrl  = configRow?.value || '';
+    // Extract storage path from old URL (format: .../storage/v1/object/public/app-assets/covers/xxx.jpg)
+    const oldPath = oldUrl ? oldUrl.split('/app-assets/')[1] : null;
+
+    // ── Upload new file to Supabase Storage ───────────────────────────────────
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('app-assets')
+      .upload(path, buffer, {
+        contentType: mime_type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('[admin POST /cover-photo] upload error:', uploadError);
+      return res.status(500).json({ error: 'Upload failed: ' + uploadError.message });
+    }
+
+    // ── Get public URL ────────────────────────────────────────────────────────
+    const { data: urlData } = supabaseAdmin.storage
+      .from('app-assets')
+      .getPublicUrl(path);
+
+    const publicUrl = urlData?.publicUrl;
+    if (!publicUrl) {
+      return res.status(500).json({ error: 'Could not get public URL after upload' });
+    }
+
+    // ── Update app_config ─────────────────────────────────────────────────────
+    const { error: configError } = await supabaseAdmin
+      .from('app_config')
+      .update({ value: publicUrl, updated_by: req.profile.id })
+      .eq('key', 'profile_cover_url');
+
+    if (configError) {
+      console.error('[admin POST /cover-photo] config update error:', configError);
+      return res.status(500).json({ error: 'Database error updating config' });
+    }
+
+    // ── Delete old file (non-blocking — failure is logged but not fatal) ──────
+    if (oldPath) {
+      supabaseAdmin.storage
+        .from('app-assets')
+        .remove([oldPath])
+        .then(({ error: delErr }) => {
+          if (delErr) console.warn('[admin POST /cover-photo] old file delete failed:', delErr.message);
+          else console.log('[admin POST /cover-photo] old file deleted:', oldPath);
+        });
+    }
+
+    res.json({ success: true, cover_url: publicUrl });
+  } catch (err) {
+    console.error('[admin POST /cover-photo]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
+

@@ -39,6 +39,9 @@ export function render() {
         <button class="admin-tab-btn" data-tab="admins" id="admins-tab-btn" style="display:none;">
           <span>⚙️</span><span>Admins</span>
         </button>
+        <button class="admin-tab-btn" data-tab="branding">
+          <span>🖼️</span><span>Branding</span>
+        </button>
       </nav>
 
       <!-- Tab content -->
@@ -159,6 +162,7 @@ async function _switchTab(tab) {
       case 'users':     await _loadUsers();     break;
       case 'resets':    await _loadResets();    break;
       case 'admins':    await _loadAdmins();    break;
+      case 'branding':  await _loadBranding();  break;
     }
   } catch (err) {
     content.innerHTML = `<div class="alert alert--error" style="margin:1.5rem;">${escHtml(err.message)}</div>`;
@@ -866,3 +870,192 @@ function _setupModals() {
     if (e.target.id === 'promote-modal') _closePromoteModal();
   });
 }
+
+// ─── Branding Tab ─────────────────────────────────────────────────────────────
+
+async function _loadBranding() {
+  const content = document.getElementById('admin-content');
+
+  // Fetch current cover URL
+  let currentCover = '';
+  try {
+    const res  = await fetch('/api/config');
+    const json = await res.json();
+    currentCover = json.data?.profile_cover_url || '';
+  } catch (_) {}
+
+  content.innerHTML = `
+    <div class="admin-section-header">
+      <h2>🖼️ Branding</h2>
+      <span class="text-subtle" style="font-size:.8125rem;">Global profile cover photo</span>
+    </div>
+
+    <div style="max-width:600px;padding:0 var(--s4) var(--s4);">
+
+      <!-- Current Cover Preview -->
+      <div style="margin-bottom:1.25rem;">
+        <div class="form-label" style="margin-bottom:.5rem;">Current Cover Photo</div>
+        <div id="branding-cover-preview" style="
+          width:100%;
+          height:140px;
+          border-radius:12px;
+          background:${currentCover
+            ? `url('${escHtml(currentCover)}') center/cover no-repeat`
+            : 'linear-gradient(135deg, var(--ink-navy) 0%, #2a3a6e 100%)'};
+          border:1.5px solid var(--border);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          position:relative;
+          overflow:hidden;
+        ">
+          ${!currentCover ? `<span style="color:var(--ink-subtle);font-size:.8125rem;">No cover photo set — default gradient shown</span>` : ''}
+        </div>
+        ${currentCover ? `<p style="font-size:.75rem;color:var(--ink-subtle);margin-top:.4rem;word-break:break-all;">${escHtml(currentCover)}</p>` : ''}
+      </div>
+
+      <!-- Upload New Cover -->
+      <div class="card" style="padding:1.25rem;">
+        <div class="form-label">Upload New Cover Photo</div>
+        <p style="font-size:.8125rem;color:var(--ink-subtle);margin:.25rem 0 1rem;">
+          Accepted: JPG, PNG, WebP &nbsp;·&nbsp; Max size: 2MB &nbsp;·&nbsp;
+          Recommended: <strong>1600 × 400px</strong> (4:1 landscape)<br>
+          The old photo will be <strong>automatically deleted</strong> from storage.
+        </p>
+
+        <!-- File drop zone -->
+        <label id="branding-drop-zone" style="
+          display:block;
+          border:2px dashed var(--border);
+          border-radius:10px;
+          padding:2rem;
+          text-align:center;
+          cursor:pointer;
+          transition:border-color .2s,background .2s;
+          margin-bottom:1rem;
+        " for="branding-file-input">
+          <div id="branding-drop-icon" style="font-size:2rem;margin-bottom:.5rem;">📁</div>
+          <div id="branding-drop-label" style="font-size:.875rem;color:var(--ink-subtle);">
+            Click to choose a file or drag and drop here
+          </div>
+          <input type="file" id="branding-file-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
+        </label>
+
+        <!-- New image preview -->
+        <div id="branding-new-preview" style="display:none;margin-bottom:1rem;">
+          <div class="form-label" style="margin-bottom:.5rem;">New Photo Preview</div>
+          <img id="branding-new-img" src="" alt="New cover preview" style="
+            width:100%;height:140px;object-fit:cover;
+            border-radius:10px;border:1.5px solid var(--border);
+          ">
+          <p id="branding-file-info" style="font-size:.75rem;color:var(--ink-subtle);margin-top:.4rem;"></p>
+        </div>
+
+        <div id="branding-error" class="alert alert--error" style="display:none;margin-bottom:.75rem;font-size:.8125rem;"></div>
+
+        <button class="btn btn-primary" id="branding-upload-btn" disabled style="width:100%;">
+          Upload & Apply Cover Photo
+        </button>
+      </div>
+
+    </div>
+  `;
+
+  // ── Wire up file picker ───────────────────────────────────────────────────
+  const fileInput  = document.getElementById('branding-file-input');
+  const dropZone   = document.getElementById('branding-drop-zone');
+  const newPreview = document.getElementById('branding-new-preview');
+  const newImg     = document.getElementById('branding-new-img');
+  const fileInfo   = document.getElementById('branding-file-info');
+  const uploadBtn  = document.getElementById('branding-upload-btn');
+  const errEl      = document.getElementById('branding-error');
+  let   _file      = null;
+
+  function _showFile(file) {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    errEl.style.display = 'none';
+
+    if (!allowed.includes(file.type)) {
+      errEl.textContent = 'Only JPG, PNG, or WebP files are allowed.';
+      errEl.style.display = 'block';
+      uploadBtn.disabled = true;
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      errEl.textContent = 'File is too large. Maximum size is 2MB.';
+      errEl.style.display = 'block';
+      uploadBtn.disabled = true;
+      return;
+    }
+
+    _file = file;
+    const url = URL.createObjectURL(file);
+    newImg.src = url;
+    fileInfo.textContent = `${file.name}  ·  ${(file.size / 1024).toFixed(0)} KB`;
+    newPreview.style.display = 'block';
+    uploadBtn.disabled = false;
+
+    // Update drop zone label
+    document.getElementById('branding-drop-icon').textContent = '✅';
+    document.getElementById('branding-drop-label').textContent = file.name;
+  }
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) _showFile(fileInput.files[0]);
+  });
+
+  // Drag and drop
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--accent)';
+    dropZone.style.background  = 'rgba(var(--accent-rgb),.05)';
+  });
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = '';
+    dropZone.style.background  = '';
+  });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '';
+    dropZone.style.background  = '';
+    if (e.dataTransfer.files[0]) _showFile(e.dataTransfer.files[0]);
+  });
+
+  // ── Upload ────────────────────────────────────────────────────────────────
+  uploadBtn.addEventListener('click', async () => {
+    if (!_file) return;
+
+    uploadBtn.disabled    = true;
+    uploadBtn.textContent = 'Uploading…';
+    errEl.style.display   = 'none';
+
+    try {
+      // Convert file to base64 data URL
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(_file);
+      });
+
+      const { data, error } = await API.post('/admin/cover-photo', {
+        image_base64: base64,
+        mime_type:    _file.type,
+      });
+
+      if (error) throw new Error(error);
+
+      showToast('✅ Cover photo updated! All profiles will show the new cover.', 'success');
+
+      // Reload branding tab to show new cover
+      await _loadBranding();
+
+    } catch (err) {
+      errEl.textContent   = err.message || 'Upload failed. Please try again.';
+      errEl.style.display = 'block';
+      uploadBtn.disabled  = false;
+      uploadBtn.textContent = 'Upload & Apply Cover Photo';
+    }
+  });
+}
+

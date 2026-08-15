@@ -140,6 +140,25 @@ try {
 
 console.log('[Startup] All route mounts attempted.');
 
+// ── Public: App config (cover photo URL, etc.) ───────────────────────────────
+// No auth required. Cached 60s on CDN. Called by profile page on load.
+app.get('/api/config', async (req, res) => {
+  try {
+    const { supabaseAdmin } = require('../src/lib/supabase');
+    const { data, error } = await supabaseAdmin
+      .from('app_config')
+      .select('key, value');
+    if (error) return res.status(500).json({ error: 'DB error' });
+    const config = {};
+    (data || []).forEach(r => { config[r.key] = r.value; });
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json({ data: config });
+  } catch (err) {
+    console.error('[/api/config]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ── Utility endpoints ─────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', ts: new Date().toISOString(), version: '1.0.0' });

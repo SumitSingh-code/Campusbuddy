@@ -1,4 +1,4 @@
-﻿// Campus Wall — Profile Page
+// Campus Wall — Profile Page
 // Own profile: avatar, name, stats, bio (editable), post history, change password.
 // Other user's profile (hash param ?id=xxx): public read-only view.
 
@@ -13,6 +13,7 @@ let _isOwnProfile = false;
 let _postCursor   = null;
 let _hasMorePosts = true;
 let _loadingPosts = false;
+let _coverUrl     = '';  // global cover photo — fetched from /api/config
 
 // ─── Exported API ─────────────────────────────────────────────────────────────
 
@@ -104,13 +105,19 @@ export async function init() {
   _isOwnProfile = !targetId || targetId === myId;
 
   try {
-    if (_isOwnProfile) {
-      const { data } = await API.get('/profile/me');
-      _profile = data;
-    } else {
-      const { data } = await API.get(`/profile/${targetId}`);
-      _profile = data;
-    }
+    // Fetch profile data + app config (cover URL) in parallel
+    const profileReq = _isOwnProfile
+      ? API.get('/profile/me')
+      : API.get(`/profile/${targetId}`);
+
+    const [profileRes, configRes] = await Promise.allSettled([
+      profileReq,
+      fetch('/api/config').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+
+    if (profileRes.status === 'rejected') throw profileRes.reason;
+    _profile  = profileRes.value.data;
+    _coverUrl = configRes.value?.data?.profile_cover_url || '';
   } catch (err) {
     document.getElementById('profile-page').innerHTML =
       `<div class="alert alert--error">${escHtml(err.message)}</div>`;
@@ -150,7 +157,7 @@ function _renderProfile() {
 
   document.getElementById('profile-page').innerHTML = `
     <!-- Cover Banner -->
-    <div class="profile-cover">
+    <div class="profile-cover" ${_coverUrl ? `style="background-image:url('${escHtml(_coverUrl)}');background-size:cover;background-position:center;"` : ''}>
       ${_isOwnProfile ? `
         <a href="#/settings" class="btn btn-ghost profile-cover-gear" title="Settings" aria-label="Open Settings">
           <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
