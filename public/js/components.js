@@ -1,4 +1,4 @@
-﻿// Campus Wall — Shared UI Component Renderers
+// Campus Wall — Shared UI Component Renderers
 // All functions return HTML strings. They are called by page modules
 // and inserted into the DOM via innerHTML.
 import { escHtml, timeAgo, deptPill, avatarHtml, fmtNum, Icons } from './utils.js';
@@ -425,7 +425,7 @@ export function renderAnonPostCard(post, isAdmin = false) {
         </div>
         <button
           class="more-btn"
-          data-action="anon-post-menu"
+          data-action="anon-menu"
           data-post-id="${escHtml(post.id)}"
           data-is-own="${!!post.is_own}"
           aria-label="Post options"

@@ -3,7 +3,7 @@
 
 import API from '../api.js';
 import Auth from '../auth.js';
-import { showToast, escHtml, timeAgo, Icons, fmtBytes } from '../utils.js';
+import { showToast, escHtml, timeAgo, Icons, fmtBytes, showConfirm } from '../utils.js';
 import { uploadToStorage } from '../storage.js';
 
 let _meta = { subjects: [], departments: [], years: [] };
@@ -215,7 +215,7 @@ function _renderPyqCard(f) {
         </div>
       </div>
       <div class="util-card__tags">
-        <span class="badge badge--muted">${escHtml(f.department)}</span>
+        <span class="badge badge--muted">${escHtml(f.department || 'General')}</span>
         ${f.uploader?.full_name ? `<span class="badge badge--accent">By ${escHtml(f.uploader.full_name)}</span>` : ''}
       </div>
       <div class="util-card__actions">
@@ -240,7 +240,8 @@ function _setupPyqActions(listEl) {
 async function _handlePyqClick(e) {
   const btn = e.target.closest('[data-action="delete-pyq"]');
   if (!btn) return;
-  if (!confirm('Delete this PYQ? This cannot be undone.')) return;
+  const ok = await showConfirm('Delete this PYQ? This cannot be undone.', 'Delete');
+  if (!ok) return;
   btn.disabled = true;
   try {
     await API.delete(`/pyq/${btn.dataset.id}`);

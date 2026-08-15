@@ -258,3 +258,84 @@ export function fmtBytes(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/**
+ * showConfirm — In-app styled confirmation dialog (replaces native confirm())
+ * @param {string} message - Main message to show
+ * @param {string} [confirmLabel='Delete'] - Label for confirm button
+ * @param {string} [type='danger'] - 'danger' | 'warning'
+ * @returns {Promise<boolean>}
+ */
+export function showConfirm(message, confirmLabel = 'Delete', type = 'danger') {
+  return new Promise(resolve => {
+    // Remove existing
+    document.getElementById('_confirm_overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = '_confirm_overlay';
+    overlay.style.cssText = `
+      position:fixed;inset:0;z-index:99999;
+      background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+      display:flex;align-items:flex-end;justify-content:center;
+      padding-bottom:env(safe-area-inset-bottom,0);
+      animation:_cf_in .2s ease;
+    `;
+
+    const btnColor = type === 'danger'
+      ? 'background:#E85D4E;color:#fff;'
+      : 'background:#D4AF37;color:#1B2340;';
+
+    overlay.innerHTML = `
+      <style>
+        @keyframes _cf_in  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+        @keyframes _cf_out { from{opacity:1} to{opacity:0} }
+        #_confirm_box {
+          background:var(--surface,#1B2340);border-radius:18px 18px 0 0;
+          padding:1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom,0));
+          width:100%;max-width:480px;
+          box-shadow:0 -8px 40px rgba(0,0,0,.4);
+          font-family:'Space Grotesk','Segoe UI',sans-serif;
+        }
+        #_confirm_box .cf-handle {
+          width:36px;height:4px;border-radius:2px;
+          background:var(--border,rgba(255,255,255,.12));
+          margin:0 auto .85rem;display:block;
+        }
+        #_confirm_box .cf-msg {
+          font-size:.9375rem;color:var(--ink,#fff);
+          line-height:1.5;margin-bottom:1.1rem;text-align:center;
+        }
+        #_confirm_box .cf-btns {
+          display:grid;grid-template-columns:1fr 1fr;gap:.65rem;
+        }
+        #_confirm_box button {
+          padding:.75rem;border:none;border-radius:11px;
+          font-size:.9375rem;font-weight:700;cursor:pointer;
+          font-family:inherit;transition:opacity .15s;
+        }
+        #_confirm_box button:active { opacity:.75; }
+        #_cf_cancel  { background:var(--surface2,rgba(255,255,255,.08));color:var(--ink,#fff); }
+        #_cf_confirm { ${btnColor} }
+      </style>
+      <div id="_confirm_box">
+        <span class="cf-handle"></span>
+        <p class="cf-msg">${message}</p>
+        <div class="cf-btns">
+          <button id="_cf_cancel">Cancel</button>
+          <button id="_cf_confirm">${confirmLabel}</button>
+        </div>
+      </div>
+    `;
+
+    function close(result) {
+      overlay.style.animation = '_cf_out .18s ease forwards';
+      setTimeout(() => overlay.remove(), 180);
+      resolve(result);
+    }
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+    overlay.querySelector('#_cf_cancel').addEventListener('click',  () => close(false));
+    overlay.querySelector('#_cf_confirm').addEventListener('click', () => close(true));
+    document.body.appendChild(overlay);
+  });
+}

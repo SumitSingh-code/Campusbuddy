@@ -4,7 +4,7 @@
 import API from '../api.js';
 import supabase from '../supabase.js';
 import Auth from '../auth.js';
-import { showToast, compressImage, escHtml, timeAgo, fmtNum, skeletonPostCards, Icons } from '../utils.js';
+import { showToast, compressImage, escHtml, timeAgo, fmtNum, skeletonPostCards, Icons, showConfirm } from '../utils.js';
 import {
   renderPostCard,
   renderComment,
@@ -504,7 +504,8 @@ function _copyPostLink(postId) {
 // ─── Delete Post ──────────────────────────────────────────────────────────────
 
 async function _deletePost(postId) {
-  if (!confirm('Delete this post? This cannot be undone.')) return;
+  const ok = await showConfirm('Delete this post? This cannot be undone.', 'Delete Post');
+  if (!ok) return;
   try {
     await API.delete(`/feed/${postId}`);
     const card = document.getElementById(`post-${postId}`);
@@ -629,7 +630,8 @@ async function _submitComment() {
 
 async function _deleteComment(commentId) {
   if (!_activePostId || !commentId) return;
-  if (!confirm('Delete this comment?')) return;
+  const ok = await showConfirm('Delete this comment?', 'Delete');
+  if (!ok) return;
   try {
     await API.delete(`/feed/${_activePostId}/comments/${commentId}`);
     const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);

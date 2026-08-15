@@ -3,7 +3,7 @@
 
 import API from '../api.js';
 import Auth from '../auth.js';
-import { showToast, escHtml, timeAgo, Icons, fmtBytes } from '../utils.js';
+import { showToast, escHtml, timeAgo, Icons, fmtBytes, showConfirm } from '../utils.js';
 import { uploadToStorage } from '../storage.js';
 
 let _page = 1, _hasMore = true, _loading = false;
@@ -218,7 +218,8 @@ async function _handleNoteClick(e) {
   }
 
   if (btn.dataset.action === 'delete-note') {
-    if (!confirm('Delete this notes file?')) return;
+    const ok = await showConfirm('Delete this notes file?', 'Delete');
+    if (!ok) return;
     btn.disabled = true;
     try {
       await API.delete(`/notes/${btn.dataset.id}`);

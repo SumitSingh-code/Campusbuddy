@@ -3,7 +3,7 @@
 
 import API from '../api.js';
 import Auth from '../auth.js';
-import { showToast, escHtml, timeAgo, Icons } from '../utils.js';
+import { showToast, escHtml, timeAgo, Icons, showConfirm } from '../utils.js';
 import { uploadToStorage } from '../storage.js';
 
 let _loading    = false;
@@ -186,7 +186,8 @@ function _setupListActions() {
     const { action, id } = btn.dataset;
 
     if (action === 'close-lf') {
-      if (!confirm('Mark this item as resolved?')) return;
+      const okClose = await showConfirm('Mark this item as resolved?', 'Resolve', 'warning');
+      if (!okClose) return;
       btn.disabled = true;
       try {
         await API.patch(`/lostfound/${id}/close`);
@@ -196,7 +197,8 @@ function _setupListActions() {
     }
 
     if (action === 'delete-lf') {
-      if (!confirm('Delete this post?')) return;
+      const ok = await showConfirm('Delete this post?', 'Delete');
+      if (!ok) return;
       btn.disabled = true;
       try {
         await API.delete(`/lostfound/${id}`);
