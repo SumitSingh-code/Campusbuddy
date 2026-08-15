@@ -51,30 +51,20 @@
     /* ── Background ── */
     #auth-bg {
       position: fixed; inset: 0; z-index: 0;
-      background: var(--navy);
-      background-image: url('/icons/icon-512.png'); /* fallback tiny */
-      background-size: cover;
-      background-position: center;
-      transition: background-image .4s;
+      background: linear-gradient(
+        145deg,
+        #0a1020 0%,
+        #0d1424 40%,
+        #111827 70%,
+        #0a1020 100%
+      );
     }
     #auth-bg::after {
       content: '';
       position: absolute; inset: 0;
-      background: linear-gradient(
-        160deg,
-        rgba(13,20,36,0.88) 0%,
-        rgba(13,20,36,0.72) 40%,
-        rgba(13,20,36,0.92) 100%
-      );
-    }
-
-    /* Animated subtle particles */
-    #auth-bg::before {
-      content: '';
-      position: absolute; inset: 0; z-index: 1;
-      background-image:
-        radial-gradient(circle at 20% 50%, rgba(212,175,55,0.06) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(212,175,55,0.04) 0%, transparent 40%);
+      background:
+        radial-gradient(ellipse at 10% 80%, rgba(212,175,55,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse at 90% 10%, rgba(212,175,55,0.05) 0%, transparent 45%);
       pointer-events: none;
     }
 
@@ -131,56 +121,85 @@
     #auth-root {
       position: relative; z-index: 1;
       min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      padding: 1.5rem 1rem;
-      padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 0 0 2rem;
+      padding-bottom: max(2rem, env(safe-area-inset-bottom));
     }
+
+    /* ── Campus hero banner ── */
+    .auth-campus-hero {
+      width: 100%; height: 200px;
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, #1B2340 0%, #0d1424 100%);
+      flex-shrink: 0;
+    }
+    .auth-campus-hero__img {
+      width: 100%; height: 100%;
+      object-fit: cover; object-position: center 40%;
+      display: none; /* shown by JS when loaded */
+    }
+    .auth-campus-hero__img.loaded { display: block; }
+    .auth-campus-hero__overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(10,16,32,0.35) 0%,
+        rgba(10,16,32,0.15) 40%,
+        rgba(10,16,32,0.75) 100%
+      );
+    }
+    .auth-campus-hero__brand {
+      position: absolute; bottom: 1.25rem; left: 1.25rem;
+      display: flex; align-items: center; gap: .875rem;
+    }
+    .auth-campus-hero__logo {
+      width: 52px; height: 52px; border-radius: 13px;
+      box-shadow: 0 4px 20px rgba(212,175,55,0.4), 0 0 0 2px rgba(212,175,55,0.25);
+      flex-shrink: 0;
+    }
+    .auth-campus-hero__text .name {
+      font-family: var(--font-head); font-size: 1.5rem; font-weight: 800;
+      color: #fff; line-height: 1; letter-spacing: -.02em;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    }
+    .auth-campus-hero__text .sub {
+      font-family: var(--font-head); font-size: .72rem; font-weight: 700;
+      color: var(--gold); letter-spacing: .08em; text-transform: uppercase;
+      margin-top: .2rem;
+    }
+    .auth-campus-hero__text .tag {
+      font-size: .75rem; color: rgba(255,255,255,0.65); margin-top: .1rem;
+    }
+    /* Fallback no-photo state */
+    .auth-campus-hero--nophoto {
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-campus-hero--nophoto .auth-campus-hero__overlay { display: none; }
+    .auth-campus-hero--nophoto .auth-campus-hero__brand {
+      position: relative; bottom: auto; left: auto;
+      flex-direction: column; text-align: center; gap: .625rem;
+    }
+    .auth-campus-hero--nophoto .auth-campus-hero__text .name { font-size: 1.75rem; }
 
     /* ── Auth box (view wrapper) ── */
     .auth-box {
       width: 100%; max-width: 420px;
       animation: fadeUp .35s cubic-bezier(.4,0,.2,1) both;
+      display: flex; flex-direction: column;
     }
     @keyframes fadeUp {
-      from { opacity:0; transform:translateY(20px); }
+      from { opacity:0; transform:translateY(16px); }
       to   { opacity:1; transform:none; }
     }
 
-    /* ── Brand header ── */
+    /* ── Auth card padding (below hero) ── */
+    .auth-card-wrap {
+      padding: 0 1rem 1rem;
+    }
+
+    /* ── Brand header (below hero, inside card-wrap) ── */
     .auth-brand {
-      display: flex; align-items: center; gap: 1rem;
-      margin-bottom: 1.75rem;
-      padding: 0 .25rem;
-    }
-    .auth-brand__logo {
-      width: 56px; height: 56px; border-radius: 14px;
-      box-shadow: 0 4px 24px rgba(212,175,55,0.3), 0 0 0 1px rgba(212,175,55,0.2);
-      flex-shrink: 0;
-    }
-    .auth-brand__name {
-      font-family: var(--font-head);
-      font-size: 1.625rem; font-weight: 800;
-      color: #fff;
-      letter-spacing: -.02em;
-      line-height: 1.1;
-    }
-    .auth-brand__sub {
-      font-family: var(--font-head);
-      font-size: .75rem; font-weight: 600;
-      color: var(--gold); letter-spacing: .06em;
-      text-transform: uppercase; margin-top: .2rem;
-    }
-    .auth-brand__tagline {
-      font-size: .8125rem;
-      color: var(--text-muted);
-      margin-top: .2rem;
-    }
-    .auth-step-badge {
-      display: inline-flex; align-items: center; gap: .375rem;
-      background: rgba(212,175,55,0.12); border: 1px solid rgba(212,175,55,0.25);
-      color: var(--gold); border-radius: 20px;
-      font-family: var(--font-head); font-size: .7rem; font-weight: 700;
-      letter-spacing: .04em; padding: .2rem .65rem; margin-top: .35rem;
+      display: none; /* hidden — hero replaces brand header */
     }
 
     /* ── Glass card ── */
@@ -416,51 +435,6 @@
 
     <!-- ══ VIEW: Login ══════════════════════════════════════════════════════ -->
     <div id="view-login" class="auth-box" style="display:none;">
-      <div class="auth-brand">
-        <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo">
-        <div>
-          <div class="auth-brand__name">Unigram</div>
-          <div class="auth-brand__sub">CRSU · Jind</div>
-          <div class="auth-brand__tagline">Your campus, connected</div>
-        </div>
-      </div>
-
-      <div class="auth-card">
-        <div class="card-title">Welcome back 👋</div>
-        <div class="card-sub">Sign in to your Unigram account</div>
-
-        <button class="btn-google" id="btn-google-login" type="button" aria-label="Sign in with Google">
-          <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          Continue with Google
-        </button>
-
-        <div class="divider-text">or sign in with email</div>
-
-        <form id="form-login" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="login-email">Email <span class="req">*</span></label>
-            <input type="email" id="login-email" class="form-input" placeholder="your.email@example.com" autocomplete="email" required>
-          </div>
-          <div class="form-group">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
-              <label class="form-label" for="login-password" style="margin-bottom:0;">Password <span class="req">*</span></label>
-              <button type="button" class="btn-ghost" id="link-forgot-pw" style="font-size:.75rem;padding:.2rem .4rem;">Forgot password?</button>
-            </div>
-            <div class="password-wrap">
-              <input type="password" id="login-password" class="form-input" placeholder="••••••••" autocomplete="current-password" required>
-              <button type="button" class="pw-toggle" data-target="login-password" aria-label="Show password">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-            </div>
-          </div>
-          <div id="login-error" class="alert alert--error" style="display:none;"></div>
-          <button type="submit" class="btn-primary" id="btn-login" style="margin-bottom:1rem;">Sign In</button>
-        </form>
-
-        <div class="auth-footer">
-          Don't have an account?
-          <button type="button" class="auth-link" id="link-to-signup">Join Unigram</button>
-        </div>
       </div>
 
       <div class="auth-watermark">Unigram · Independent student platform · Not affiliated with CRSU</div>
@@ -468,57 +442,62 @@
 
     <!-- ══ VIEW: Sign Up Step 1 ═════════════════════════════════════════════ -->
     <div id="view-signup-email" class="auth-box" style="display:none;">
-      <div class="auth-brand">
-        <img src="/icons/icon-192.png" alt="Unigram" class="auth-brand__logo">
-        <div>
-          <div class="auth-brand__name">Join Unigram</div>
-          <div class="auth-step-badge">
-            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Step 1 of 2 — Create account
+
+      <!-- Campus Hero -->
+      <div class="auth-campus-hero" id="hero-signup">
+        <img class="auth-campus-hero__img" id="hero-signup-img" alt="CRSU Campus">
+        <div class="auth-campus-hero__overlay"></div>
+        <div class="auth-campus-hero__brand">
+          <img src="/icons/icon-192.png" alt="Unigram" class="auth-campus-hero__logo">
+          <div class="auth-campus-hero__text">
+            <div class="name">Join Unigram</div>
+            <div class="sub" style="background:rgba(212,175,55,0.15);border:1px solid rgba(212,175,55,0.3);border-radius:12px;padding:.15rem .6rem;display:inline-block;margin-top:.3rem;">Step 1 of 2 &mdash; Create account</div>
           </div>
         </div>
       </div>
 
-      <div class="auth-card">
-        <button type="button" class="btn-ghost" id="back-from-signup-email" style="margin-bottom:1rem;">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          Back
-        </button>
+      <div class="auth-card-wrap">
+        <div class="auth-card">
+          <button type="button" class="btn-ghost" id="back-from-signup-email" style="margin-bottom:1rem;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Back
+          </button>
 
-        <button class="btn-google" id="btn-google-signup" type="button" aria-label="Continue with Google">
-          <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          Continue with Google
-        </button>
+          <button class="btn-google" id="btn-google-signup" type="button" aria-label="Continue with Google">
+            <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Continue with Google
+          </button>
 
-        <div class="divider-text">or use email &amp; password</div>
+          <div class="divider-text">or use email &amp; password</div>
 
-        <form id="form-signup-email" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="signup-email">Email <span class="req">*</span></label>
-            <input type="email" id="signup-email" class="form-input" placeholder="your.email@example.com" autocomplete="email" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="signup-password">Password <span class="req">*</span></label>
-            <div class="password-wrap">
-              <input type="password" id="signup-password" class="form-input" placeholder="Min. 8 chars with a letter and number" autocomplete="new-password" required>
-              <button type="button" class="pw-toggle" data-target="signup-password" aria-label="Show password">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
+          <form id="form-signup-email" novalidate>
+            <div class="form-group">
+              <label class="form-label" for="signup-email">Email <span class="req">*</span></label>
+              <input type="email" id="signup-email" class="form-input" placeholder="your.email@example.com" autocomplete="email" required>
             </div>
-            <span class="form-hint">At least 8 characters — must include a letter and a number</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="signup-confirm">Confirm Password <span class="req">*</span></label>
-            <div class="password-wrap">
-              <input type="password" id="signup-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required>
-              <button type="button" class="pw-toggle" data-target="signup-confirm" aria-label="Show password">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
+            <div class="form-group">
+              <label class="form-label" for="signup-password">Password <span class="req">*</span></label>
+              <div class="password-wrap">
+                <input type="password" id="signup-password" class="form-input" placeholder="Min. 8 chars with a letter and number" autocomplete="new-password" required>
+                <button type="button" class="pw-toggle" data-target="signup-password" aria-label="Show password">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <span class="form-hint">At least 8 characters — must include a letter and a number</span>
             </div>
-          </div>
-          <div id="signup-email-error" class="alert alert--error" style="display:none;"></div>
-          <button type="submit" class="btn-primary" id="btn-signup-email">Continue →</button>
-        </form>
+            <div class="form-group">
+              <label class="form-label" for="signup-confirm">Confirm Password <span class="req">*</span></label>
+              <div class="password-wrap">
+                <input type="password" id="signup-confirm" class="form-input" placeholder="Re-enter your password" autocomplete="new-password" required>
+                <button type="button" class="pw-toggle" data-target="signup-confirm" aria-label="Show password">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div id="signup-email-error" class="alert alert--error" style="display:none;"></div>
+            <button type="submit" class="btn-primary" id="btn-signup-email">Continue →</button>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -723,19 +702,32 @@
     import Auth from '/js/auth.js';
     import { showToast, validatePhone, validateEmail, validatePassword } from '/js/utils.js';
 
-    // ── Load cover photo from /api/config and apply as background ──────────
+    // ── Load cover photo and populate hero banners ────────────────────────────
     (async () => {
       try {
         const res = await fetch('/api/config');
         if (res.ok) {
           const cfg = await res.json();
           if (cfg.profile_cover_url) {
-            const bg = document.getElementById('auth-bg');
-            bg.style.backgroundImage = `url('${cfg.profile_cover_url}')`;
+            // Populate all campus hero img elements
+            document.querySelectorAll('.auth-campus-hero__img').forEach(img => {
+              img.src = cfg.profile_cover_url;
+              img.onload = () => img.classList.add('loaded');
+              img.onerror = () => {
+                // Image failed — mark hero as no-photo fallback
+                img.closest('.auth-campus-hero')?.classList.add('auth-campus-hero--nophoto');
+              };
+            });
+          } else {
+            // No photo set — apply fallback style to all heroes
+            document.querySelectorAll('.auth-campus-hero').forEach(h => h.classList.add('auth-campus-hero--nophoto'));
           }
         }
-      } catch (_) { /* fallback to default bg */ }
+      } catch (_) {
+        document.querySelectorAll('.auth-campus-hero').forEach(h => h.classList.add('auth-campus-hero--nophoto'));
+      }
     })();
+
 
     // ── View switching ────────────────────────────────────────────────────────
     const views = ['login','signup-email','signup-profile','pending','forgot-pw','change-pw'];
