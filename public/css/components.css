@@ -1,4 +1,4 @@
-﻿/* ================================================================
+/* ================================================================
    CAMPUS WALL — Components (components.css)
    Import after main.css
    ================================================================ */
@@ -1073,8 +1073,8 @@
 .dm-page {
   display: flex;
   gap: 0;
+  /* Fill available space between top nav and bottom nav exactly */
   height: calc(100vh - var(--nav-height, 64px) - var(--bottom-nav-height, 56px));
-  max-height: 800px;
   overflow: hidden;
 }
 
@@ -1162,15 +1162,34 @@
 .dm-recipient-name   { font-family: var(--font-heading); font-weight: 700; font-size: .9375rem; color: var(--ink); }
 .dm-recipient-dept   { font-size: var(--text-xs); margin-top: 1px; }
 
-/* ── Messages list ───────────────────────────────────────────────── */
+/* ── Thread view (inside dm-thread-panel) ─────────────────────── */
+.dm-thread-view {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;  /* allow flex children to shrink */
+}
+
+/* ── Load older messages bar — sticky at top of message area ——— */
+.dm-load-older-wrap {
+  flex-shrink: 0;
+  text-align: center;
+  padding: .4rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* ── Messages list ─────────────────────────────────────────────── */
 .dm-messages {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: var(--s4);
   display: flex;
   flex-direction: column;
   gap: var(--s2);
-  scroll-behavior: smooth;
+  /* No smooth scroll in CSS — handled by JS with rAF */
+  min-height: 0; /* crucial: allows shrink in flex column */
 }
 
 /* ── Chat bubbles ────────────────────────────────────────────────── */

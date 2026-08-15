@@ -1,4 +1,4 @@
-﻿// Campus Wall — DM Page Module
+// Campus Wall — DM Page Module
 // Two-panel SPA: conversation list → thread view.
 // Mobile: single panel at a time (list → thread with back button).
 // Desktop: side-by-side.
@@ -26,8 +26,8 @@ let _newConvModal     = null;  // reference to modal element
 export function render() {
   return `
     <div class="dm-page" id="dm-page">
-      <!-- ── Left panel: Conversation List ────────── -->
-      <!-- Left panel: Conversation List -->
+
+      <!-- ── Left panel: Conversation List ───────────────────── -->
       <div class="dm-panel dm-list-panel" id="dm-list-panel">
         <div class="dm-list-header">
           <h2 style="font-family:var(--font-heading);font-size:1.125rem;font-weight:800;">Messages</h2>
@@ -44,9 +44,11 @@ export function render() {
           </div>
         </div>
       </div>
-      </div>
 
-      <!-- ── Right panel: Thread View ─────────────── -->
+      <!-- ── Right panel: Thread View ──────────────────────── -->
+      <div class="dm-panel dm-thread-panel" id="dm-thread-panel">
+
+        <!-- Empty state (no conversation selected) -->
         <div class="dm-empty-prompt" id="dm-empty-state">
           <div class="dm-empty-prompt__icon">
             <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="13" y2="14"/></svg>
@@ -57,10 +59,10 @@ export function render() {
             ${Icons.plus} Start Conversation
           </button>
         </div>
-        </div>
 
-        <!-- Thread (hidden until conversation selected) -->
-        <div id="dm-thread-view" style="display:none;height:100%;display:none;flex-direction:column;">
+        <!-- Thread (shown when conversation is selected) -->
+        <div id="dm-thread-view" class="dm-thread-view" style="display:none;">
+          <!-- Thread header -->
           <div class="dm-thread-header">
             <button class="btn btn-ghost btn-icon dm-back-btn" id="dm-back-btn" aria-label="Back to conversations">
               ${Icons.x}
@@ -74,13 +76,15 @@ export function render() {
             </div>
           </div>
 
-          <!-- Load older button -->
-          <div id="dm-load-older-wrap" style="display:none;text-align:center;padding:.5rem;">
+          <!-- Load older button (sticky at top of messages area) -->
+          <div id="dm-load-older-wrap" class="dm-load-older-wrap" style="display:none;">
             <button class="btn btn-ghost btn-sm" id="dm-load-older">Load older messages</button>
           </div>
 
+          <!-- Messages -->
           <div class="dm-messages" id="dm-messages" role="log" aria-live="polite"></div>
 
+          <!-- Compose -->
           <div class="dm-compose-bar">
             <textarea
               id="dm-compose-input"
@@ -96,6 +100,7 @@ export function render() {
           </div>
           <div id="dm-compose-error" class="alert alert--error" style="display:none;margin:.25rem .75rem .5rem;font-size:.8125rem;"></div>
         </div>
+
       </div>
     </div>
 
@@ -224,7 +229,10 @@ async function _openThread(convId) {
 
   // Show thread view, hide empty state
   document.getElementById('dm-empty-state').style.display  = 'none';
-  document.getElementById('dm-thread-view').style.display  = 'flex';
+  const threadView = document.getElementById('dm-thread-view');
+  threadView.style.display = 'flex';
+  threadView.style.flexDirection = 'column';
+  threadView.style.height = '100%';
 
   // Show loading
   const msgEl = document.getElementById('dm-messages');
@@ -293,7 +301,10 @@ function _renderMessage(msg) {
 function _scrollToBottom(smooth = true) {
   const msgEl = document.getElementById('dm-messages');
   if (!msgEl) return;
-  msgEl.scrollTo({ top: msgEl.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  // Use rAF to ensure DOM has painted before measuring scrollHeight
+  requestAnimationFrame(() => {
+    msgEl.scrollTo({ top: msgEl.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  });
 }
 
 function _clearConvBadge(convId) {
