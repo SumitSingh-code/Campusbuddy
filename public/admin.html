@@ -788,6 +788,67 @@
         </div>
       </div>
 
+      <!-- ── BRANDING PANEL ────────────────────────────────────────── -->
+      <div class="section-panel" id="panel-branding">
+        <div class="admin-section-header">
+          <h2>🖼️ Branding</h2>
+          <span style="font-size:.8125rem;opacity:.6;">Global profile cover photo — applies to all users</span>
+        </div>
+        <div style="max-width:600px;padding:0 1.5rem 2rem;">
+
+          <!-- Current cover preview -->
+          <div style="margin-bottom:1.5rem;">
+            <div class="form-label" style="margin-bottom:.5rem;">Current Cover Photo</div>
+            <div id="branding-current-preview" style="
+              width:100%;height:150px;border-radius:12px;
+              background:linear-gradient(135deg,#1B2340 0%,#2a3a6e 100%);
+              border:1.5px solid var(--adm-border);
+              display:flex;align-items:center;justify-content:center;
+              overflow:hidden;position:relative;
+            ">
+              <span id="branding-no-cover-text" style="font-size:.8125rem;opacity:.5;">Loading…</span>
+            </div>
+            <p id="branding-current-url" style="font-size:.72rem;opacity:.5;margin-top:.35rem;word-break:break-all;"></p>
+          </div>
+
+          <!-- Upload card -->
+          <div style="background:var(--adm-card);border:1.5px solid var(--adm-border);border-radius:14px;padding:1.25rem;">
+            <div class="form-label">Upload New Cover Photo</div>
+            <p style="font-size:.8125rem;opacity:.6;margin:.25rem 0 1rem;">
+              Accepted: <strong>JPG, PNG, WebP</strong> &nbsp;·&nbsp; Max: <strong>2 MB</strong><br>
+              Recommended size: <strong>1600 × 400 px</strong> (4:1 landscape)<br>
+              The old file will be <strong>automatically deleted</strong> from storage.
+            </p>
+
+            <!-- Drop zone -->
+            <label id="branding-drop" for="branding-file" style="
+              display:block;border:2px dashed var(--adm-border);
+              border-radius:10px;padding:2rem;text-align:center;
+              cursor:pointer;transition:.2s;margin-bottom:1rem;
+            ">
+              <div id="branding-drop-icon" style="font-size:2rem;margin-bottom:.5rem;">📁</div>
+              <div id="branding-drop-label" style="font-size:.875rem;opacity:.6;">Click to choose or drag &amp; drop here</div>
+              <input type="file" id="branding-file" accept="image/jpeg,image/png,image/webp" style="display:none;">
+            </label>
+
+            <!-- New image preview -->
+            <div id="branding-new-wrap" style="display:none;margin-bottom:1rem;">
+              <div class="form-label" style="margin-bottom:.4rem;">Preview</div>
+              <img id="branding-new-img" src="" alt="cover preview" style="width:100%;height:140px;object-fit:cover;border-radius:10px;border:1.5px solid var(--adm-border);">
+              <p id="branding-file-info" style="font-size:.72rem;opacity:.5;margin-top:.3rem;"></p>
+            </div>
+
+            <div id="branding-err" style="display:none;background:rgba(232,93,78,.15);color:#E85D4E;border-radius:8px;padding:.65rem .9rem;font-size:.8125rem;margin-bottom:.75rem;"></div>
+
+            <button id="branding-upload-btn" disabled style="
+              width:100%;padding:.75rem;border:none;border-radius:10px;
+              background:var(--adm-gold);color:#1B2340;font-weight:700;
+              font-size:.9375rem;cursor:pointer;opacity:.5;transition:.2s;
+            ">Upload &amp; Apply Cover</button>
+          </div>
+        </div>
+      </div>
+
     </main>
 
     <!-- ══ MOBILE BOTTOM NAV ════════════════════════════════════════════ -->
@@ -842,67 +903,6 @@
       <div class="modal__footer">
         <button class="btn btn-secondary" id="btn-cancel-reset">Cancel</button>
         <button class="btn btn-primary" id="btn-submit-reset">Set Password &amp; Resolve</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── BRANDING PANEL ──────────────────────────────────────────────── -->
-  <div class="section-panel" id="panel-branding">
-    <div class="admin-section-header">
-      <h2>🖼️ Branding</h2>
-      <span style="font-size:.8125rem;opacity:.6;">Global profile cover photo — applies to all users</span>
-    </div>
-    <div style="max-width:600px;padding:0 1.5rem 2rem;">
-
-      <!-- Current cover preview -->
-      <div style="margin-bottom:1.5rem;">
-        <div class="form-label" style="margin-bottom:.5rem;">Current Cover Photo</div>
-        <div id="branding-current-preview" style="
-          width:100%;height:150px;border-radius:12px;
-          background:linear-gradient(135deg,#1B2340 0%,#2a3a6e 100%);
-          border:1.5px solid var(--adm-border);
-          display:flex;align-items:center;justify-content:center;
-          overflow:hidden;position:relative;
-        ">
-          <span id="branding-no-cover-text" style="font-size:.8125rem;opacity:.5;">Loading…</span>
-        </div>
-        <p id="branding-current-url" style="font-size:.72rem;opacity:.5;margin-top:.35rem;word-break:break-all;"></p>
-      </div>
-
-      <!-- Upload card -->
-      <div style="background:var(--adm-card);border:1.5px solid var(--adm-border);border-radius:14px;padding:1.25rem;">
-        <div class="form-label">Upload New Cover Photo</div>
-        <p style="font-size:.8125rem;opacity:.6;margin:.25rem 0 1rem;">
-          Accepted: <strong>JPG, PNG, WebP</strong> &nbsp;·&nbsp; Max: <strong>2 MB</strong><br>
-          Recommended size: <strong>1600 × 400 px</strong> (4:1 landscape)<br>
-          The old file will be <strong>automatically deleted</strong> from storage.
-        </p>
-
-        <!-- Drop zone -->
-        <label id="branding-drop" for="branding-file" style="
-          display:block;border:2px dashed var(--adm-border);
-          border-radius:10px;padding:2rem;text-align:center;
-          cursor:pointer;transition:.2s;margin-bottom:1rem;
-        ">
-          <div id="branding-drop-icon" style="font-size:2rem;margin-bottom:.5rem;">📁</div>
-          <div id="branding-drop-label" style="font-size:.875rem;opacity:.6;">Click to choose or drag &amp; drop here</div>
-          <input type="file" id="branding-file" accept="image/jpeg,image/png,image/webp" style="display:none;">
-        </label>
-
-        <!-- New image preview -->
-        <div id="branding-new-wrap" style="display:none;margin-bottom:1rem;">
-          <div class="form-label" style="margin-bottom:.4rem;">Preview</div>
-          <img id="branding-new-img" src="" alt="cover preview" style="width:100%;height:140px;object-fit:cover;border-radius:10px;border:1.5px solid var(--adm-border);">
-          <p id="branding-file-info" style="font-size:.72rem;opacity:.5;margin-top:.3rem;"></p>
-        </div>
-
-        <div id="branding-err" style="display:none;background:rgba(232,93,78,.15);color:#E85D4E;border-radius:8px;padding:.65rem .9rem;font-size:.8125rem;margin-bottom:.75rem;"></div>
-
-        <button id="branding-upload-btn" disabled style="
-          width:100%;padding:.75rem;border:none;border-radius:10px;
-          background:var(--adm-gold);color:#1B2340;font-weight:700;
-          font-size:.9375rem;cursor:pointer;opacity:.5;transition:.2s;
-        ">Upload &amp; Apply Cover</button>
       </div>
     </div>
   </div>
