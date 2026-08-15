@@ -1,4 +1,4 @@
-// Campus Wall — Feed Page Module (Named Campus Feed)
+﻿// Campus Wall — Feed Page Module (Named Campus Feed)
 // Handles compose, infinite scroll, votes, comments, bookmarks, reports, edit.
 
 import API from '../api.js';
@@ -480,13 +480,30 @@ function _openPostMenu(triggerBtn, postId, isOwn, createdAt) {
   const drop = document.getElementById('options-dropdown');
   const rect = triggerBtn.getBoundingClientRect();
 
-  // Position below the trigger button
   const top  = Math.min(rect.bottom + 4, window.innerHeight - 200);
   const left = Math.max(8, Math.min(rect.right - 180, window.innerWidth - 196));
   drop.style.top  = `${top}px`;
   drop.style.left = `${left}px`;
 
-  // Auto-close on scroll or ESC
+  // ─── Direct click handler on dropdown (body-level) ───────────────────
+  // NOTE: Dropdown is in document.body, NOT inside #page-content,
+  // so the page-content event delegation cannot see these clicks.
+  // We attach a one-time direct listener here instead.
+  drop.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    e.stopPropagation();
+    const action = btn.dataset.action;
+    const pid    = btn.dataset.postId || postId;
+    _closeDropdown();
+    switch (action) {
+      case 'edit-post':    _openEditModal(pid); break;
+      case 'delete-post':  await _deletePost(pid); break;
+      case 'report-post':  _openReportModal(pid); break;
+      case 'copy-link':    _copyPostLink(pid); break;
+    }
+  });
+
   const cleanup = () => _closeDropdown();
   window.addEventListener('scroll', cleanup, { once: true, passive: true });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cleanup(); }, { once: true });

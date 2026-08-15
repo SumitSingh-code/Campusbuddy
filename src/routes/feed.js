@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 const express = require('express');
 const router = express.Router();
@@ -250,18 +250,17 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// ─── DELETE /:id — Soft-delete post (owner or admin) ─────────────────────────
+// ─── DELETE /:id — Hard-delete post + storage cleanup ─────────────────────────
 
 router.delete('/:id', async (req, res) => {
   try {
     const { data: post, error: fetchError } = await supabaseAdmin
       .from('posts')
-      .select('id, user_id, status')
+      .select('id, user_id, status, image_url')
       .eq('id', req.params.id)
       .single();
 
     if (fetchError || !post) return res.status(404).json({ error: 'Post not found' });
-    if (post.status === 'deleted') return res.status(404).json({ error: 'Post not found' });
 
     const isOwner = post.user_id === req.profile.id;
     const isAdmin = ['moderator', 'super_admin'].includes(req.profile.role);
@@ -270,14 +269,35 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ error: 'You can only delete your own posts' });
     }
 
+    // Cascade: delete comments, votes, bookmarks first
+    await supabaseAdmin.from('comments').delete().eq('post_id', req.params.id);
+    await supabaseAdmin.from('votes').delete().eq('post_id', req.params.id);
+    await supabaseAdmin.from('bookmarks').delete().eq('post_id', req.params.id);
+
+    // Hard delete the post row from Supabase
     const { error: deleteError } = await supabaseAdmin
       .from('posts')
-      .update({ status: 'deleted' })
+      .delete()
       .eq('id', req.params.id);
 
     if (deleteError) {
       console.error('[feed DELETE /:id]', deleteError);
       return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Clean up image from Supabase Storage (non-blocking)
+    if (post.image_url) {
+      try {
+        const url   = new URL(post.image_url);
+        const parts = url.pathname.split('/post-images/');
+        if (parts[1]) {
+          await supabaseAdmin.storage
+            .from('post-images')
+            .remove([decodeURIComponent(parts[1])]);
+        }
+      } catch (storageErr) {
+        console.warn('[feed DELETE /:id] storage cleanup failed:', storageErr.message);
+      }
     }
 
     res.json({ success: true });
@@ -286,6 +306,7 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 // ─── GET /:id/comments — Paginated comments ───────────────────────────────────
 

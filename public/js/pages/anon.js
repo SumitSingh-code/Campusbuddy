@@ -409,6 +409,21 @@ function _openPostMenu(triggerBtn, postId, isOwn) {
   drop.style.top  = `${top}px`;
   drop.style.left = `${left}px`;
 
+  // ─── Direct click handler (dropdown is in body, not #page-content) ───
+  drop.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    e.stopPropagation();
+    const action = btn.dataset.action;
+    const pid    = btn.dataset.postId || postId;
+    _closeDropdown();
+    switch (action) {
+      case 'anon-delete-post':  await _deletePost(pid); break;
+      case 'anon-report-post':  _openReportModal(pid); break;
+      case 'anon-copy-link':    _copyPostLink(pid); break;
+    }
+  });
+
   window.addEventListener('scroll', _closeDropdown, { once: true, passive: true });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _closeDropdown(); }, { once: true });
 }

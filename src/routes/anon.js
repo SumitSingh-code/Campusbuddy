@@ -212,18 +212,18 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// ─── DELETE /:id — Soft delete (owner or admin) ───────────────────────────────
+// ─── DELETE /:id — Hard delete + storage cleanup ───────────────────────────────
 // No edit endpoint — anonymous posts cannot be edited (protects integrity)
 
 router.delete('/:id', async (req, res) => {
   try {
     const { data: post, error: fetchError } = await supabaseAdmin
       .from('anon_posts')
-      .select('id, user_id, status')
+      .select('id, user_id, status, image_url')
       .eq('id', req.params.id)
       .single();
 
-    if (fetchError || !post || post.status === 'deleted') {
+    if (fetchError || !post) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
@@ -234,14 +234,37 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ error: 'You can only delete your own posts' });
     }
 
+    // Cascade: delete comments, votes, bookmarks
+    await supabaseAdmin.from('anon_comments').delete().eq('post_id', req.params.id);
+    await supabaseAdmin.from('votes').delete().eq('post_id', req.params.id);
+    await supabaseAdmin.from('bookmarks').delete().eq('post_id', req.params.id);
+
+    // Hard delete post row from Supabase
     const { error } = await supabaseAdmin
       .from('anon_posts')
-      .update({ status: 'deleted' })
+      .delete()
       .eq('id', req.params.id);
 
     if (error) {
       console.error('[anon DELETE /:id]', error);
       return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Clean up image from Supabase Storage
+    if (post.image_url) {
+      try {
+        const url   = new URL(post.image_url);
+        // Try both bucket names used historically
+        for (const bucket of ['anon-post-images', 'post-images']) {
+          const parts = url.pathname.split(`/${bucket}/`);
+          if (parts[1]) {
+            await supabaseAdmin.storage.from(bucket).remove([decodeURIComponent(parts[1])]);
+            break;
+          }
+        }
+      } catch (storageErr) {
+        console.warn('[anon DELETE /:id] storage cleanup failed:', storageErr.message);
+      }
     }
 
     res.json({ success: true });
@@ -250,6 +273,7 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 // ─── GET /:id/reveal — Reveal author identity (admin only) ───────────────────
 
