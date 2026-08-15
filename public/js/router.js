@@ -1,4 +1,4 @@
-// Unigram — Client-Side SPA Router
+﻿// Unigram — Client-Side SPA Router
 // Hash-based routing: #/feed, #/anon, #/dm, etc.
 //
 // PERFORMANCE FEATURES:
@@ -84,6 +84,10 @@ registerRoute('/about', {
   load: () => import('./pages/about.js'),
 });
 
+registerRoute('/wall', {
+  title: 'Contribution Wall — Unigram',
+  load: () => import('./pages/wall.js'),
+});
 registerRoute('/privacy', {
   title: 'Privacy Policy — Unigram',
   load: () => import('./pages/privacy.js'),

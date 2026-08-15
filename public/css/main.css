@@ -541,3 +541,25 @@ html[data-theme="dark"] {
 }
 
 html[data-theme="dark"] body { background: var(--bg); color: var(--ink); }
+/* ─── Post options dropdown menu items ─────────────────────────────────── */
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .62rem 1rem;
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: .875rem;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s ease;
+  white-space: nowrap;
+}
+.menu-item:hover { background: var(--surface2); }
+.menu-item svg   { flex-shrink: 0; opacity: .7; }
+.menu-item--danger       { color: var(--danger) !important; }
+.menu-item--danger svg   { opacity: 1; }
+.menu-item--danger:hover { background: rgba(232,93,78,.08); }

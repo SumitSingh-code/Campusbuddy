@@ -1,4 +1,4 @@
-// Campus Wall — Shared UI Component Renderers
+﻿// Campus Wall — Shared UI Component Renderers
 // All functions return HTML strings. They are called by page modules
 // and inserted into the DOM via innerHTML.
 import { escHtml, timeAgo, deptPill, avatarHtml, fmtNum, Icons } from './utils.js';
@@ -149,35 +149,34 @@ export function renderComment(comment, currentUserId) {
  */
 export function renderPostMenuItems(postId, isOwn, isAdmin, createdAt) {
   const ageMs       = Date.now() - new Date(createdAt).getTime();
-  const canEdit     = isOwn && ageMs < 5 * 60 * 1000;
+  const canEdit     = isOwn && ageMs < 15 * 60 * 1000; // 15 min window
   const canDelete   = isOwn || isAdmin;
 
   return `
     ${canEdit ? `
-      <button class="admin-nav-item" data-action="edit-post" data-post-id="${escHtml(postId)}" style="color:var(--ink);">
-        ✏️ Edit post
+      <button class="menu-item" data-action="edit-post" data-post-id="${escHtml(postId)}">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit post
       </button>
     ` : ''}
     ${canDelete ? `
-      <button class="admin-nav-item" data-action="delete-post" data-post-id="${escHtml(postId)}" style="color:var(--danger);">
-        🗑️ Delete post
+      <button class="menu-item menu-item--danger" data-action="delete-post" data-post-id="${escHtml(postId)}">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        Delete post
       </button>
     ` : ''}
     ${!isOwn ? `
-      <button class="admin-nav-item" data-action="report-post" data-post-id="${escHtml(postId)}" style="color:var(--ink-muted);">
-        🚩 Report post
+      <button class="menu-item" data-action="report-post" data-post-id="${escHtml(postId)}">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        Report post
       </button>
     ` : ''}
-    <button class="admin-nav-item" data-action="copy-link" data-post-id="${escHtml(postId)}" style="color:var(--ink-muted);">
-      🔗 Copy link
+    <button class="menu-item" data-action="copy-link" data-post-id="${escHtml(postId)}">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Copy link
     </button>
   `;
 }
-
-// ─── Compose Area ─────────────────────────────────────────────────────────────
-
-// ─── Feed Header ──────────────────────────────────────────────────────────────
-
 export function renderFeedHeader() {
   return `
     <div class="feed-header" id="feed-header">

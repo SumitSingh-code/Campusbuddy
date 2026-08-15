@@ -1,4 +1,4 @@
-// Campus Wall — Anonymous Feed Page Module
+﻿// Campus Wall — Anonymous Feed Page Module
 // Key differences from named feed:
 //   • No author name/dept shown (users see "Anonymous")
 //   • No edit (posts cannot be changed after posting — integrity)
@@ -382,22 +382,20 @@ function _openPostMenu(triggerBtn, postId, isOwn) {
 
   const items = `
     ${isOwn || isAdmin ? `
-      <button class="admin-nav-item" data-action="anon-delete-post" data-post-id="${escHtml(postId)}" style="color:var(--danger);">
-        🗑️ Delete post
+      <button class="menu-item menu-item--danger" data-action="anon-delete-post" data-post-id="${escHtml(postId)}">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        Delete post
       </button>
     ` : ''}
     ${!isOwn ? `
-      <button class="admin-nav-item" data-action="anon-report-post" data-post-id="${escHtml(postId)}" style="color:var(--ink-muted);">
-        🚩 Report post
+      <button class="menu-item" data-action="anon-report-post" data-post-id="${escHtml(postId)}">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        Report post
       </button>
     ` : ''}
-    ${isAdmin ? `
-      <button class="admin-nav-item" data-action="anon-reveal-post" data-post-id="${escHtml(postId)}" style="color:var(--accent);">
-        👁️ Reveal author
-      </button>
-    ` : ''}
-    <button class="admin-nav-item" data-action="anon-copy-link" data-post-id="${escHtml(postId)}" style="color:var(--ink-muted);">
-      🔗 Copy link
+    <button class="menu-item" data-action="anon-copy-link" data-post-id="${escHtml(postId)}">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Copy link
     </button>
   `;
 
@@ -414,7 +412,6 @@ function _openPostMenu(triggerBtn, postId, isOwn) {
   window.addEventListener('scroll', _closeDropdown, { once: true, passive: true });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _closeDropdown(); }, { once: true });
 }
-
 function _closeDropdown() { document.getElementById('options-dropdown')?.remove(); }
 function _copyPostLink(postId) {
   const url = `${window.location.origin}/#/anon?post=${postId}`;

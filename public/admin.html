@@ -1660,25 +1660,24 @@
       if (!list) return;
       list.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
       try {
-        const res = await fetch('/api/contributors', { headers: { Authorization: `Bearer ${_token}` } });
-        const { data } = await res.json();
+        const { data } = await API.get('/contributors');
         if (!data || data.length === 0) {
-          list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏆</div><h3>No contributors yet</h3><p>Add the first one!</p></div>';
+          list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏆</div><h3>No contributors yet</h3><p class="text-muted">Click "+ Add Contributor" to add the first one!</p></div>';
           return;
         }
         list.innerHTML = data.map(c => `
           <div style="display:flex;align-items:center;gap:1rem;padding:.85rem;border-bottom:1px solid var(--adm-border);">
             <div style="width:44px;height:44px;border-radius:12px;background:rgba(212,175,55,.15);display:flex;align-items:center;justify-content:center;font-weight:800;color:#D4AF37;font-size:.9rem;flex-shrink:0;overflow:hidden;">
-              ${c.photo_url ? `<img src="${c.photo_url}" style="width:100%;height:100%;object-fit:cover;">` : c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}
+              ${c.photo_url ? `<img src="${c.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">` : c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}
             </div>
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:700;color:var(--adm-text);">${c.name}</div>
-              <div style="font-size:.78rem;color:#D4AF37;">${c.role}</div>
-              <div style="font-size:.75rem;color:var(--adm-text-muted);">${c.detail || ''}</div>
+              <div style="font-weight:700;color:var(--adm-text);">${escHtml(c.name)}</div>
+              <div style="font-size:.78rem;color:#D4AF37;">${escHtml(c.role)}</div>
+              <div style="font-size:.75rem;color:var(--adm-text-muted);margin-top:.15rem;">${escHtml(c.detail || '')}</div>
             </div>
             <div style="display:flex;gap:.5rem;flex-shrink:0;">
-              <button class="btn btn-ghost btn-sm" onclick="editContributor('${c.id}')">Edit</button>
-              <button class="btn btn-ghost btn-sm" style="color:var(--adm-danger);" onclick="deleteContributor('${c.id}')">Delete</button>
+              <button class="btn btn-ghost btn-sm" onclick="window.editContributor('${c.id}')">Edit</button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="window.deleteContributor('${c.id}')">Delete</button>
             </div>
           </div>
         `).join('');
@@ -1703,8 +1702,7 @@
     window.editContributor = async function(id) {
       openContributorModal(id);
       try {
-        const res = await fetch(`/api/contributors/${id}`, { headers: { Authorization: `Bearer ${_token}` } });
-        const { data } = await res.json();
+        const { data } = await API.get(`/contributors/${id}`);
         if (data) {
           document.getElementById('contrib-name').value   = data.name || '';
           document.getElementById('contrib-role').value   = data.role || '';
@@ -1712,13 +1710,18 @@
           document.getElementById('contrib-detail').value = data.detail || '';
           document.getElementById('contrib-photo').value  = data.photo_url || '';
         }
-      } catch(e) {}
+      } catch(e) { console.error('editContributor', e); }
     };
 
     window.deleteContributor = async function(id) {
-      if (!confirm('Remove this contributor?')) return;
-      await fetch(`/api/contributors/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${_token}` } });
-      loadContributors();
+      const { showConfirm } = await import('/js/utils.js');
+      const ok = await showConfirm('Remove this contributor from the wall?', 'Remove');
+      if (!ok) return;
+      try {
+        await API.delete(`/contributors/${id}`);
+        loadContributors();
+        showToast('Contributor removed.', 'info');
+      } catch(e) { showToast(e.message, 'error'); }
     };
 
     window.saveContributor = async function() {
@@ -1729,21 +1732,36 @@
       const dept   = document.getElementById('contrib-dept').value.trim();
       const detail = document.getElementById('contrib-detail').value.trim();
       const photo  = document.getElementById('contrib-photo').value.trim();
-      if (!name || !role || !detail) { errEl.textContent = 'Name, Role and Detail are required.'; errEl.style.display = 'block'; return; }
-      const body = JSON.stringify({ name, role, dept, detail, photo_url: photo || null });
-      const url  = _editingContributorId ? `/api/contributors/${_editingContributorId}` : '/api/contributors';
-      const method = _editingContributorId ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_token}` }, body });
-      if (!res.ok) { const e = await res.json(); errEl.textContent = e.error || 'Error'; errEl.style.display = 'block'; return; }
-      closeContributorModal();
-      loadContributors();
+      if (!name || !role || !detail) {
+        errEl.textContent = 'Name, Role and Detail are required.';
+        errEl.style.display = 'block';
+        return;
+      }
+      const saveBtn = document.getElementById('save-contributor');
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving...';
+      try {
+        if (_editingContributorId) {
+          await API.put(`/contributors/${_editingContributorId}`, { name, role, dept, detail, photo_url: photo || null });
+        } else {
+          await API.post('/contributors', { name, role, dept, detail, photo_url: photo || null });
+        }
+        closeContributorModal();
+        loadContributors();
+        showToast(_editingContributorId ? 'Contributor updated!' : 'Contributor added!', 'success');
+      } catch(e) {
+        errEl.textContent = e.message || 'Error saving contributor.';
+        errEl.style.display = 'block';
+      } finally {
+        saveBtn.disabled = false; saveBtn.textContent = 'Save';
+      }
     };
 
     // Events
     document.getElementById('btn-add-contributor')?.addEventListener('click', () => openContributorModal());
-    document.getElementById('close-contributor-modal')?.addEventListener('click', closeContributorModal);
-    document.getElementById('cancel-contributor')?.addEventListener('click', closeContributorModal);
-    document.getElementById('save-contributor')?.addEventListener('click', saveContributor);
+    document.getElementById('close-contributor-modal')?.addEventListener('click', () => closeContributorModal());
+    document.getElementById('cancel-contributor')?.addEventListener('click', () => closeContributorModal());
+    document.getElementById('save-contributor')?.addEventListener('click', () => saveContributor());
+
 
     init().catch(err => {
       console.error('[Admin] Init error:', err);
