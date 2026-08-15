@@ -807,20 +807,24 @@
   import { showToast, validatePhone, validateEmail, validatePassword } from '/js/utils.js';
 
   // ── Load CRSU campus cover photo into all hero banners ──────────────────────
+  // /api/config returns { data: { profile_cover_url: '...' } }
+  // This is a public endpoint — no auth needed — safe for login page.
   (async () => {
     try {
       const res = await fetch('/api/config');
-      if (res.ok) {
-        const cfg = await res.json();
-        if (cfg.profile_cover_url) {
-          document.querySelectorAll('.hero__img').forEach(img => {
-            img.src = cfg.profile_cover_url;
-            img.onload = () => img.classList.add('show');
-          });
-        }
-      }
-    } catch (_) { /* hero stays as dark gradient — that's fine */ }
+      if (!res.ok) return;
+      const cfg = await res.json();
+      // ✅ Correct path: cfg.data.profile_cover_url
+      const coverUrl = cfg?.data?.profile_cover_url;
+      if (!coverUrl) return;
+      document.querySelectorAll('.hero__img').forEach(img => {
+        img.src = coverUrl;
+        img.onload  = () => img.classList.add('show');   // fade in when ready
+        img.onerror = () => { img.src = ''; };           // no broken-image icon
+      });
+    } catch (_) { /* hero stays as dark gradient fallback */ }
   })();
+
 
   // ── View switching ────────────────────────────────────────────────────────
   const VIEWS = ['login','signup-email','signup-profile','pending','forgot-pw','change-pw'];
