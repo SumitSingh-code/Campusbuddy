@@ -30,7 +30,7 @@
 
 .btn-primary {
   background: var(--accent);
-  color: var(--on-accent);
+  color: #fff;
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);

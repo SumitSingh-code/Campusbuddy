@@ -1,4 +1,4 @@
-// Campus Wall — Anonymous Feed Page Module
+﻿// Campus Wall — Anonymous Feed Page Module
 // Key differences from named feed:
 //   • No author name/dept shown (users see "Anonymous")
 //   • No edit (posts cannot be changed after posting — integrity)
@@ -37,20 +37,18 @@ let _clickHandler = null;    // stored delegated handler (allows removal)
 export function render() {
   const profile = Auth.getProfile();
   return `
-    <div class="anon-scope" style="min-height:100%;margin:-1rem;padding:1rem;">
-      ${renderAnonHeader()}
-      ${renderAnonComposeArea(profile)}
-      <div id="anon-list" role="feed" aria-label="Anonymous feed" aria-busy="true">
-        ${skeletonPostCards(4)}
-      </div>
-      <div id="anon-sentinel" style="height:1px;"></div>
-      <div id="anon-end-msg" style="display:none;text-align:center;padding:2rem 0;color:var(--ink-subtle);font-size:.8125rem;font-family:var(--font-heading);">
-        You're all caught up ✓
-      </div>
-      ${renderCommentsModal()}
-      ${renderReportModal()}
-      ${_renderRevealModal()}
+    ${renderAnonHeader()}
+    ${renderAnonComposeArea(profile)}
+    <div id="anon-list" role="feed" aria-label="Anonymous feed" aria-busy="true">
+      ${skeletonPostCards(4)}
     </div>
+    <div id="anon-sentinel" style="height:1px;"></div>
+    <div id="anon-end-msg" style="display:none;text-align:center;padding:2rem 0;color:var(--ink-subtle);font-size:.8125rem;font-family:var(--font-heading);">
+      You're all caught up ✓
+    </div>
+    ${renderCommentsModal()}
+    ${renderReportModal()}
+    ${_renderRevealModal()}
   `;
 }
 
