@@ -61,11 +61,11 @@ export function render() {
         </div>
 
         <!-- Thread (shown when conversation is selected) -->
-        <div id="dm-thread-view" class="dm-thread-view" style="display:none;">
+        <div id="dm-thread-view" class="dm-thread-view dm-thread" style="display:none;">
           <!-- Thread header -->
           <div class="dm-thread-header">
             <button class="btn btn-ghost btn-icon dm-back-btn" id="dm-back-btn" aria-label="Back to conversations">
-              ${Icons.x}
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             </button>
             <div class="dm-thread-recipient" id="dm-thread-recipient">
               <div class="avatar avatar--sm" id="dm-recipient-avatar"></div>
@@ -85,7 +85,7 @@ export function render() {
           <div class="dm-messages" id="dm-messages" role="log" aria-live="polite"></div>
 
           <!-- Compose -->
-          <div class="dm-compose-bar">
+          <div class="dm-compose-bar dm-composer">
             <textarea
               id="dm-compose-input"
               class="dm-compose-input"
@@ -194,15 +194,15 @@ function _renderConvItem(conv) {
     : 'No messages yet';
 
   return `
-    <div class="dm-conv-item ${hasUnread ? 'dm-conv-item--unread' : ''}" data-conv-id="${escHtml(conv.id)}" role="button" tabindex="0">
+    <div class="dm-conv-item dm-list-item ${hasUnread ? 'dm-conv-item--unread' : ''}" data-conv-id="${escHtml(conv.id)}" role="button" tabindex="0">
       <div class="avatar">${escHtml(initials)}</div>
       <div class="dm-conv-info">
-        <div class="dm-conv-name">${escHtml(u.full_name || 'Unknown')}</div>
-        <div class="dm-conv-preview">${escHtml(preview)}</div>
+        <div class="dm-conv-name dm-name ${hasUnread ? 'dm-name--unread' : ''}">${escHtml(u.full_name || 'Unknown')}</div>
+        <div class="dm-conv-preview dm-preview ${hasUnread ? 'dm-preview--unread' : ''}">${escHtml(preview)}</div>
       </div>
       <div class="dm-conv-meta">
-        <div class="dm-conv-time">${conv.last_message_at ? timeAgo(conv.last_message_at) : ''}</div>
-        ${hasUnread ? `<div class="dm-conv-badge">${conv.unread_count > 99 ? '99+' : conv.unread_count}</div>` : ''}
+        <div class="dm-conv-time dm-time">${conv.last_message_at ? timeAgo(conv.last_message_at) : ''}</div>
+        ${hasUnread ? `<div class="dm-conv-badge dm-unread-badge">${conv.unread_count > 99 ? '99+' : conv.unread_count}</div>` : ''}
       </div>
     </div>
   `;
@@ -289,8 +289,8 @@ function _renderMessage(msg) {
   const timeStr = timeAgo(msg.created_at);
   return `
     <div class="dm-msg ${isMine ? 'dm-msg--mine' : 'dm-msg--theirs'}" data-msg-id="${escHtml(msg.id)}">
-      <div class="dm-bubble">${escHtml(msg.content)}</div>
-      <div class="dm-msg-meta">
+      <div class="dm-bubble bubble ${isMine ? 'bubble--sent' : 'bubble--received'}">${escHtml(msg.content)}</div>
+      <div class="dm-msg-meta bubble-time">
         ${timeStr}
         ${isMine && msg.is_read ? ' · Read' : ''}
       </div>

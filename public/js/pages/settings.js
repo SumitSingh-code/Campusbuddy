@@ -1,4 +1,4 @@
-﻿// Unigram — Settings Page
+// Unigram — Settings Page
 // Accessed via ⚙️ gear icon on Profile page.
 // Sections: Account (Edit Profile, Change Password), Preferences (Dark Mode),
 //           Legal (About, Privacy, Terms, Guidelines, Contact), Sign Out.
@@ -20,6 +20,9 @@ function applyTheme(dark) {
     document.documentElement.removeAttribute('data-theme');
   }
   localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
+  // Update theme-color meta
+  const tc = document.querySelector('meta[name="theme-color"]:not([media])');
+  if (tc) tc.content = dark ? '#131A2E' : '#FFFFFF';
   // Update the toggle knob live
   const knob = document.getElementById('settings-dark-toggle');
   if (knob) knob.checked = dark;

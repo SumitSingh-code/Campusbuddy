@@ -7,16 +7,22 @@
     (function(){
       var t = localStorage.getItem('unigram_theme');
       /* Apply dark unless user explicitly chose light */
-      if (t !== 'light') {
+      var on = t !== 'light';
+      if (on) {
         document.documentElement.setAttribute('data-theme','dark');
         if (!t) localStorage.setItem('unigram_theme','dark');
       }
+      // Update theme-color meta
+      const tc = document.querySelector('meta[name="theme-color"]:not([media])');
+      if (tc) tc.content = on ? '#131A2E' : '#FFFFFF';
     })();
   </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="description" content="Unigram — your campus social hub. Feed, DMs, PYQs, notices, timetable, notes &amp; more.">
   <title>Unigram</title>
-  <meta name="theme-color" content="#0D1424">
+  <meta name="theme-color" id="theme-color-meta" content="#FFFFFF">
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#131A2E" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">

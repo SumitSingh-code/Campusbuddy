@@ -16,9 +16,9 @@ export function getDeptColorIndex(dept) {
 /** Renders a department colored pill */
 export function deptPill(dept) {
   if (!dept) return '';
-  const idx = getDeptColorIndex(dept);
-  const label = dept.length > 24 ? dept.substring(0, 22) + '…' : dept;
-  return `<span class="dept-pill dept-pill--${idx}">${escHtml(label)}</span>`;
+  const idx   = getDeptColorIndex(dept);
+  const short = abbrevDept(dept);
+  return `<span class="dept-pill dept-pill--${idx}" title="${escHtml(dept)}">${escHtml(short)}</span>`;
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
@@ -314,7 +314,7 @@ export function showConfirm(message, confirmLabel = 'Delete', type = 'danger') {
           font-family:inherit;transition:opacity .15s;
         }
         #_confirm_box button:active { opacity:.75; }
-        #_cf_cancel  { background:var(--surface2,rgba(255,255,255,.08));color:var(--ink,#fff); }
+        #_cf_cancel  { background:var(--surface-2,rgba(255,255,255,.08));color:var(--ink,#fff); }
         #_cf_confirm { ${btnColor} }
       </style>
       <div id="_confirm_box">
@@ -338,4 +338,79 @@ export function showConfirm(message, confirmLabel = 'Delete', type = 'danger') {
     overlay.querySelector('#_cf_confirm').addEventListener('click', () => close(true));
     document.body.appendChild(overlay);
   });
+}
+
+
+/**
+ * Department abbreviation helper (display-only)
+ * "Computer Science & Engineering" → "CSE"
+ * "Information Technology" → "IT"
+ * Single words / short strings stay as-is
+ */
+export function abbrevDept(dept) {
+  if (!dept) return '';
+  const SKIP = new Set(['and', '&', 'of', 'the', 'in', 'for']);
+  const words = dept.trim().split(/\s+/);
+  if (words.length === 1 || dept.length <= 14) return dept;
+  const abbr = words
+    .filter(w => !SKIP.has(w.toLowerCase()))
+    .map(w => w[0].toUpperCase())
+    .join('');
+  return abbr || dept;
+}
+
+/**
+ * Title-case a name (handles ALL CAPS stored names)
+ * "SUMIT SINGH" → "Sumit Singh"
+ */
+export function titleCaseName(str) {
+  if (!str) return '';
+  // If mixed case already, leave as-is
+  if (str !== str.toUpperCase()) return str;
+  return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Smart relative time: <7d → relative, else "31 Jul" or "31 Jul 2025"
+ */
+export function smartTime(ts) {
+  if (!ts) return '';
+  const d   = new Date(ts);
+  const now = Date.now();
+  const diff = now - d.getTime();
+  const secs = diff / 1000;
+  const mins = secs / 60;
+  const hrs  = mins / 60;
+  const days = hrs / 24;
+  if (secs < 60)  return 'just now';
+  if (mins < 60)  return `${Math.floor(mins)}m`;
+  if (hrs  < 24)  return `${Math.floor(hrs)}h`;
+  if (days < 7)   return `${Math.floor(days)}d`;
+  const opts = { day: 'numeric', month: 'short' };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString('en-IN', opts);
+}
+
+/**
+ * Format message time as "10:41 PM"
+ */
+export function msgTime(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+/**
+ * Day label for DM separators: "Today", "Yesterday", "5 Aug 2026"
+ */
+export function dayLabel(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const sameDay = (a, b) => a.toDateString() === b.toDateString();
+  if (sameDay(d, today)) return 'Today';
+  if (sameDay(d, yesterday)) return 'Yesterday';
+  const opts = { day: 'numeric', month: 'short' };
+  if (d.getFullYear() !== today.getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString('en-IN', opts);
 }

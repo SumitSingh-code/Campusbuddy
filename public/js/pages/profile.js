@@ -157,17 +157,18 @@ function _renderProfile() {
 
   document.getElementById('profile-page').innerHTML = `
     <!-- Cover Banner -->
-    <div class="profile-cover" ${_coverUrl ? `style="background-image:url('${escHtml(_coverUrl)}');background-size:cover;background-position:center;"` : ''}>
+    <div class="profile-cover-wrap">
+      <div class="profile-cover" ${_coverUrl ? `style="background-image:url('${escHtml(_coverUrl)}');background-size:cover;background-position:center;"` : ''}></div>
       ${_isOwnProfile ? `
-        <a href="#/settings" class="btn btn-ghost profile-cover-gear" title="Settings" aria-label="Open Settings">
+        <a href="#/settings" class="btn btn-ghost profile-cover-gear profile-gear-btn" title="Settings" aria-label="Open Settings">
           <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </a>
       ` : ''}
     </div>
 
     <!-- Avatar + Name row (overlaps cover bottom) -->
-    <div class="profile-avatar-outer">
-      <div class="profile-avatar-frame">
+    <div class="profile-avatar-outer profile-identity">
+      <div class="profile-avatar-frame profile-avatar-ring">
         ${hasAvatar
           ? `<img src="${escHtml(p.avatar_url)}" alt="${escHtml(p.full_name)}" class="avatar avatar--xl profile-avatar-img">`
           : `<div class="avatar avatar--xl" id="profile-avatar-initials">${escHtml(initials)}</div>`}
@@ -203,17 +204,17 @@ function _renderProfile() {
     <div class="profile-stats">
       <div class="profile-stat">
         <span class="profile-stat__icon">⚡</span>
-        <div class="profile-stat__value">${fmtNum(p.karma || 0)}</div>
+        <div class="profile-stat__value profile-stat__num">${fmtNum(p.karma || 0)}</div>
         <div class="profile-stat__label">Karma</div>
       </div>
       <div class="profile-stat">
         <span class="profile-stat__icon">📝</span>
-        <div class="profile-stat__value">${fmtNum(p.posts_count || 0)}</div>
+        <div class="profile-stat__value profile-stat__num">${fmtNum(p.posts_count || 0)}</div>
         <div class="profile-stat__label">Posts</div>
       </div>
       <div class="profile-stat">
         <span class="profile-stat__icon">📚</span>
-        <div class="profile-stat__value">${fmtNum(p.notes_uploaded || 0)}</div>
+        <div class="profile-stat__value profile-stat__num">${fmtNum(p.notes_uploaded || 0)}</div>
         <div class="profile-stat__label">Notes</div>
       </div>
     </div>
