@@ -1,37 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = [
-  '/login', '/signup', '/forgot-password', '/pending',
-  '/change-password', '/privacy', '/terms', '/contact', '/about',
-]
+// Unigram — Next.js Proxy (Middleware)
+//
+// WHY THE COOKIE CHECK WAS REMOVED:
+//   Supabase JS v2 stores the session in localStorage (client-side only),
+//   NOT in cookies. The previous middleware checked for `sb-*-auth-token`
+//   cookies which never exist → every protected page redirected to /login
+//   in an infinite loop even after successful login.
+//
+//   Auth protection is handled client-side by useAuth() in each page:
+//   - If not logged in → router.replace('/login')
+//   - If pending/banned → router.replace('/pending')
+//   - etc.
+//
+//   This middleware only handles static-asset pass-through and
+//   the guidelines/legal pages — no cookie checks.
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public auth pages
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) return NextResponse.next()
-  // Allow static assets, API routes, admin.html
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/icons') ||
-    pathname.includes('.')
-  ) return NextResponse.next()
-
-  // Check Supabase session cookie (sb-*-auth-token)
-  const hasSession = Array.from(request.cookies.getAll()).some(
-    c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
-  )
-
-  if (!hasSession) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
-  }
-
+  // Pass through everything — auth is handled client-side by useAuth()
+  // (Supabase v2 uses localStorage, not cookies, so server can't check session)
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|sw.js|manifest.json|css).*)'],
+  // Only run on actual page routes — skip static assets entirely
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|sw.js|manifest.json|css|api).*)'],
 }
