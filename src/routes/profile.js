@@ -139,4 +139,19 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// ─── GET /config — Public app config (cover URL) ─────────────────────────────
+router.get('/config', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('app_config')
+      .select('key, value');
+    if (error) return res.json({ data: {} });
+    const config = {};
+    (data || []).forEach(row => { config[row.key] = row.value; });
+    res.json({ data: { cover_url: config.profile_cover_url || null } });
+  } catch {
+    res.json({ data: {} });
+  }
+});
+
 module.exports = router;

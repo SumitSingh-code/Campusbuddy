@@ -77,19 +77,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return p
     } catch (err) {
-      // Fallback to cached profile
+      // Retry once after 1.5s (handles token-not-yet-ready race condition)
       try {
-        const cached = localStorage.getItem('cw_profile')
-        if (cached) {
-          const p = JSON.parse(cached) as Profile
-          if (p.id === currentUser.id) {
-            setProfile(p)
-            return p
+        await new Promise(r => setTimeout(r, 1500))
+        const res2 = await api.get('/auth/status')
+        const p2 = (res2.profile as Profile) || null
+        setProfile(p2)
+        if (p2) localStorage.setItem('cw_profile', JSON.stringify(p2))
+        return p2
+      } catch {
+        // Final fallback to cached profile
+        try {
+          const cached = localStorage.getItem('cw_profile')
+          if (cached) {
+            const p = JSON.parse(cached) as Profile
+            if (p.id === currentUser.id) {
+              setProfile(p)
+              return p
+            }
           }
-        }
-      } catch { /* ignore parse error */ }
-      console.warn('[Auth] Profile fetch failed:', err)
-      return null
+        } catch { /* ignore parse error */ }
+        console.warn('[Auth] Profile fetch failed:', err)
+        return null
+      }
     }
   }, [])
 
@@ -220,7 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isActive: profile?.status === 'active',
     isAdmin: ['moderator', 'super_admin'].includes(profile?.role || ''),
     isSuperAdmin: profile?.role === 'super_admin',
-    needsProfile: !!user && !profile,
+    needsProfile: !!user && !profile && !isLoading,
     mustChangePassword: !!profile?.must_change_password,
     isGoogleOnly,
     signInWithEmail,

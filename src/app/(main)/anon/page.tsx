@@ -96,6 +96,7 @@ export default function AnonPage() {
 
   async function handleVote(postId: string, type: 'up' | 'down', current?: string | null) {
     const newVote = current === type ? null : type
+    // Optimistic update
     setPosts(prev => prev.map(p => {
       if (p.id !== postId) return p
       const upvotes = p.upvotes + (current === 'up' ? -1 : 0) + (newVote === 'up' ? 1 : 0)
@@ -103,7 +104,13 @@ export default function AnonPage() {
       return { ...p, my_vote: newVote as AnonPost['my_vote'], upvotes, downvotes }
     }))
     try {
-      await api.post(`/anon/${postId}/vote`, { type: newVote })
+      if (newVote === null) {
+        // Un-vote: DELETE /anon/:id/vote
+        await api.delete(`/anon/${postId}/vote`)
+      } else {
+        // Vote: POST /anon/:id/vote with { vote_type }
+        await api.post(`/anon/${postId}/vote`, { vote_type: newVote })
+      }
     } catch { loadPosts(true) }
   }
 

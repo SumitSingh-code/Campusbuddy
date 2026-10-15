@@ -27,11 +27,18 @@ function UserIcon({ filled }: { filled?: boolean }) {
     : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
 }
 
+function MoreIcon({ filled }: { filled?: boolean }) {
+  return filled
+    ? <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+    : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+}
+
 const NAV_ITEMS = [
   { href: '/feed',    label: 'Feed',    Icon: HomeIcon },
   { href: '/anon',    label: 'Anon',    Icon: GhostIcon },
   { href: '/dm',      label: 'DMs',     Icon: ChatIcon },
   { href: '/profile', label: 'Profile', Icon: UserIcon },
+  { href: '/wall',    label: 'More',    Icon: MoreIcon },
 ]
 
 // ── App Shell (requires AuthProvider above) ───────────────────────
@@ -96,14 +103,14 @@ function AppShell({ children }: { children: React.ReactNode }) {
         borderTop: '1px solid var(--border)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}>
-        <div style={{ display: 'flex', maxWidth: 480, margin: '0 auto' }}>
+        <div style={{ display: 'flex', maxWidth: 600, margin: '0 auto' }}>
           {NAV_ITEMS.map(({ href, label, Icon }) => {
             const isAct = pathname === href || pathname.startsWith(href + '/')
             return (
               <Link key={href} href={href} style={{
                 flex: 1, display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
-                gap: 3, padding: '10px 0',
+                gap: 3, padding: '8px 0',
                 color: isAct ? 'var(--accent)' : 'var(--ink-subtle)',
                 textDecoration: 'none', transition: 'color 0.15s',
                 fontSize: 10, fontWeight: 600,

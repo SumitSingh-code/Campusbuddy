@@ -62,13 +62,15 @@ export default function ProfilePage() {
       try {
         const [profRes, configRes] = await Promise.all([
           api.get('/profile/me'),
-          api.get('/config').catch(() => ({ data: null })),
+          api.get('/profile/config').catch(() => ({ data: null })),
         ])
         if (cancelled) return
         setProfile(profRes.data)
         setEditBio(profRes.data?.bio || '')
         setEditName(profRes.data?.full_name || '')
-        if (configRes.data?.cover_url) setCoverUrl(configRes.data.cover_url)
+        if (configRes.data?.cover_url || configRes.data?.profile_cover_url) {
+          setCoverUrl(configRes.data.cover_url || configRes.data.profile_cover_url)
+        }
       } catch (e: unknown) {
         if (!cancelled) toast.error((e as Error).message || 'Failed to load profile')
       } finally {
@@ -88,7 +90,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return
     setPostsLoading(true)
-    api.get(`/feed?author_id=${user.id}`)
+    api.get('/profile/me/posts')
       .then(res => setPosts(res.data || []))
       .catch(() => {})
       .finally(() => setPostsLoading(false))
