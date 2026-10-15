@@ -185,6 +185,64 @@ app.get('/api/config', async (req, res) => {
   }
 });
 
+// ── Server-side image upload (uses service role key — no RLS issues) ──────────
+// POST /api/upload  — multipart or base64 body
+// Body: { data: '<base64 string>', mime: 'image/jpeg', folder: 'posts|avatars' }
+// Returns: { url: '<public URL>' }
+app.post('/api/upload', async (req, res) => {
+  try {
+    const { authGuard } = require('../src/middleware/authGuard');
+    // Run authGuard inline
+    await new Promise((resolve, reject) =>
+      authGuard(req, res, (err) => (err ? reject(err) : resolve()))
+    );
+  } catch {
+    return; // authGuard already sent the error response
+  }
+  try {
+    const { supabaseAdmin } = require('../src/lib/supabase-admin');
+    const { data: b64, mime, folder } = req.body;
+
+    if (!b64 || !mime || !mime.startsWith('image/')) {
+      return res.status(400).json({ error: 'data (base64) and mime (image/*) are required' });
+    }
+
+    const BUCKET = 'unigram';
+    const ext    = mime === 'image/png' ? 'png' : mime === 'image/gif' ? 'gif' : mime === 'image/webp' ? 'webp' : 'jpg';
+    const safeFolder = ['posts', 'avatars', 'notes', 'pyq'].includes(folder) ? folder : 'posts';
+    const path   = `${safeFolder}/${req.profile.id}/${Date.now()}.${ext}`;
+
+    const buffer = Buffer.from(b64, 'base64');
+
+    // Ensure bucket exists
+    const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+    const bucketExists = (buckets || []).some(b => b.name === BUCKET);
+    if (!bucketExists) {
+      const { error: cbErr } = await supabaseAdmin.storage.createBucket(BUCKET, {
+        public: true,
+        allowedMimeTypes: ['image/*'],
+        fileSizeLimit: 10485760, // 10MB
+      });
+      if (cbErr) console.warn('[/api/upload] bucket create warn:', cbErr.message);
+    }
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .upload(path, buffer, { contentType: mime, upsert: true, cacheControl: '3600' });
+
+    if (upErr) {
+      console.error('[/api/upload] upload error:', upErr);
+      return res.status(500).json({ error: upErr.message || 'Upload failed' });
+    }
+
+    const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+    res.json({ url: urlData.publicUrl });
+  } catch (err) {
+    console.error('[/api/upload]', err);
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
 // ── Utility endpoints ─────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', ts: new Date().toISOString(), version: '1.0.0' });

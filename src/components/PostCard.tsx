@@ -1,7 +1,7 @@
 'use client'
 
 import { formatDistanceToNow } from 'date-fns'
-import { MoreHorizontal, ThumbsUp, ThumbsDown, MessageCircle, Bookmark, Flag, Pencil, Trash2, Link2 } from 'lucide-react'
+import { MoreHorizontal, ThumbsUp, ThumbsDown, MessageCircle, Flag, Pencil, Trash2, Link2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu'
 import { toast } from 'sonner'
 
@@ -258,23 +258,6 @@ export default function PostCard({
           <MessageCircle size={15} />
           {post.comment_count > 0 ? `${post.comment_count} Comment${post.comment_count !== 1 ? 's' : ''}` : 'Comment'}
         </button>
-
-        {/* Bookmark (only for non-anon) */}
-        {!isAnon && onBookmark && (
-          <button
-            onClick={() => onBookmark(post.id, !!post.is_bookmarked)}
-            style={{
-              marginLeft: 'auto',
-              padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer',
-              background: 'none',
-              color: post.is_bookmarked ? 'var(--accent)' : 'var(--ink-subtle)',
-              transition: 'color 0.15s',
-            }}
-            aria-label={post.is_bookmarked ? 'Remove bookmark' : 'Bookmark'}
-          >
-            <Bookmark size={18} fill={post.is_bookmarked ? 'currentColor' : 'none'} />
-          </button>
-        )}
       </div>
     </article>
   )
