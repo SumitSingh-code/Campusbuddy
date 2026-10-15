@@ -76,10 +76,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
       {/* ── Top nav ── */}
       <header style={{
         position: 'sticky', top: 0, zIndex: 40,
-        borderBottom: '1px solid var(--border)',
-        background: 'rgba(var(--surface-rgb, 22 27 34) / .85)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
+        background: '#FFFFFF',
+        borderBottom: '1px solid #E5E7EB',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
       }}>
         <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1rem', display: 'flex', alignItems: 'center', height: 52 }}>
           <Link href="/feed" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>

@@ -152,7 +152,20 @@ export default function PostCard({
               <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'rgba(107,33,168,.15)', color: '#C4B5FD' }}>Admin</span>
             )}
             {author?.department && !isAnon && (
-              <span style={{ fontSize: '0.68rem', fontWeight: 600, padding: '2px 7px', borderRadius: 12, background: deptColor.bg, color: deptColor.text }}>
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 500,
+                  padding: '2px 8px',
+                  borderRadius: 9999,
+                  background: '#F1F3F5',
+                  color: '#596273',
+                  border: '1px solid #E5E7EB',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  lineHeight: '1.25',
+                }}
+              >
                 {author.department}
               </span>
             )}
