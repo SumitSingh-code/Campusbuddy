@@ -9,6 +9,10 @@ node_modules/
 # Vercel
 .vercel
 
+# Next.js build output
+.next/
+out/
+
 # Logs
 *.log
 npm-debug.log*

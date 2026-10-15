@@ -1,11 +1,13 @@
 {
-  "name": "campus-wall",
-  "version": "1.0.0",
-  "description": "Campus Wall — CRSU social + utility PWA",
+  "name": "unigram",
+  "version": "2.0.0",
+  "description": "Unigram — CRSU campus social PWA (Next.js + Express)",
   "main": "api/index.js",
   "scripts": {
-    "start": "node api/index.js",
-    "dev": "nodemon api/index.js",
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "api:dev": "nodemon api/index.js",
     "test": "jest --testEnvironment node"
   },
   "dependencies": {
@@ -45,6 +47,6 @@
     "typescript": "^7.0.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

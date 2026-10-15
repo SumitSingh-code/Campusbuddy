@@ -1,9 +1,13 @@
 {
+  "version": 2,
   "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
   "functions": {
     "api/index.js": {
-      "maxDuration": 10,
-      "includeFiles": "api/**"
+      "maxDuration": 30,
+      "includeFiles": "src/**/*.js"
     }
   },
   "rewrites": [
