@@ -170,7 +170,7 @@ console.log('[Startup] All route mounts attempted.');
 // No auth required. Cached 60s on CDN. Called by profile page on load.
 app.get('/api/config', async (req, res) => {
   try {
-    const { supabaseAdmin } = require('../src/lib/supabase');
+    const { supabaseAdmin } = require('../src/lib/supabase-admin');
     const { data, error } = await supabaseAdmin
       .from('app_config')
       .select('key, value');

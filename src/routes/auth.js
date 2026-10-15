@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyJwtOnly } = require('../middleware/authGuard');
-const { supabaseAdmin } = require('../lib/supabase');
+const { supabaseAdmin } = require('../lib/supabase-admin');
 
 router.post('/signup', verifyJwtOnly, async (req, res) => {
   try {

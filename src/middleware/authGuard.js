@@ -12,7 +12,7 @@
 // verified user object — we just don't wait for it sequentially.
 // Saves ~80-150ms per request on every protected endpoint.
 
-const { supabaseAdmin } = require('../lib/supabase');
+const { supabaseAdmin } = require('../lib/supabase-admin');
 
 /**
  * Decode user ID from JWT payload without verifying signature.

@@ -12,7 +12,7 @@ const express = require('express');
 const router  = express.Router();
 const { authGuard }       = require('../middleware/authGuard');
 const { adminGuard }      = require('../middleware/adminGuard');
-const { supabaseAdmin }   = require('../lib/supabase');
+const { supabaseAdmin }   = require('../lib/supabase-admin');
 const { containsProfanity } = require('../lib/profanity');
 
 router.use(authGuard);

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { adminGuard, superAdminGuard } = require('../middleware/adminGuard');
-const { supabaseAdmin } = require('../lib/supabase');
+const { supabaseAdmin } = require('../lib/supabase-admin');
 
 router.use(adminGuard);
 

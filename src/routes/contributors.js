@@ -3,7 +3,7 @@
 const express = require('express');
 const router  = express.Router();
 const { adminGuard }    = require('../middleware/adminGuard');
-const { supabaseAdmin } = require('../lib/supabase');
+const { supabaseAdmin } = require('../lib/supabase-admin');
 
 // Public: GET all contributors (for About page)
 router.get('/', async (req, res) => {
