@@ -1,0 +1,39 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(main)/layout,_N_T_/(main)/dm/layout,_N_T_/(main)/dm/page,_N_T_/dm"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KG1haW4p/dm/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 96,
+            "slots": {
+              "children": {
+                "hints": 160,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/1ce4026ac6523b3e52001b1a5a7fe51b0445d7c4e64487d4225f37ab23f78931/$/dm",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/(main)/dm/page"
+    },
+    "isFallback": false
+  }
+}

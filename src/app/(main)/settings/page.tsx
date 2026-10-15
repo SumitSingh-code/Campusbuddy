@@ -1,0 +1,267 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ChevronRight, LogOut, Moon, Sun, Lock, User, Pencil, Shield, Users, Info, FileText, BookOpen, Mail, ExternalLink } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
+import { api } from '@/lib/api'
+import { toast } from 'sonner'
+import ConfirmDialog from '@/components/ConfirmDialog'
+
+const THEME_KEY = 'unigram_theme'
+
+function isDark() {
+  if (typeof window === 'undefined') return true
+  return document.documentElement.getAttribute('data-theme') === 'dark'
+}
+
+function applyTheme(dark: boolean) {
+  if (dark) document.documentElement.setAttribute('data-theme', 'dark')
+  else document.documentElement.removeAttribute('data-theme')
+  localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light')
+}
+
+function Row({ icon, label, sub, href, onClick, danger, external }: { icon: React.ReactNode; label: string; sub?: string; href?: string; onClick?: () => void; danger?: boolean; external?: boolean }) {
+  const content = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem', cursor: 'pointer', textDecoration: 'none', color: danger ? 'var(--danger)' : 'var(--ink)' }}>
+      <span style={{ width: 34, height: 34, borderRadius: 9, background: danger ? 'rgba(248,81,73,.12)' : 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: danger ? 'var(--danger)' : 'var(--ink-muted)' }}>{icon}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>{label}</span>
+        {sub && <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 1 }}>{sub}</span>}
+      </span>
+      {external ? <ExternalLink size={14} style={{ color: 'var(--ink-subtle)', flexShrink: 0 }} /> : <ChevronRight size={16} style={{ color: 'var(--ink-subtle)', flexShrink: 0 }} />}
+    </div>
+  )
+  if (href) return <Link href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined} style={{ textDecoration: 'none', display: 'block' }}>{content}</Link>
+  return <button onClick={onClick} style={{ width: '100%', background: 'none', border: 'none', textAlign: 'left', padding: 0 }}>{content}</button>
+}
+
+export default function SettingsPage() {
+  const { profile, signOut, isAdmin } = useAuth()
+  const router = useRouter()
+  const [dark, setDark] = useState(true)
+  const [signOutConfirm, setSignOutConfirm] = useState(false)
+
+  // Name modal
+  const [nameModal, setNameModal] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [nameSaving, setNameSaving] = useState(false)
+
+  // PW modal
+  const [pwModal, setPwModal] = useState(false)
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwError, setPwError] = useState('')
+
+  useEffect(() => {
+    setDark(isDark())
+    if (profile) setNameInput(profile.full_name)
+  }, [profile])
+
+  function toggleTheme() {
+    const next = !dark
+    setDark(next)
+    applyTheme(next)
+  }
+
+  async function saveName() {
+    if (!nameInput.trim() || nameInput.trim().length < 2) { toast.error('Name too short'); return }
+    setNameSaving(true)
+    try {
+      await api.patch('/profile/me', { full_name: nameInput.trim() })
+      toast.success('Name updated!')
+      setNameModal(false)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update name')
+    } finally { setNameSaving(false) }
+  }
+
+  async function savePw() {
+    setPwError('')
+    if (newPw.length < 8 || !/[a-zA-Z]/.test(newPw) || !/[0-9]/.test(newPw)) {
+      setPwError('Min 8 chars, must include a letter and a number'); return
+    }
+    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
+    setPwSaving(true)
+    try {
+      await api.post('/auth/change-password', { new_password: newPw })
+      toast.success('Password changed! 🎉')
+      setPwModal(false)
+      setNewPw(''); setConfirmPw('')
+    } catch (err: unknown) {
+      setPwError(err instanceof Error ? err.message : 'Failed to change password')
+    } finally { setPwSaving(false) }
+  }
+
+  async function handleSignOut() {
+    await signOut()
+    router.replace('/login')
+  }
+
+  const divider = <div style={{ height: 1, background: 'var(--border)', margin: '0 1rem' }} />
+  const sectionLabel = (text: string) => <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--ink-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', padding: '0.5rem 1rem 0.25rem' }}>{text}</div>
+  const card = (children: React.ReactNode) => <div style={{ background: 'var(--surface)', borderRadius: 14, margin: '0 0 0.25rem', overflow: 'hidden', border: '1px solid var(--border)' }}>{children}</div>
+
+  return (
+    <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 0 2rem' }}>
+      {/* Header */}
+      <div style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Link href="/profile" style={{ color: 'var(--ink-muted)', display: 'flex' }}>
+          <ChevronRight size={20} style={{ transform: 'rotate(180deg)' }} />
+        </Link>
+        <h1 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', color: 'var(--ink)' }}>Settings</h1>
+      </div>
+
+      <div style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
+
+        {/* Account */}
+        {sectionLabel('Account')}
+        {card(
+          <>
+            <Row icon={<User size={16} />} label="Edit Profile" sub="Avatar, bio, phone" onClick={() => { sessionStorage.setItem('profile_open_edit', '1'); router.push('/profile') }} />
+            {divider}
+            <Row icon={<Pencil size={16} />} label="Edit Name" sub={profile?.full_name} onClick={() => { setNameInput(profile?.full_name || ''); setNameModal(true) }} />
+            {divider}
+            {profile?.auth_provider === 'email'
+              ? <Row icon={<Lock size={16} />} label="Change Password" onClick={() => setPwModal(true)} />
+              : <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink-muted)' }}><Lock size={16} /></span>
+                  <span style={{ flex: 1 }}>
+                    <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink-muted)' }}>Change Password</span>
+                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--ink-subtle)' }}>Managed by Google</span>
+                  </span>
+                </div>
+            }
+            {isAdmin && (
+              <>
+                {divider}
+                <Row icon={<Shield size={16} />} label="Admin Panel" href="/admin.html" external />
+              </>
+            )}
+          </>
+        )}
+
+        {/* Preferences */}
+        {sectionLabel('Preferences')}
+        {card(
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem' }}>
+            <span style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink-muted)' }}>
+              {dark ? <Moon size={16} /> : <Sun size={16} />}
+            </span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink)' }}>Light Mode</span>
+              <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--ink-muted)' }}>Switch to light theme</span>
+            </span>
+            {/* Toggle */}
+            <button
+              onClick={toggleTheme}
+              style={{
+                width: 46, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+                background: !dark ? 'var(--accent)' : 'var(--bg-subtle)',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}
+            >
+              <span style={{
+                position: 'absolute', top: 3, width: 20, height: 20, borderRadius: '50%',
+                background: '#fff', transition: 'left 0.2s',
+                left: !dark ? 23 : 3,
+                boxShadow: '0 1px 4px rgba(0,0,0,.3)',
+              }} />
+            </button>
+          </div>
+        )}
+
+        {/* Community */}
+        {sectionLabel('Community')}
+        {card(
+          <Row icon={<Users size={16} />} label="Contribution Wall" sub="People who built Unigram" href="/wall" />
+        )}
+
+        {/* Legal */}
+        {sectionLabel('Legal & Info')}
+        {card(
+          <>
+            <Row icon={<Info size={16} />} label="App Info" href="/about" />
+            {divider}
+            <Row icon={<Lock size={16} />} label="Privacy Policy" href="/privacy" />
+            {divider}
+            <Row icon={<FileText size={16} />} label="Terms & Conditions" href="/terms" />
+            {divider}
+            <Row icon={<BookOpen size={16} />} label="Community Guidelines" href="/guidelines.html" external />
+            {divider}
+            <Row icon={<Mail size={16} />} label="Contact / Grievance" href="/contact" />
+          </>
+        )}
+
+        {/* Sign Out */}
+        <div style={{ marginTop: 8 }}>
+          {card(
+            <Row icon={<LogOut size={16} />} label="Sign Out" onClick={() => setSignOutConfirm(true)} danger />
+          )}
+        </div>
+
+        <div style={{ textAlign: 'center', padding: '1.5rem 0 0.5rem', fontSize: '0.75rem', color: 'var(--ink-subtle)' }}>
+          Unigram — CRSU Jind<br />Made with ❤️ for students
+        </div>
+      </div>
+
+      {/* Name modal */}
+      {nameModal && (
+        <>
+          <div onClick={() => setNameModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(4px)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '1.25rem', paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom,0))', boxShadow: '0 -8px 40px rgba(0,0,0,.4)' }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 1rem' }} />
+            <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1rem', color: 'var(--ink)', marginBottom: '0.75rem' }}>Edit Name</h3>
+            <input
+              type="text"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              maxLength={80}
+              placeholder="Your full name"
+              style={{ width: '100%', padding: '0.7rem 0.875rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--ink)', fontSize: '0.9rem', outline: 'none', marginBottom: '0.75rem' }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setNameModal(false)} style={{ padding: '0.6rem 1.25rem', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink)', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={saveName} disabled={nameSaving} style={{ padding: '0.6rem 1.25rem', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontWeight: 700, cursor: 'pointer', opacity: nameSaving ? 0.7 : 1 }}>{nameSaving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* PW modal */}
+      {pwModal && (
+        <>
+          <div onClick={() => setPwModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(4px)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '1.25rem', paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom,0))', boxShadow: '0 -8px 40px rgba(0,0,0,.4)' }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 1rem' }} />
+            <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1rem', color: 'var(--ink)', marginBottom: '0.75rem' }}>Change Password</h3>
+            {[{ label: 'New Password', val: newPw, set: setNewPw }, { label: 'Confirm Password', val: confirmPw, set: setConfirmPw }].map(({ label, val, set }) => (
+              <div key={label} style={{ marginBottom: '0.75rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>{label}</label>
+                <input type="password" value={val} onChange={e => set(e.target.value)} placeholder="Min 8 chars, letter + number" style={{ width: '100%', padding: '0.7rem 0.875rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--ink)', fontSize: '0.9rem', outline: 'none' }} />
+              </div>
+            ))}
+            {pwError && <div style={{ padding: '0.6rem 0.75rem', borderRadius: 8, background: 'var(--danger-light)', color: 'var(--danger-text)', fontSize: '0.8125rem', marginBottom: '0.75rem' }}>{pwError}</div>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setPwModal(false); setPwError('') }} style={{ padding: '0.6rem 1.25rem', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink)', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={savePw} disabled={pwSaving} style={{ padding: '0.6rem 1.25rem', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontWeight: 700, cursor: 'pointer', opacity: pwSaving ? 0.7 : 1 }}>{pwSaving ? 'Saving...' : 'Update'}</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {signOutConfirm && (
+        <ConfirmDialog
+          title="Sign out?"
+          message="You will need to sign in again."
+          confirmLabel="Sign Out"
+          danger={false}
+          onConfirm={handleSignOut}
+          onCancel={() => setSignOutConfirm(false)}
+        />
+      )}
+    </div>
+  )
+}

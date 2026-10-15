@@ -1,0 +1,39 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(main)/layout,_N_T_/(main)/pyq/layout,_N_T_/(main)/pyq/page,_N_T_/pyq"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KG1haW4p/pyq/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 96,
+            "slots": {
+              "children": {
+                "hints": 160,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/2fba230074a26d4d1a2c46b73de29588b2dd70988d183951f4ebf581ffcd8d03/$/pyq",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/(main)/pyq/page"
+    },
+    "isFallback": false
+  }
+}

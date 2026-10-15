@@ -1,0 +1,34 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/guidelines/layout,_N_T_/guidelines/page,_N_T_/guidelines"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/guidelines/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 160,
+            "slots": null
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/ea6871002a47fcdb3785ab3a5b12f439262c7f6deb0b5693d137bf8437b149ed/$/guidelines",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/guidelines/page"
+    },
+    "isFallback": false
+  }
+}

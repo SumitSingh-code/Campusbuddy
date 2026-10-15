@@ -1,0 +1,39 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(main)/layout,_N_T_/(main)/lost-found/layout,_N_T_/(main)/lost-found/page,_N_T_/lost-found"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KG1haW4p/lost-found/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 96,
+            "slots": {
+              "children": {
+                "hints": 160,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/0e683d2d1d4d75a8b18effe715c35527dc1a3d2dcb03368d11f905edcb2a5604/$/lost-found",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/(main)/lost-found/page"
+    },
+    "isFallback": false
+  }
+}
