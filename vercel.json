@@ -4,12 +4,6 @@
   "buildCommand": "next build",
   "installCommand": "npm install",
   "outputDirectory": ".next",
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 30,
-      "includeFiles": "src/**/*.js"
-    }
-  },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.js" }
   ],
