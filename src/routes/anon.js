@@ -603,6 +603,7 @@ router.post('/:id/report', async (req, res) => {
       ref_id:      req.params.id,
       ref_type:    'anon_post',
       reason:      reason.trim(),
+      status:      'open',
     });
 
     if (error) {

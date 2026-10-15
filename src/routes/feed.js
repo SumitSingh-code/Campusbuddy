@@ -288,12 +288,13 @@ router.delete('/:id', async (req, res) => {
     // Clean up image from Supabase Storage (non-blocking)
     if (post.image_url) {
       try {
-        const url   = new URL(post.image_url);
-        const parts = url.pathname.split('/post-images/');
-        if (parts[1]) {
-          await supabaseAdmin.storage
-            .from('post-images')
-            .remove([decodeURIComponent(parts[1])]);
+        const BUCKET = 'unigram';
+        const marker = `/object/public/${BUCKET}/`;
+        const url = post.image_url;
+        const idx = url.indexOf(marker);
+        if (idx !== -1) {
+          const path = decodeURIComponent(url.slice(idx + marker.length));
+          await supabaseAdmin.storage.from(BUCKET).remove([path]);
         }
       } catch (storageErr) {
         console.warn('[feed DELETE /:id] storage cleanup failed:', storageErr.message);
@@ -615,6 +616,7 @@ router.post('/:id/report', async (req, res) => {
       ref_id:      req.params.id,
       ref_type:    'post',
       reason:      reason.trim(),
+      status:      'open',
     });
 
     if (error) {

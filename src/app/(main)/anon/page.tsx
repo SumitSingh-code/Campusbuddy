@@ -261,8 +261,9 @@ export default function AnonPage() {
       )}
 
       {commentsPostId && (
-        <CommentsSheet
+      <CommentsSheet
           postId={commentsPostId}
+          commentEndpoint="/anon"
           currentUserId={user?.id}
           isAdmin={isAdmin}
           onClose={() => setCommentsPostId(null)}

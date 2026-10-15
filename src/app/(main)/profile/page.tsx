@@ -62,7 +62,7 @@ export default function ProfilePage() {
       try {
         const [profRes, configRes] = await Promise.all([
           api.get('/profile/me'),
-          api.get('/profile/config').catch(() => ({ data: null })),
+          api.get('/config').catch(() => ({ data: null })),
         ])
         if (cancelled) return
         setProfile(profRes.data)

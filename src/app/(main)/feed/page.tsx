@@ -88,7 +88,11 @@ export default function FeedPage() {
       return { ...p, my_vote: newVote as Post['my_vote'], upvotes, downvotes }
     }))
     try {
-      await api.post(`/feed/${postId}/vote`, { type: newVote })
+      if (newVote === null) {
+        await api.delete(`/feed/${postId}/vote`)
+      } else {
+        await api.post(`/feed/${postId}/vote`, { vote_type: newVote })
+      }
     } catch {
       loadFeed(true)
     }
@@ -98,8 +102,8 @@ export default function FeedPage() {
   async function handleBookmark(postId: string, current: boolean) {
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, is_bookmarked: !current } : p))
     try {
-      if (current) await api.delete(`/bookmarks/${postId}`)
-      else await api.post(`/bookmarks/${postId}`, {})
+      // POST /feed/:id/bookmark toggles - works for both add and remove
+      await api.post(`/feed/${postId}/bookmark`, {})
     } catch {
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, is_bookmarked: current } : p))
       toast.error('Failed to update bookmark')

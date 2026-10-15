@@ -21,8 +21,9 @@ interface Comment {
 
 interface CommentsSheetProps {
   postId: string
-  currentUserId: string | undefined
+  currentUserId?: string | undefined
   isAdmin?: boolean
+  commentEndpoint?: string
   onClose: () => void
   onCommentCountChange?: (count: number) => void
 }
@@ -31,6 +32,7 @@ export default function CommentsSheet({
   postId,
   currentUserId,
   isAdmin = false,
+  commentEndpoint = '/feed',
   onClose,
   onCommentCountChange,
 }: CommentsSheetProps) {
@@ -49,7 +51,7 @@ export default function CommentsSheet({
   useEffect(() => {
     async function load() {
       try {
-        const res = await api.get<{ data: Comment[] }>(`/feed/${postId}/comments`)
+        const res = await api.get<{ data: Comment[] }>(`${commentEndpoint}/${postId}/comments`)
         setComments(res.data || [])
       } catch {
         toast.error('Failed to load comments')
@@ -65,7 +67,7 @@ export default function CommentsSheet({
     if (!text.trim() || submitting) return
     setSubmitting(true)
     try {
-      const res = await api.post<{ data: Comment }>(`/feed/${postId}/comments`, { content: text.trim() })
+      const res = await api.post<{ data: Comment }>(`${commentEndpoint}/${postId}/comments`, { content: text.trim() })
       const newComments = [...comments, res.data]
       setComments(newComments)
       setText('')
@@ -80,7 +82,7 @@ export default function CommentsSheet({
 
   async function handleDelete(commentId: string) {
     try {
-      await api.delete(`/feed/${postId}/comments/${commentId}`)
+      await api.delete(`${commentEndpoint}/${postId}/comments/${commentId}`)
       const newComments = comments.filter(c => c.id !== commentId)
       setComments(newComments)
       onCommentCountChange?.(newComments.length)
