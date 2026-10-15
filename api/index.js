@@ -26,11 +26,15 @@ app.use(express.json({ limit: '10mb' }));
 // was never bundled → MODULE_NOT_FOUND at runtime → "Route unavailable" 503.
 // Each block has its own try-catch so one bad route never kills the others.
 
+const _routeErrors = []; // Track which routes failed to load
+
+
 try {
   app.use('/api/auth', require('../src/routes/auth'));
   console.log('[Startup] OK: /api/auth');
 } catch (e) {
   console.error('[Startup] FAILED /api/auth:', e.message);
+  _routeErrors.push({ route: 'auth', error: e.message });
   app.use('/api/auth', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'auth', detail: e.message }));
 }
 
@@ -39,6 +43,7 @@ try {
   console.log('[Startup] OK: /api/admin');
 } catch (e) {
   console.error('[Startup] FAILED /api/admin:', e.message);
+  _routeErrors.push({ route: '/api/admin', error: e.message });
   app.use('/api/admin', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'admin', detail: e.message }));
 }
 
@@ -47,6 +52,7 @@ try {
   console.log('[Startup] OK: /api/feed');
 } catch (e) {
   console.error('[Startup] FAILED /api/feed:', e.message);
+  _routeErrors.push({ route: '/api/feed', error: e.message });
   app.use('/api/feed', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'feed', detail: e.message }));
 }
 
@@ -55,6 +61,7 @@ try {
   console.log('[Startup] OK: /api/anon');
 } catch (e) {
   console.error('[Startup] FAILED /api/anon:', e.message);
+  _routeErrors.push({ route: '/api/anon', error: e.message });
   app.use('/api/anon', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'anon', detail: e.message }));
 }
 
@@ -63,6 +70,7 @@ try {
   console.log('[Startup] OK: /api/contributors');
 } catch (e) {
   console.error('[Startup] FAILED /api/contributors:', e.message);
+  _routeErrors.push({ route: '/api/contributors', error: e.message });
   app.use('/api/contributors', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'contributors', detail: e.message }));
 }
 
@@ -71,6 +79,7 @@ try {
   console.log('[Startup] OK: /api/dm');
 } catch (e) {
   console.error('[Startup] FAILED /api/dm:', e.message);
+  _routeErrors.push({ route: '/api/dm', error: e.message });
   app.use('/api/dm', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'dm', detail: e.message }));
 }
 
@@ -79,6 +88,7 @@ try {
   console.log('[Startup] OK: /api/notifications');
 } catch (e) {
   console.error('[Startup] FAILED /api/notifications:', e.message);
+  _routeErrors.push({ route: '/api/notifications', error: e.message });
   app.use('/api/notifications', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'notifications', detail: e.message }));
 }
 
@@ -87,6 +97,7 @@ try {
   console.log('[Startup] OK: /api/profile');
 } catch (e) {
   console.error('[Startup] FAILED /api/profile:', e.message);
+  _routeErrors.push({ route: '/api/profile', error: e.message });
   app.use('/api/profile', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'profile', detail: e.message }));
 }
 
@@ -95,6 +106,7 @@ try {
   console.log('[Startup] OK: /api/bookmarks');
 } catch (e) {
   console.error('[Startup] FAILED /api/bookmarks:', e.message);
+  _routeErrors.push({ route: '/api/bookmarks', error: e.message });
   app.use('/api/bookmarks', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'bookmarks', detail: e.message }));
 }
 
@@ -103,6 +115,7 @@ try {
   console.log('[Startup] OK: /api/reports');
 } catch (e) {
   console.error('[Startup] FAILED /api/reports:', e.message);
+  _routeErrors.push({ route: '/api/reports', error: e.message });
   app.use('/api/reports', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'reports', detail: e.message }));
 }
 
@@ -111,6 +124,7 @@ try {
   console.log('[Startup] OK: /api/pyq');
 } catch (e) {
   console.error('[Startup] FAILED /api/pyq:', e.message);
+  _routeErrors.push({ route: '/api/pyq', error: e.message });
   app.use('/api/pyq', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'pyq', detail: e.message }));
 }
 
@@ -119,6 +133,7 @@ try {
   console.log('[Startup] OK: /api/notices');
 } catch (e) {
   console.error('[Startup] FAILED /api/notices:', e.message);
+  _routeErrors.push({ route: '/api/notices', error: e.message });
   app.use('/api/notices', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'notices', detail: e.message }));
 }
 
@@ -127,6 +142,7 @@ try {
   console.log('[Startup] OK: /api/timetable');
 } catch (e) {
   console.error('[Startup] FAILED /api/timetable:', e.message);
+  _routeErrors.push({ route: '/api/timetable', error: e.message });
   app.use('/api/timetable', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'timetable', detail: e.message }));
 }
 
@@ -135,6 +151,7 @@ try {
   console.log('[Startup] OK: /api/lostfound');
 } catch (e) {
   console.error('[Startup] FAILED /api/lostfound:', e.message);
+  _routeErrors.push({ route: '/api/lostfound', error: e.message });
   app.use('/api/lostfound', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'lostfound', detail: e.message }));
 }
 
@@ -143,6 +160,7 @@ try {
   console.log('[Startup] OK: /api/notes');
 } catch (e) {
   console.error('[Startup] FAILED /api/notes:', e.message);
+  _routeErrors.push({ route: '/api/notes', error: e.message });
   app.use('/api/notes', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'notes', detail: e.message }));
 }
 
@@ -176,6 +194,9 @@ app.get('/api/debug', (req, res) => {
   res.json({
     status: 'ok',
     ts:      new Date().toISOString(),
+    cwd:     process.cwd(),
+    dirname: __dirname,
+    route_errors: _routeErrors,
     env: {
       SUPABASE_URL_set:              !!process.env.SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY_set: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
