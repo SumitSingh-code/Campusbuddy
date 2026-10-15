@@ -29,7 +29,7 @@ function formatPost(post, currentUserId, isAdmin) {
     status:        post.status,
     created_at:    post.created_at,
     updated_at:    post.updated_at,
-    comment_count: parseInt(post.anon_comments?.[0]?.count ?? 0, 10),
+    comment_count: parseInt(post.anon_comments?.[0]?.count ?? post.comments_count ?? 0, 10),
     is_own:        post.user_id === currentUserId,
     // Enriched after query:
     my_vote:       null,
@@ -41,13 +41,19 @@ function formatPost(post, currentUserId, isAdmin) {
 }
 
 function formatComment(comment, currentUserId, isAdmin) {
+  const is_own = comment.user_id === currentUserId;
   return {
     id:           comment.id,
     anon_post_id: comment.post_id,
     content:      comment.content,
     status:       comment.status,
     created_at:   comment.created_at,
-    is_own:       comment.user_id === currentUserId,
+    is_own,
+    author: {
+      id: is_own ? currentUserId : 'anonymous',
+      full_name: is_own ? 'Anonymous (You)' : 'Anonymous',
+      avatar_url: null,
+    },
     // Admins get user_id for moderation
     ...(isAdmin ? { user_id: comment.user_id } : {}),
   };
@@ -326,22 +332,27 @@ router.get('/:id/comments', async (req, res) => {
 
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
-    const { data: comments, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('anon_comments')
       .select('id, post_id, user_id, content, status, created_at')
       .eq('post_id', req.params.id)
       .eq('status', 'published')
-      .lt('created_at', before)
       .order('created_at', { ascending: true })
       .limit(limit + 1);
+
+    if (req.query.before) {
+      query = query.lt('created_at', req.query.before);
+    }
+
+    const { data: comments, error } = await query;
 
     if (error) {
       console.error('[anon GET /:id/comments]', error);
       return res.status(500).json({ error: 'Database error' });
     }
 
-    const has_more    = comments.length > limit;
-    const slice       = has_more ? comments.slice(0, limit) : comments;
+    const has_more    = (comments || []).length > limit;
+    const slice       = has_more ? comments.slice(0, limit) : (comments || []);
     const next_cursor = has_more ? slice[slice.length - 1].created_at : null;
 
     const data = slice.map(c => formatComment(c, req.profile.id, isAdmin));

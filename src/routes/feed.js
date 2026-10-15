@@ -326,7 +326,7 @@ router.get('/:id/comments', async (req, res) => {
 
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
-    const { data: comments, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('comments')
       .select(`
         id, content, status, created_at,
@@ -334,9 +334,14 @@ router.get('/:id/comments', async (req, res) => {
       `)
       .eq('post_id', req.params.id)
       .eq('status', 'published')
-      .lt('created_at', before)
       .order('created_at', { ascending: true })
       .limit(limit + 1);
+
+    if (req.query.before) {
+      query = query.lt('created_at', req.query.before);
+    }
+
+    const { data: comments, error } = await query;
 
     if (error) {
       console.error('[feed GET /:id/comments]', error);

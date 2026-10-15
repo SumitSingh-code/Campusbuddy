@@ -11,12 +11,13 @@ interface Comment {
   id: string
   content: string
   created_at: string
-  author: {
-    id: string
-    full_name: string
+  is_own?: boolean
+  author?: {
+    id?: string
+    full_name?: string
     department?: string
     avatar_url?: string | null
-  }
+  } | null
 }
 
 interface CommentsSheetProps {
@@ -94,8 +95,18 @@ export default function CommentsSheet({
     }
   }
 
-  function getInitials(name: string) {
+  function getInitials(name?: string) {
+    if (!name) return '?'
     return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
+  }
+
+  function formatCommentTime(ts?: string) {
+    if (!ts) return ''
+    try {
+      return formatDistanceToNow(new Date(ts), { addSuffix: true })
+    } catch {
+      return ''
+    }
   }
 
   return (
@@ -145,30 +156,48 @@ export default function CommentsSheet({
             </div>
           ) : (
             comments.map(comment => {
-              const isOwn = comment.author.id === currentUserId
+              const isAnonComment = commentEndpoint.includes('anon') || !comment.author || comment.author.id === 'anonymous'
+              const isOwn = Boolean(comment.is_own || (currentUserId && comment.author?.id && comment.author.id === currentUserId))
+              const authorName = isAnonComment
+                ? 'Anonymous'
+                : (comment.author?.full_name || 'User')
+
               return (
                 <div key={comment.id} style={{ display: 'flex', gap: 10, marginBottom: '1rem' }}>
                   <div style={{
                     width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'var(--bg-muted)', color: 'var(--ink-muted)',
-                    fontWeight: 700, fontSize: '0.75rem',
+                    background: isAnonComment ? 'var(--bg-muted)' : (comment.author?.avatar_url ? 'transparent' : 'var(--bg-muted)'),
+                    color: 'var(--ink-muted)',
+                    fontWeight: 700, fontSize: isAnonComment ? '1.1rem' : '0.75rem',
+                    overflow: 'hidden',
                   }}>
-                    {comment.author.avatar_url
-                      ? <img src={comment.author.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                      : getInitials(comment.author.full_name)
-                    }
+                    {isAnonComment ? (
+                      '👻'
+                    ) : comment.author?.avatar_url ? (
+                      <img src={comment.author.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                    ) : (
+                      getInitials(comment.author?.full_name || '')
+                    )}
                   </div>
                   <div style={{ flex: 1, background: 'var(--bg-muted)', borderRadius: '0 12px 12px 12px', padding: '0.5rem 0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--ink)' }}>{comment.author.full_name}</span>
+                      <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--ink)' }}>
+                        {authorName}
+                      </span>
+                      {isAnonComment && isOwn && (
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'var(--accent-light)', color: 'var(--accent-text)' }}>
+                          You
+                        </span>
+                      )}
                       <span style={{ fontSize: '0.7rem', color: 'var(--ink-subtle)' }}>
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                        {formatCommentTime(comment.created_at)}
                       </span>
                       {(isOwn || isAdmin) && (
                         <button
                           onClick={() => setDeleteId(comment.id)}
                           style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}
+                          aria-label="Delete comment"
                         ><Trash2 size={12} /></button>
                       )}
                     </div>
