@@ -3,7 +3,7 @@
 // Call this from any API route to fire a notification to a user.
 // Silently ignores errors (notifications are best-effort, never block the main action).
 
-const { supabaseAdmin } = require('./supabase');
+const { supabaseAdmin } = require('./supabase-admin');
 
 /**
  * Create a notification for a user.
