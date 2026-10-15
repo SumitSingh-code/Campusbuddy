@@ -26,5 +26,5 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   // Only run on actual page routes — skip static assets entirely
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|sw.js|manifest.json|css|api).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|sw.js|manifest.json|css|js|admin\\.html|api).*)'],
 }

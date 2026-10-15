@@ -734,7 +734,7 @@
         <div class="sidebar-dark-row">
           <span>Appearance</span>
         </div>
-        <a href="/index.html" class="admin-nav-item">
+        <a href="/feed" class="admin-nav-item">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
           Back to App
         </a>
@@ -1022,7 +1022,7 @@
         <span style="font-size:.75rem;opacity:.5;margin-left:auto;">Super admin only</span>
       </button>
       <div style="height:1px;background:var(--adm-border);margin:.5rem 1.25rem;"></div>
-      <a href="/index.html" class="adm-more-item">
+      <a href="/feed" class="adm-more-item">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
         Back to App
       </a>
@@ -1092,7 +1092,7 @@
       const { user, profile } = await Auth.init();
 
       if (!user || !profile || !Auth.isAdmin()) {
-        window.location.href = profile ? '/index.html' : '/auth.html';
+        window.location.href = profile ? '/feed' : '/login';
         return;
       }
 
@@ -1765,7 +1765,7 @@
 
     init().catch(err => {
       console.error('[Admin] Init error:', err);
-      window.location.href = '/auth.html';
+      window.location.href = '/login';
     });
   </script>
 </body>
