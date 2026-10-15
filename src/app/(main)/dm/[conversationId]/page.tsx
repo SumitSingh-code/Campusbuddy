@@ -52,15 +52,16 @@ export default function DMThreadPage() {
     let cancelled = false
     async function load() {
       try {
-        const [infoRes, msgsRes] = await Promise.all([
-          api.get(`/dm/${conversationId}`),
-          api.get(`/dm/${conversationId}/messages`),
-        ])
+        // Backend GET /dm/conversations/:id returns messages + other_user in one call
+        const res = await api.get(`/dm/conversations/${conversationId}`)
         if (cancelled) return
-        setConvInfo(infoRes.data || null)
-        setMessages(msgsRes.data || [])
-        // Mark read
-        api.post(`/dm/${conversationId}/read`, {}).catch(() => {})
+        // Reconstruct convInfo from the other_user field
+        if (res.other_user) {
+          setConvInfo({ id: conversationId, other_user: res.other_user as ConvInfo['other_user'] })
+        }
+        setMessages((res.data as Message[]) || [])
+        // Mark read (best-effort, already done server-side but call anyway)
+        api.patch(`/dm/conversations/${conversationId}/read`, {}).catch(() => {})
       } catch (e: unknown) {
         if (!cancelled) toast.error((e as Error).message || 'Failed to load conversation')
       } finally {
@@ -87,7 +88,7 @@ export default function DMThreadPage() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages',
+          table: 'dm_messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
@@ -100,7 +101,7 @@ export default function DMThreadPage() {
           setTimeout(() => scrollToBottom(true), 50)
           // Mark as read if from other user
           if (newMsg.sender_id !== user.id) {
-            api.post(`/dm/${conversationId}/read`, {}).catch(() => {})
+            api.patch(`/dm/conversations/${conversationId}/read`, {}).catch(() => {})
           }
         }
       )
@@ -131,7 +132,7 @@ export default function DMThreadPage() {
     setTimeout(() => scrollToBottom(true), 50)
 
     try {
-      await api.post(`/dm/${conversationId}/messages`, { content: tempContent })
+      await api.post(`/dm/conversations/${conversationId}/messages`, { content: tempContent })
       // realtime will add the real message; remove optimistic
       setMessages(prev => prev.filter(m => m.id !== tempId))
     } catch (e: unknown) {

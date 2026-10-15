@@ -54,7 +54,7 @@ export default function DMPage() {
   // Load conversations
   const loadConversations = useCallback(async () => {
     try {
-      const res = await api.get('/dm')
+      const res = await api.get('/dm/conversations')
       setConversations(res.data || [])
     } catch (e: unknown) {
       setError((e as Error).message || 'Failed to load conversations')
@@ -78,7 +78,7 @@ export default function DMPage() {
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const res = await api.get(`/profile/search?q=${encodeURIComponent(searchQ.trim())}`)
+        const res = await api.get(`/dm/search?q=${encodeURIComponent(searchQ.trim())}`)
         setSearchResults((res.data || []).filter((u: SearchUser) => u.id !== user?.id))
       } catch {
         // silent
@@ -96,8 +96,8 @@ export default function DMPage() {
   async function startConversation(otherUserId: string) {
     setStarting(otherUserId)
     try {
-      const res = await api.post('/dm/start', { other_user_id: otherUserId })
-      const convId = res.data?.id
+      const res = await api.post('/dm/conversations', { recipient_id: otherUserId, message: '👋' })
+      const convId = res.data?.conversation_id
       if (!convId) throw new Error('No conversation ID returned')
       router.push(`/dm/${convId}`)
     } catch (e: unknown) {
