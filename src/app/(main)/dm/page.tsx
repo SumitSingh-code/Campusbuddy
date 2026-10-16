@@ -17,13 +17,15 @@ interface Conversation {
     department?: string
     roll_number?: string
   }
-  last_message?: {
-    content: string
-    created_at: string
-    sender_id: string
-  }
+  last_message?: string | {
+    content?: string
+    created_at?: string
+    sender_id?: string
+  } | null
+  last_message_at?: string | null
+  is_last_mine?: boolean
   unread_count: number
-  updated_at: string
+  updated_at?: string
 }
 
 interface SearchUser {
@@ -152,8 +154,19 @@ export default function DMPage() {
         <div className="dm-list">
           {conversations.map(conv => {
             const other = conv.other_user
-            const lastMsg = conv.last_message
-            const isUnread = conv.unread_count > 0
+            const isUnread = (conv.unread_count || 0) > 0
+
+            // Extract last message text safely
+            const rawText = typeof conv.last_message === 'string'
+              ? conv.last_message
+              : (typeof conv.last_message === 'object' && conv.last_message !== null ? conv.last_message.content : '')
+
+            const isMine = typeof conv.is_last_mine === 'boolean'
+              ? conv.is_last_mine
+              : (typeof conv.last_message === 'object' && conv.last_message !== null && conv.last_message.sender_id === user?.id)
+
+            const msgTime = conv.last_message_at || (typeof conv.last_message === 'object' && conv.last_message !== null ? conv.last_message.created_at : null)
+
             return (
               <button
                 key={conv.id}
@@ -169,24 +182,38 @@ export default function DMPage() {
                 </div>
                 <div className="dm-row-content">
                   <div className="dm-row-top">
-                    <span className="dm-row-name">{other.full_name}</span>
-                    {lastMsg && (
-                      <span className="dm-row-time">{timeAgo(lastMsg.created_at)}</span>
+                    <div className="dm-row-name-wrap">
+                      <span className="dm-row-name">{other.full_name}</span>
+                      {other.department && (
+                        <span className="dm-row-dept-badge" title={other.department}>
+                          {other.department}
+                        </span>
+                      )}
+                    </div>
+                    {msgTime && (
+                      <span className={`dm-row-time${isUnread ? ' dm-row-time--unread' : ''}`}>
+                        {timeAgo(msgTime)}
+                      </span>
                     )}
                   </div>
-                  <div className="dm-row-preview">
-                    {lastMsg
-                      ? (lastMsg.sender_id === user?.id ? 'You: ' : '') + lastMsg.content
-                      : <em>No messages yet</em>
-                    }
+                  <div className="dm-row-bottom">
+                    <div className={`dm-row-preview${isUnread ? ' dm-row-preview--unread' : ''}`}>
+                      {rawText ? (
+                        <>
+                          {isMine && <span className="dm-row-you">You: </span>}
+                          <span>{rawText}</span>
+                        </>
+                      ) : (
+                        <span className="dm-row-empty">No messages yet</span>
+                      )}
+                    </div>
+                    {isUnread && conv.unread_count > 0 && (
+                      <span className="dm-unread-badge">
+                        {conv.unread_count > 99 ? '99+' : conv.unread_count}
+                      </span>
+                    )}
                   </div>
-                  {other.department && (
-                    <div className="dm-row-dept">{other.department}</div>
-                  )}
                 </div>
-                {isUnread && conv.unread_count > 0 && (
-                  <span className="dm-unread-badge">{conv.unread_count > 99 ? '99+' : conv.unread_count}</span>
-                )}
               </button>
             )
           })}
@@ -284,32 +311,50 @@ const dmStyles = `
   border-bottom: 1px solid var(--border); transition: background .12s;
 }
 .dm-row:active, .dm-row:hover { background: var(--surface); }
-.dm-row--unread { background: rgba(var(--accent-rgb, 212,175,55),.04); }
+.dm-row--unread { background: rgba(var(--accent-rgb, 212,175,55),.05); }
 
 .dm-avatar {
-  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
   position: relative; background: var(--surface2);
   display: flex; align-items: center; justify-content: center;
 }
-.dm-avatar-img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
-.dm-avatar-initials { font-size: .9rem; font-weight: 700; color: var(--accent); }
+.dm-avatar-img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.dm-avatar-initials { font-size: .95rem; font-weight: 700; color: var(--accent); }
 .dm-unread-dot {
   position: absolute; top: 1px; right: 1px;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: var(--accent); border: 2px solid var(--bg);
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--surface);
 }
 
-.dm-row-content { flex: 1; min-width: 0; }
-.dm-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
-.dm-row-name { font-weight: 600; font-size: .9rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dm-row-time { font-size: .72rem; color: var(--ink-muted); flex-shrink: 0; }
-.dm-row-preview { font-size: .8125rem; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .1rem; }
-.dm-row-dept { font-size: .7rem; color: var(--ink-muted); margin-top: .15rem; }
+.dm-row-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dm-row-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.dm-row-name-wrap { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 1; overflow: hidden; }
+.dm-row-name { font-weight: 700; font-size: .925rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-row-dept-badge {
+  font-size: .66rem; font-weight: 500; padding: 1px 6px; border-radius: 9999px;
+  background: #F1F3F5; color: #596273; border: 1px solid #E5E7EB;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;
+  flex-shrink: 1; line-height: 1.25;
+}
+.dm-row-time { font-size: .72rem; color: var(--ink-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.dm-row-time--unread { color: var(--accent); font-weight: 600; }
+
+.dm-row-bottom { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.dm-row-preview {
+  font-size: .8125rem; color: var(--ink-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; min-width: 0;
+}
+.dm-row-preview--unread { font-weight: 600; color: var(--ink); }
+.dm-row-you { color: var(--ink); font-weight: 600; opacity: .8; }
+.dm-row-empty { font-style: italic; color: var(--ink-muted); opacity: .7; }
 
 .dm-unread-badge {
   background: var(--accent); color: var(--bg);
   font-size: .68rem; font-weight: 700; border-radius: 99px;
-  padding: 1px 6px; flex-shrink: 0;
+  padding: 1px 6px; min-width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 
 .dm-empty {

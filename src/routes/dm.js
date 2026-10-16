@@ -151,13 +151,15 @@ router.get('/conversations', async (req, res) => {
     const data = convos.map(c => {
       const otherId = otherParticipant(c, uid);
       const lastMsg = lastMsgMap[c.id];
+      const isMine  = lastMsg ? lastMsg.sender_id === uid : false;
+      const lastMsgTime = (lastMsg && lastMsg.created_at) || c.last_message_at || null;
       return {
         id:              c.id,
         other_user:      profileMap[otherId] || { id: otherId, full_name: 'Unknown User' },
-        last_message:    lastMsg ? lastMsg.content.substring(0, 80) : null,
-        last_message_at: c.last_message_at,
+        last_message:    lastMsg ? lastMsg.content.substring(0, 120) : null,
+        last_message_at: lastMsgTime,
         unread_count:    unreadMap[c.id] || 0,
-        is_last_mine:    lastMsg ? lastMsg.sender_id === uid : false,
+        is_last_mine:    isMine,
       };
     });
 
@@ -235,6 +237,9 @@ router.post('/conversations', async (req, res) => {
       console.error('[dm POST /conversations] msg insert:', msgErr2);
       return res.status(500).json({ error: 'Database error' });
     }
+
+    // Update conversation last_message_at
+    supabaseAdmin.from('dm_conversations').update({ last_message_at: msg.created_at }).eq('id', convId).then(() => {});
 
     // Notify recipient
     await notify(recipient_id, {
@@ -371,6 +376,9 @@ router.post('/conversations/:id/messages', async (req, res) => {
       console.error('[dm POST /conversations/:id/messages]', insertErr);
       return res.status(500).json({ error: 'Database error' });
     }
+
+    // Update conversation last_message_at
+    supabaseAdmin.from('dm_conversations').update({ last_message_at: msg.created_at }).eq('id', req.params.id).then(() => {});
 
     // Notify recipient (best-effort)
     notify(recipientId, {
