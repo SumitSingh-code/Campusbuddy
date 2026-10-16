@@ -28,27 +28,6 @@ interface FeedNotice {
   created_at: string
 }
 
-function abbrevDept(dept: string): string {
-  if (!dept) return 'My Branch'
-  const normalized = dept.trim()
-  if (normalized.length <= 12) return normalized
-  const lower = normalized.toLowerCase()
-  if (lower.includes('computer science') || lower.includes('cse')) return 'CSE & IT'
-  if (lower.includes('information technology') || lower.includes('it')) return 'IT'
-  if (lower.includes('mechanical')) return 'Mechanical'
-  if (lower.includes('civil')) return 'Civil'
-  if (lower.includes('electrical')) return 'Electrical'
-  if (lower.includes('electronics') || lower.includes('ece')) return 'ECE'
-  if (lower.includes('management') || lower.includes('mba')) return 'MBA'
-  if (lower.includes('commerce') || lower.includes('b.com') || lower.includes('m.com')) return 'Commerce'
-  if (lower.includes('physics')) return 'Physics'
-  if (lower.includes('chemistry')) return 'Chemistry'
-  if (lower.includes('math')) return 'Maths'
-  if (lower.includes('law')) return 'Law'
-  if (lower.includes('education') || lower.includes('b.ed')) return 'Education'
-  return normalized.slice(0, 14) + '…'
-}
-
 export default function FeedPage() {
   const { user, profile, isAdmin } = useAuth()
 
@@ -90,9 +69,6 @@ export default function FeedPage() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Department name abbreviation
-  const userDept = profile?.department ? abbrevDept(profile.department) : 'My Branch'
-
   const isNoticeView = ['announcements', 'holiday', 'exam', 'event'].includes(activeFilter)
 
   // Load feed posts
@@ -108,7 +84,7 @@ export default function FeedPage() {
     try {
       const params = new URLSearchParams({ limit: '20' })
       if (!initial && cursor) params.set('before', cursor)
-      const targetDept = deptOverride !== undefined ? deptOverride : (activeFilter === 'dept' ? profile?.department : null)
+      const targetDept = deptOverride !== undefined ? deptOverride : (activeFilter === 'dept' ? (profile?.department || 'my') : null)
       if (targetDept) params.set('department', targetDept)
 
       const res = await api.get<{ data: Post[]; next_cursor: string | null; has_more: boolean }>(`/feed?${params}`)
@@ -158,7 +134,7 @@ export default function FeedPage() {
     if (filter === 'all') {
       loadFeed(true, null)
     } else if (filter === 'dept') {
-      loadFeed(true, profile?.department || '')
+      loadFeed(true, profile?.department || 'my')
     } else {
       loadNotices(filter)
     }
@@ -321,7 +297,7 @@ export default function FeedPage() {
   // Filter Pills list (Matches reference image)
   const PILLS: { id: FeedFilterType; label: string; icon?: string; isDept?: boolean }[] = [
     { id: 'all', label: 'All Campus' },
-    { id: 'dept', label: userDept, isDept: true },
+    { id: 'dept', label: 'My Department', isDept: true },
     { id: 'announcements', label: 'Announcements', icon: '📢' },
     { id: 'holiday', label: 'Holidays', icon: '🏖️' },
     { id: 'exam', label: 'Exams', icon: '📝' },
@@ -362,6 +338,24 @@ export default function FeedPage() {
         </div>
       </div>
 
+      {/* ── DEPARTMENT BANNER (Shown when My Department filter is active) ── */}
+      {activeFilter === 'dept' && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 16px',
+          background: 'rgba(34, 197, 94, 0.08)',
+          borderBottom: '1px solid rgba(34, 197, 94, 0.18)',
+          fontSize: '0.8125rem',
+        }}>
+          <span style={{ color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7, fontWeight: 500 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+            <span>Showing posts from: <strong style={{ color: 'var(--ink)', fontWeight: 700 }}>{profile?.department || 'Your Department'}</strong></span>
+          </span>
+        </div>
+      )}
+
       {/* ── COMPOSER BOX (Shown on Feed tabs: 'all' and 'dept') ── */}
       {!isNoticeView && (
         <form onSubmit={handleCompose} style={{ borderBottom: '1px solid var(--border)', padding: '1rem', background: 'var(--surface)' }}>
@@ -381,7 +375,7 @@ export default function FeedPage() {
               <textarea
                 value={composeText}
                 onChange={e => setComposeText(e.target.value)}
-                placeholder={activeFilter === 'dept' ? `Share something with ${userDept}… 💬` : "What's happening on campus? 👋"}
+                placeholder={activeFilter === 'dept' ? `Share something with ${profile?.department || 'your department'}… 💬` : "What's happening on campus? 👋"}
                 maxLength={1000}
                 rows={2}
                 style={{
@@ -538,11 +532,11 @@ export default function FeedPage() {
             <div style={{ padding: '4rem 1rem', textAlign: 'center' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
               <h3 style={{ color: 'var(--ink)', marginBottom: 8, fontFamily: 'var(--font-heading)' }}>
-                {activeFilter === 'dept' ? `No posts yet in ${userDept}` : 'No posts yet'}
+                {activeFilter === 'dept' ? `No posts yet in ${profile?.department || 'your department'}` : 'No posts yet'}
               </h3>
               <p style={{ color: 'var(--ink-muted)', fontSize: '0.875rem' }}>
                 {activeFilter === 'dept'
-                  ? `Be the first from ${userDept} to share something!`
+                  ? `Be the first from ${profile?.department || 'your department'} to share something!`
                   : 'Be the first to post something on Campus Feed!'}
               </p>
             </div>

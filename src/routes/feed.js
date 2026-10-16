@@ -56,18 +56,35 @@ async function enrichPosts(posts, userId) {
 router.get('/', async (req, res) => {
   try {
     const limit  = Math.min(50, Math.max(1, parseInt(req.query.limit) || 25));
-    const department = req.query.department ? String(req.query.department).trim() : null;
+    const before = req.query.before || new Date().toISOString();
 
     let userIdsToFilter = null;
-    if (department) {
-      const { data: deptProfiles } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .ilike('department', `%${department}%`);
-      userIdsToFilter = (deptProfiles || []).map(p => p.id);
-      if (!userIdsToFilter.length) {
+    if (req.query.department) {
+      let deptName = String(req.query.department).trim();
+      if (deptName.toLowerCase() === 'my') {
+        deptName = req.profile?.department || '';
+      }
+
+      if (!deptName) {
         return res.json({ data: [], next_cursor: null, has_more: false });
       }
+
+      // Extract primary search keyword to avoid PostgREST query param parsing issues with '&'
+      const searchKeyword = deptName.split(/&|,|\//)[0].trim();
+      const { data: deptProfiles, error: profError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .ilike('department', `%${searchKeyword}%`);
+
+      if (profError) {
+        console.error('[feed GET /] Dept filter error:', profError);
+      }
+
+      const ids = (deptProfiles || []).map(p => p.id);
+      if (ids.length === 0) {
+        return res.json({ data: [], next_cursor: null, has_more: false });
+      }
+      userIdsToFilter = ids;
     }
 
     let query = supabaseAdmin
