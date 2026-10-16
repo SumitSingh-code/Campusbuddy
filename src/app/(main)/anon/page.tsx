@@ -1,16 +1,32 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Ghost, Send, Flag, Trash2, MoreHorizontal, Link2 } from 'lucide-react'
+import {
+  Ghost,
+  Send,
+  Flag,
+  Trash2,
+  MoreHorizontal,
+  Link2,
+  ThumbsUp,
+  ThumbsDown,
+  MessageCircle,
+  Smile,
+} from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import CommentsSheet from '@/components/CommentsSheet'
 import ReportDialog from '@/components/ReportDialog'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
-import { ThumbsUp, ThumbsDown, MessageCircle } from 'lucide-react'
 
 interface AnonPost {
   id: string
@@ -21,6 +37,24 @@ interface AnonPost {
   comment_count: number
   my_vote?: 'up' | 'down' | null
   is_own?: boolean
+}
+
+// ── Soft pastel palette for avatar backgrounds (matches Stitch design) ────
+const PASTEL_AVATARS = [
+  '#FCE7F3', // Soft Pink
+  '#EDE9FE', // Soft Lavender
+  '#FEF9C3', // Soft Amber/Yellow
+  '#CFFAFE', // Soft Mint/Cyan
+  '#DCFCE7', // Soft Green
+  '#FFE4E6', // Soft Rose
+]
+
+function getAvatarPastel(id: string) {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff
+  }
+  return PASTEL_AVATARS[Math.abs(hash) % PASTEL_AVATARS.length]
 }
 
 export default function AnonPage() {
@@ -44,13 +78,23 @@ export default function AnonPage() {
 
   const loadPosts = useCallback(async (initial = false) => {
     if (!initial && (!hasMore || loadingMore)) return
-    if (initial) { setLoading(true); setCursor(null); setHasMore(true) }
-    else setLoadingMore(true)
+    if (initial) {
+      setLoading(true)
+      setCursor(null)
+      setHasMore(true)
+    } else {
+      setLoadingMore(true)
+    }
     try {
       const params = new URLSearchParams({ limit: '20' })
       if (!initial && cursor) params.set('before', cursor)
-      const res = await api.get<{ data: AnonPost[]; next_cursor: string | null; has_more: boolean; posts_today?: number }>(`/anon?${params}`)
-      setPosts(prev => initial ? (res.data || []) : [...prev, ...(res.data || [])])
+      const res = await api.get<{
+        data: AnonPost[]
+        next_cursor: string | null
+        has_more: boolean
+        posts_today?: number
+      }>(`/anon?${params}`)
+      setPosts(prev => (initial ? res.data || [] : [...prev, ...(res.data || [])]))
       setCursor(res.next_cursor)
       setHasMore(res.has_more)
       if (res.posts_today !== undefined) setPostsToday(res.posts_today)
@@ -64,12 +108,18 @@ export default function AnonPage() {
     }
   }, [cursor, hasMore, loadingMore])
 
-  useEffect(() => { loadPosts(true) }, [])
+  useEffect(() => {
+    loadPosts(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!sentinelRef.current) return
     const observer = new IntersectionObserver(
-      entries => { if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) loadPosts(false) },
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadPosts(false)
+        }
+      },
       { rootMargin: '300px' }
     )
     observer.observe(sentinelRef.current)
@@ -79,10 +129,15 @@ export default function AnonPage() {
   async function handleCompose(e: React.FormEvent) {
     e.preventDefault()
     if (!composeText.trim() || composing) return
-    if (postsToday >= 3) { toast.error('You can only post 3 anonymous posts per day'); return }
+    if (postsToday >= 3) {
+      toast.error('You can only post 3 anonymous posts per day')
+      return
+    }
     setComposing(true)
     try {
-      const res = await api.post<{ data: AnonPost; posts_today: number }>('/anon', { content: composeText.trim() })
+      const res = await api.post<{ data: AnonPost; posts_today: number }>('/anon', {
+        content: composeText.trim(),
+      })
       setPosts(prev => [{ ...res.data, is_own: true }, ...prev])
       setPostsToday(res.posts_today)
       setComposeText('')
@@ -96,22 +151,23 @@ export default function AnonPage() {
 
   async function handleVote(postId: string, type: 'up' | 'down', current?: string | null) {
     const newVote = current === type ? null : type
-    // Optimistic update
-    setPosts(prev => prev.map(p => {
-      if (p.id !== postId) return p
-      const upvotes = p.upvotes + (current === 'up' ? -1 : 0) + (newVote === 'up' ? 1 : 0)
-      const downvotes = p.downvotes + (current === 'down' ? -1 : 0) + (newVote === 'down' ? 1 : 0)
-      return { ...p, my_vote: newVote as AnonPost['my_vote'], upvotes, downvotes }
-    }))
+    setPosts(prev =>
+      prev.map(p => {
+        if (p.id !== postId) return p
+        const upvotes = p.upvotes + (current === 'up' ? -1 : 0) + (newVote === 'up' ? 1 : 0)
+        const downvotes = p.downvotes + (current === 'down' ? -1 : 0) + (newVote === 'down' ? 1 : 0)
+        return { ...p, my_vote: newVote as AnonPost['my_vote'], upvotes, downvotes }
+      })
+    )
     try {
       if (newVote === null) {
-        // Un-vote: DELETE /anon/:id/vote
         await api.delete(`/anon/${postId}/vote`)
       } else {
-        // Vote: POST /anon/:id/vote with { vote_type }
         await api.post(`/anon/${postId}/vote`, { vote_type: newVote })
       }
-    } catch { loadPosts(true) }
+    } catch {
+      loadPosts(true)
+    }
   }
 
   async function handleDelete(postId: string) {
@@ -135,8 +191,14 @@ export default function AnonPage() {
       ta.value = url
       ta.style.cssText = 'position:fixed;opacity:0'
       document.body.appendChild(ta)
-      ta.focus(); ta.select()
-      try { document.execCommand('copy'); toast.success('Link copied!') } catch { toast.error('Copy failed') }
+      ta.focus()
+      ta.select()
+      try {
+        document.execCommand('copy')
+        toast.success('Link copied!')
+      } catch {
+        toast.error('Copy failed')
+      }
       ta.remove()
     }
   }
@@ -144,137 +206,261 @@ export default function AnonPage() {
   const canPost = postsToday < 3
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Ghost size={20} style={{ color: 'var(--ink-muted)' }} />
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1rem', color: 'var(--ink)' }}>Anonymous Feed</h2>
-          <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: postsToday >= 3 ? 'var(--danger)' : 'var(--ink-subtle)' }}>{postsToday}/3 posts today</span>
+    <div className="w-full bg-white dark:bg-[var(--bg)] min-h-screen">
+      {/* ── HEADER ─────────────────────────────────────────────────── */}
+      <div className="sticky top-[52px] z-30 bg-white dark:bg-[var(--surface)] border-b border-slate-100 dark:border-[var(--border)] px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Ghost size={22} className="text-slate-900 dark:text-neutral-100 stroke-[2.2]" />
+          <h1 className="font-heading font-bold text-[18px] text-slate-900 dark:text-white tracking-tight">
+            Anonymous Feed
+          </h1>
+        </div>
+        <div className="px-3 py-1 rounded-full bg-[#F1F5F9] dark:bg-neutral-800 text-[12px] font-medium text-[#475569] dark:text-neutral-300 select-none">
+          {postsToday}/3 posts today
         </div>
       </div>
 
-      {/* Compose */}
-      <form onSubmit={handleCompose} style={{ borderBottom: '1px solid var(--border)', padding: '1rem', background: 'var(--surface)' }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-muted)', fontSize: '1.2rem' }}>👻</div>
-          <div style={{ flex: 1 }}>
-            <textarea
-              value={composeText}
-              onChange={e => setComposeText(e.target.value)}
-              placeholder={canPost ? 'Share something anonymously... 🎭' : 'Daily limit reached (3/3 posts)'}
-              disabled={!canPost}
-              maxLength={1000}
-              rows={2}
-              style={{ width: '100%', border: 'none', background: 'none', outline: 'none', color: 'var(--ink)', fontSize: '0.9375rem', lineHeight: 1.5, resize: 'none', fontFamily: 'inherit', opacity: canPost ? 1 : 0.5 }}
-            />
+      {/* ── COMPOSE CARD ───────────────────────────────────────────── */}
+      <div className="m-3 sm:m-4 p-3.5 sm:p-4 bg-white dark:bg-[var(--surface)] border border-slate-200/90 dark:border-neutral-800 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <form onSubmit={handleCompose}>
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-[#EDE9FE] dark:bg-violet-950/40 text-[1.3rem]">
+              👻
+            </div>
+            <div className="flex-1 min-w-0">
+              <textarea
+                value={composeText}
+                onChange={e => setComposeText(e.target.value)}
+                placeholder={canPost ? "Share something anonymously... 🎭" : "Daily limit reached (3/3 posts)"}
+                disabled={!canPost}
+                maxLength={1000}
+                rows={2}
+                className="w-full bg-transparent border-none outline-none resize-none text-[15px] leading-relaxed text-slate-800 dark:text-neutral-100 placeholder:text-slate-400 font-normal disabled:opacity-50"
+              />
+            </div>
           </div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-          <button
-            type="submit"
-            disabled={!composeText.trim() || composing || !canPost}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', background: (composeText.trim() && canPost) ? 'var(--accent)' : 'var(--bg-muted)', color: (composeText.trim() && canPost) ? 'var(--bg)' : 'var(--ink-subtle)', fontWeight: 700, fontSize: '0.875rem', transition: 'all 0.15s' }}
-          >
-            <Send size={14} /> Post
-          </button>
-        </div>
-      </form>
 
-      {/* Info banner */}
-      <div style={{ padding: '0.6rem 1rem', background: 'var(--bg-muted)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: '0.8rem', color: 'var(--ink-muted)' }}>🔒 Posts appear anonymous but your identity is stored for moderation. Violations can be traced.</span>
+          <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-slate-100 dark:border-neutral-800">
+            <div className="flex items-center gap-1.5 text-slate-400 dark:text-neutral-500 text-[13px] font-medium select-none">
+              <Smile size={16} />
+              <span>Masked Identity</span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={!composeText.trim() || composing || !canPost}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13.5px] font-semibold transition-all active:scale-95 ${
+                composeText.trim() && canPost
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 cursor-pointer shadow-xs'
+                  : 'bg-[#F1F5F9] dark:bg-neutral-800 text-[#475569] dark:text-neutral-400 cursor-not-allowed'
+              }`}
+            >
+              <Send size={13} strokeWidth={2.2} />
+              <span>Post</span>
+            </button>
+          </div>
+        </form>
       </div>
 
-      {/* Posts */}
+      {/* ── MODERATION NOTICE BANNER ───────────────────────────────── */}
+      <div className="bg-[#FFFDF0] dark:bg-amber-950/20 border-y border-[#FEF3C7] dark:border-amber-900/30 px-4 py-2.5 flex items-start gap-2.5 text-[12.5px] leading-relaxed text-[#92400E] dark:text-amber-200">
+        <span className="text-[14px] flex-shrink-0 mt-0.5" role="img" aria-label="Lock">🔒</span>
+        <div>
+          <p>Posts appear anonymous but your identity is stored for moderation.</p>
+          <p>Violations can be traced.</p>
+        </div>
+      </div>
+
+      {/* ── POSTS LIST ─────────────────────────────────────────────── */}
       {loading ? (
-        <div style={{ padding: '3rem 0', display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>
+        <div className="py-12 flex justify-center">
+          <div className="spinner" />
+        </div>
       ) : error ? (
-        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)', fontSize: '0.9rem' }}>{error}</div>
+        <div className="p-8 text-center text-red-500 text-sm">{error}</div>
       ) : posts.length === 0 ? (
-        <div style={{ padding: '4rem 1rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👻</div>
-          <h3 style={{ color: 'var(--ink)', marginBottom: 8 }}>No anonymous posts yet</h3>
-          <p style={{ color: 'var(--ink-muted)', fontSize: '0.875rem' }}>Be the first to share something anonymously!</p>
+        <div className="py-16 text-center">
+          <div className="text-4xl mb-2">👻</div>
+          <h3 className="font-semibold text-slate-800 dark:text-neutral-200 mb-1">
+            No anonymous posts yet
+          </h3>
+          <p className="text-slate-400 text-sm">Be the first to share something anonymously!</p>
         </div>
       ) : (
-        <>
+        <div className="divide-y divide-slate-100 dark:divide-neutral-800/80">
           {posts.map(post => (
-            <article key={post.id} id={`anon-${post.id}`} style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: '0.75rem' }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-muted)', fontSize: '1.25rem' }}>👻</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)' }}>Anonymous</span>
-                    {post.is_own && <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'var(--accent-light)', color: 'var(--accent-text)' }}>You</span>}
+            <article
+              key={post.id}
+              id={`anon-${post.id}`}
+              className="bg-white dark:bg-[var(--surface)] p-4 sm:p-5 transition-colors"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-[1.3rem] shadow-xs"
+                    style={{ backgroundColor: getAvatarPastel(post.id) }}
+                  >
+                    👻
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--ink-subtle)', marginTop: 2 }}>
-                    {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-[15px] text-slate-900 dark:text-white tracking-tight">
+                        Anonymous
+                      </span>
+                      {post.is_own && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#92400E] dark:bg-amber-950/60 dark:text-amber-300">
+                          You
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="text-[13px] text-slate-400 dark:text-neutral-500 mt-0.5"
+                      title={new Date(post.created_at).toLocaleString()}
+                    >
+                      {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                    </div>
                   </div>
                 </div>
+
+                {/* 3-Dot Menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button style={{ padding: 6, borderRadius: 8, background: 'none', border: 'none', color: 'var(--ink-subtle)', cursor: 'pointer' }}>
+                    <button
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:text-neutral-500 dark:hover:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                      aria-label="Options"
+                    >
                       <MoreHorizontal size={18} />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {(post.is_own || isAdmin) && (
-                      <>
-                        <DropdownMenuItem onClick={() => setDeletePostId(post.id)} style={{ color: 'var(--danger)' }}>
-                          <Trash2 size={15} /> Delete post
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onClick={() => copyLink(post.id)} className="cursor-pointer">
+                      <Link2 size={14} className="mr-2" />
+                      <span>Copy link</span>
+                    </DropdownMenuItem>
                     {!post.is_own && (
-                      <DropdownMenuItem onClick={() => setReportPostId(post.id)} style={{ color: 'var(--danger)' }}>
-                        <Flag size={15} /> Report post
+                      <DropdownMenuItem
+                        onClick={() => setReportPostId(post.id)}
+                        className="cursor-pointer text-[var(--danger)] focus:text-[var(--danger)]"
+                      >
+                        <Flag size={14} className="mr-2" />
+                        <span>Report post</span>
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem onClick={() => copyLink(post.id)}>
-                      <Link2 size={15} /> Copy link
-                    </DropdownMenuItem>
+                    {(post.is_own || isAdmin) && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setDeletePostId(post.id)}
+                          className="cursor-pointer text-[var(--danger)] focus:text-[var(--danger)]"
+                        >
+                          <Trash2 size={14} className="mr-2" />
+                          <span>Delete post</span>
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
-              <p style={{ fontSize: '0.9375rem', lineHeight: 1.6, color: 'var(--ink)', marginBottom: '0.875rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{post.content}</p>
+              {/* Post Content */}
+              <p className="text-[15px] sm:text-[15.5px] leading-relaxed text-slate-900 dark:text-neutral-100 my-2.5 font-normal whitespace-pre-wrap break-words select-text">
+                {post.content}
+              </p>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button onClick={() => handleVote(post.id, 'up', post.my_vote)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: post.my_vote === 'up' ? 'var(--success-light)' : 'var(--bg-muted)', color: post.my_vote === 'up' ? 'var(--success)' : 'var(--ink-muted)', fontWeight: 600, fontSize: '0.8125rem', transition: 'all 0.15s' }}>
-                  <ThumbsUp size={15} /> {post.upvotes > 0 ? post.upvotes : ''}
+              {/* Action Bar */}
+              <div className="flex items-center gap-2 pt-1 mt-3">
+                {/* Upvote */}
+                <button
+                  type="button"
+                  onClick={() => handleVote(post.id, 'up', post.my_vote)}
+                  className={`inline-flex items-center gap-1.5 h-8 px-3.5 rounded-xl text-xs font-semibold transition-colors active:scale-95 cursor-pointer ${
+                    post.my_vote === 'up'
+                      ? 'bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+                      : 'bg-[#F1F5F9] text-[#64748B] hover:bg-slate-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700 border border-transparent'
+                  }`}
+                  aria-label="Upvote"
+                >
+                  <ThumbsUp size={14} className={post.my_vote === 'up' ? 'fill-current' : ''} />
+                  {post.upvotes > 0 && <span className="tabular-nums font-semibold">{post.upvotes}</span>}
                 </button>
-                <button onClick={() => handleVote(post.id, 'down', post.my_vote)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: post.my_vote === 'down' ? 'var(--danger-light)' : 'var(--bg-muted)', color: post.my_vote === 'down' ? 'var(--danger)' : 'var(--ink-muted)', fontWeight: 600, fontSize: '0.8125rem', transition: 'all 0.15s' }}>
-                  <ThumbsDown size={15} /> {post.downvotes > 0 ? post.downvotes : ''}
+
+                {/* Downvote */}
+                <button
+                  type="button"
+                  onClick={() => handleVote(post.id, 'down', post.my_vote)}
+                  className={`inline-flex items-center justify-center h-8 px-3 rounded-xl text-xs font-semibold transition-colors active:scale-95 cursor-pointer ${
+                    post.my_vote === 'down'
+                      ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800'
+                      : 'bg-[#F1F5F9] text-[#64748B] hover:bg-slate-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700 border border-transparent'
+                  }`}
+                  aria-label="Downvote"
+                >
+                  <ThumbsDown size={14} className={post.my_vote === 'down' ? 'fill-current' : ''} />
+                  {post.downvotes > 0 && <span className="tabular-nums font-semibold ml-1.5">{post.downvotes}</span>}
                 </button>
-                <button onClick={() => setCommentsPostId(post.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-muted)', color: 'var(--ink-muted)', fontWeight: 600, fontSize: '0.8125rem', transition: 'all 0.15s' }}>
-                  <MessageCircle size={15} /> {post.comment_count > 0 ? `${post.comment_count} Comment${post.comment_count !== 1 ? 's' : ''}` : 'Comment'}
+
+                {/* Comments */}
+                <button
+                  type="button"
+                  onClick={() => setCommentsPostId(post.id)}
+                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-xl text-xs font-medium bg-[#F1F5F9] text-[#334155] hover:bg-slate-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition-colors active:scale-95 cursor-pointer"
+                  aria-label="Comments"
+                >
+                  <MessageCircle size={14} />
+                  <span>
+                    {post.comment_count > 0
+                      ? `${post.comment_count} Comment${post.comment_count > 1 ? 's' : ''}`
+                      : 'Comment'}
+                  </span>
                 </button>
               </div>
             </article>
           ))}
-          <div ref={sentinelRef} style={{ height: 1 }} />
-          {loadingMore && <div style={{ padding: '1rem', display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>}
-          {!hasMore && posts.length > 0 && <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--ink-subtle)', fontSize: '0.8125rem' }}>You&apos;re all caught up 🎉</div>}
-        </>
+        </div>
       )}
 
+      {/* Infinite Scroll Sentinel */}
+      <div ref={sentinelRef} style={{ height: 1 }} />
+
+      {/* Loading More Spinner */}
+      {loadingMore && (
+        <div className="py-6 flex justify-center">
+          <div className="spinner" />
+        </div>
+      )}
+
+      {/* End of Feed Message */}
+      {!hasMore && posts.length > 0 && (
+        <div className="py-8 text-center text-slate-400 dark:text-neutral-500 text-xs select-none">
+          You&apos;re all caught up 🎉
+        </div>
+      )}
+
+      {/* ── MODALS (100% UNTOUCHED BEHAVIOR) ───────────────────────── */}
       {commentsPostId && (
-      <CommentsSheet
+        <CommentsSheet
           postId={commentsPostId}
           commentEndpoint="/anon"
           currentUserId={user?.id}
           isAdmin={isAdmin}
           onClose={() => setCommentsPostId(null)}
-          onCommentCountChange={count => setPosts(prev => prev.map(p => p.id === commentsPostId ? { ...p, comment_count: count } : p))}
+          onCommentCountChange={count =>
+            setPosts(prev =>
+              prev.map(p => (p.id === commentsPostId ? { ...p, comment_count: count } : p))
+            )
+          }
         />
       )}
-      {reportPostId && <ReportDialog postId={reportPostId} endpoint="/anon" onClose={() => setReportPostId(null)} />}
+
+      {reportPostId && (
+        <ReportDialog postId={reportPostId} endpoint="/anon" onClose={() => setReportPostId(null)} />
+      )}
+
       {deletePostId && (
         <ConfirmDialog
           title="Delete anonymous post?"
-          message="This cannot be undone."
+          message="This action cannot be undone."
           confirmLabel="Delete"
           onConfirm={() => handleDelete(deletePostId)}
           onCancel={() => setDeletePostId(null)}
