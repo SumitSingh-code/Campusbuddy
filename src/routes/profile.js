@@ -43,6 +43,14 @@ router.patch('/me', async (req, res) => {
     const { bio, phone_number, avatar_url } = req.body;
     const updates = { updated_at: new Date().toISOString() };
 
+    if (req.body.full_name !== undefined) {
+      const name = String(req.body.full_name).trim();
+      if (name.length < 2 || name.length > 100) {
+        return res.status(400).json({ error: 'Name must be between 2 and 100 characters' });
+      }
+      updates.full_name = name;
+    }
+
     if (bio !== undefined) {
       if (bio.length > 200) return res.status(400).json({ error: 'Bio must be 200 characters or less' });
       updates.bio = bio.trim();
@@ -87,6 +95,55 @@ router.patch('/me', async (req, res) => {
   }
 });
 
+// ─── Helper: enrich posts with author, comments, vote + bookmark state ────────
+async function enrichProfilePosts(posts, profile) {
+  if (!posts || posts.length === 0) return [];
+  const postIds = posts.map(p => p.id);
+  const userId  = profile.id;
+
+  const [{ data: votes }, { data: bookmarks }] = await Promise.all([
+    supabaseAdmin
+      .from('user_votes')
+      .select('post_id, vote_type')
+      .eq('user_id', userId)
+      .in('post_id', postIds),
+    supabaseAdmin
+      .from('bookmarks')
+      .select('ref_id')
+      .eq('user_id', userId)
+      .eq('ref_type', 'post')
+      .in('ref_id', postIds),
+  ]);
+
+  const voteMap = {};
+  (votes || []).forEach(v => { voteMap[v.post_id] = v.vote_type; });
+  const bookmarkSet = new Set((bookmarks || []).map(b => b.ref_id));
+
+  const fallbackAuthor = {
+    id: profile.id,
+    full_name: profile.full_name || 'Student',
+    department: profile.department || '',
+    avatar_url: profile.avatar_url || null,
+    role: profile.role || 'student',
+    karma: profile.karma ?? 0,
+  };
+
+  return posts.map(p => ({
+    id:           p.id,
+    content:      p.content,
+    image_url:    p.image_url,
+    upvotes:      p.upvotes ?? 0,
+    downvotes:    p.downvotes ?? 0,
+    status:       p.status || 'published',
+    created_at:   p.created_at,
+    updated_at:   p.updated_at,
+    author:       p.author || fallbackAuthor,
+    comment_count: parseInt(p.comments?.[0]?.count ?? p.comments_count ?? 0, 10),
+    my_vote:       voteMap[p.id] || null,
+    is_bookmarked: bookmarkSet.has(p.id),
+  }));
+}
+
 // ─── GET /me/posts — Own post history ────────────────────────────────────────
 
 router.get('/me/posts', async (req, res) => {
@@ -97,7 +154,11 @@ router.get('/me/posts', async (req, res) => {
 
     const { data: posts, error } = await supabaseAdmin
       .from('posts')
-      .select('id, content, image_url, upvotes, downvotes, comments_count, created_at, updated_at')
+      .select(`
+        id, content, image_url, upvotes, downvotes, status, comments_count, created_at, updated_at,
+        author:profiles!user_id ( id, full_name, department, avatar_url, role, karma ),
+        comments ( count )
+      `)
       .eq('user_id', uid)
       .eq('status', 'published')
       .lt('created_at', before)
@@ -113,7 +174,9 @@ router.get('/me/posts', async (req, res) => {
     const slice       = has_more ? posts.slice(0, limit) : posts;
     const next_cursor = has_more ? slice[slice.length - 1].created_at : null;
 
-    res.json({ data: slice, next_cursor, has_more });
+    const data = await enrichProfilePosts(slice, req.profile);
+
+    res.json({ data, next_cursor, has_more });
   } catch (err) {
     console.error('[profile GET /me/posts]', err);
     res.status(500).json({ error: 'Internal server error' });

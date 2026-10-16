@@ -91,10 +91,24 @@ export default function ProfilePage() {
     if (!user) return
     setPostsLoading(true)
     api.get('/profile/me/posts')
-      .then(res => setPosts(res.data || []))
+      .then(res => {
+        const raw = Array.isArray(res.data) ? res.data : []
+        const fallback = {
+          id: profile?.id || authProfile?.id || user.id,
+          full_name: profile?.full_name || authProfile?.full_name || 'Student',
+          department: profile?.department || authProfile?.department || '',
+          avatar_url: profile?.avatar_url || authProfile?.avatar_url,
+          role: profile?.role || authProfile?.role || 'student',
+        }
+        const enriched = raw.map((p: Post) => ({
+          ...p,
+          author: p.author?.full_name ? p.author : { ...fallback, ...p.author }
+        }))
+        setPosts(enriched)
+      })
       .catch(() => {})
       .finally(() => setPostsLoading(false))
-  }, [user])
+  }, [user, profile?.id, profile?.full_name, profile?.avatar_url, profile?.department, authProfile])
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -105,6 +119,10 @@ export default function ProfilePage() {
       const url = await uploadToStorage(compressed, `avatars/${user.id}/${Date.now()}.jpg`)
       await api.patch('/profile/me', { avatar_url: url })
       setProfile(prev => prev ? { ...prev, avatar_url: url } : prev)
+      setPosts(prev => prev.map(p => ({
+        ...p,
+        author: p.author ? { ...p.author, avatar_url: url } : p.author
+      })))
       toast.success('Profile photo updated')
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Upload failed')
@@ -120,6 +138,10 @@ export default function ProfilePage() {
     try {
       await api.patch('/profile/me', { full_name: editName.trim(), bio: editBio.trim() || null })
       setProfile(prev => prev ? { ...prev, full_name: editName.trim(), bio: editBio.trim() || undefined } : prev)
+      setPosts(prev => prev.map(p => ({
+        ...p,
+        author: p.author ? { ...p.author, full_name: editName.trim() } : p.author
+      })))
       setEditOpen(false)
       toast.success('Profile updated')
     } catch (e: unknown) {
@@ -160,7 +182,14 @@ export default function ProfilePage() {
   }, [confirmDelete])
 
   const handleEditSaved = useCallback((updated: Post) => {
-    setPosts(prev => prev.map(p => p.id === updated.id ? updated : p))
+    setPosts(prev => prev.map(p => {
+      if (p.id !== updated.id) return p
+      return {
+        ...p,
+        ...updated,
+        author: updated.author || p.author,
+      }
+    }))
   }, [])
 
   function getInitials(name: string) {
