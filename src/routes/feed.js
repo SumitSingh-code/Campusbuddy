@@ -56,9 +56,21 @@ async function enrichPosts(posts, userId) {
 router.get('/', async (req, res) => {
   try {
     const limit  = Math.min(50, Math.max(1, parseInt(req.query.limit) || 25));
-    const before = req.query.before || new Date().toISOString();
+    const department = req.query.department ? String(req.query.department).trim() : null;
 
-    const { data: posts, error } = await supabaseAdmin
+    let userIdsToFilter = null;
+    if (department) {
+      const { data: deptProfiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .ilike('department', `%${department}%`);
+      userIdsToFilter = (deptProfiles || []).map(p => p.id);
+      if (!userIdsToFilter.length) {
+        return res.json({ data: [], next_cursor: null, has_more: false });
+      }
+    }
+
+    let query = supabaseAdmin
       .from('posts')
       .select(`
         id, content, image_url, upvotes, downvotes, status, created_at, updated_at,
@@ -69,6 +81,12 @@ router.get('/', async (req, res) => {
       .lt('created_at', before)
       .order('created_at', { ascending: false })
       .limit(limit + 1); // fetch one extra to detect has_more
+
+    if (userIdsToFilter) {
+      query = query.in('user_id', userIdsToFilter);
+    }
+
+    const { data: posts, error } = await query;
 
     if (error) {
       console.error('[feed GET /] DB error:', error);
