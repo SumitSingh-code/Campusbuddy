@@ -38,7 +38,7 @@ const NAV_ITEMS = [
   { href: '/anon',    label: 'Anon',    Icon: GhostIcon },
   { href: '/dm',      label: 'DMs',     Icon: ChatIcon },
   { href: '/profile', label: 'Profile', Icon: UserIcon },
-  { href: '/wall',    label: 'More',    Icon: MoreIcon },
+  { href: '/more',    label: 'More',    Icon: MoreIcon },
 ]
 
 // ── App Shell (requires AuthProvider above) ───────────────────────
