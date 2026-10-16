@@ -11,7 +11,8 @@ import { toast } from 'sonner'
 interface Notice {
   id: string
   title: string
-  content: string
+  content?: string
+  body?: string
   category: string
   attachment_url?: string
   created_by: string
@@ -19,7 +20,7 @@ interface Notice {
   created_at: string
 }
 
-const CATEGORIES = ['General', 'Exam', 'Event', 'Holiday', 'Admission', 'Other']
+const CATEGORIES = ['General', 'Academic', 'Exam', 'Event', 'Administrative', 'Holiday']
 
 export default function NoticesPage() {
   const { isAdmin } = useAuth()
@@ -42,9 +43,15 @@ export default function NoticesPage() {
   async function loadNotices() {
     setLoading(true)
     try {
-      const q = filterCat !== 'All' ? `?category=${encodeURIComponent(filterCat)}` : ''
+      const q = filterCat !== 'All' ? `?category=${encodeURIComponent(filterCat.toLowerCase())}` : ''
       const res = await api.get(`/notices${q}`)
-      setNotices(res.data || [])
+      const raw = Array.isArray(res.data) ? res.data : []
+      const mapped = raw.map((n: Notice) => ({
+        ...n,
+        content: n.content || n.body || '',
+        poster_name: n.poster_name || 'Admin',
+      }))
+      setNotices(mapped)
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to load notices')
     } finally {
@@ -53,16 +60,39 @@ export default function NoticesPage() {
   }
 
   async function handlePost() {
-    if (!title.trim() || !content.trim()) { toast.error('Title and content are required'); return }
+    if (!isAdmin) {
+      toast.error('Only administrators can post notices.')
+      return
+    }
+    if (!title.trim() || !content.trim()) {
+      toast.error('Title and content are required')
+      return
+    }
+    if (title.trim().length < 3) {
+      toast.error('Title must be at least 3 characters')
+      return
+    }
     setSaving(true)
     try {
-      const res = await api.post('/notices', { title: title.trim(), content: content.trim(), category })
-      setNotices(prev => [res.data, ...prev])
+      const res = await api.post('/notices', {
+        title: title.trim(),
+        body: content.trim(),
+        content: content.trim(),
+        category: category.toLowerCase(),
+      })
+      const createdNotice = {
+        ...res.data,
+        content: res.data?.content || res.data?.body || content.trim(),
+        poster_name: res.data?.poster_name || 'Admin',
+      }
+      setNotices(prev => [createdNotice, ...prev])
       setUploadOpen(false)
-      setTitle(''); setContent(''); setCategory('General')
-      toast.success('Notice posted')
+      setTitle('')
+      setContent('')
+      setCategory('General')
+      toast.success('Notice posted successfully')
     } catch (e: unknown) {
-      toast.error((e as Error).message)
+      toast.error((e as Error).message || 'Failed to post notice')
     } finally {
       setSaving(false)
     }
@@ -81,10 +111,18 @@ export default function NoticesPage() {
   }
 
   function getCategoryIcon(cat: string) {
+    const c = (cat || '').toLowerCase()
     const map: Record<string, string> = {
-      General: '📢', Exam: '📝', Event: '🎉', Holiday: '🏖️', Admission: '🎓', Other: '📌'
+      general: '📢',
+      academic: '📚',
+      admission: '🎓',
+      exam: '📝',
+      event: '🎉',
+      administrative: '🏛️',
+      holiday: '🏖️',
+      other: '📌',
     }
-    return map[cat] || '📌'
+    return map[c] || '📢'
   }
 
   return (
@@ -129,7 +167,9 @@ export default function NoticesPage() {
               <div className="notice-top">
                 <span className="notice-cat-icon">{getCategoryIcon(notice.category)}</span>
                 <div className="notice-meta-wrap">
-                  <span className="notice-cat-badge">{notice.category}</span>
+                  <span className="notice-cat-badge">
+                    {notice.category ? (notice.category.charAt(0).toUpperCase() + notice.category.slice(1)) : 'General'}
+                  </span>
                   <span className="notice-time">{timeAgo(notice.created_at)}</span>
                 </div>
                 {isAdmin && (
@@ -143,9 +183,9 @@ export default function NoticesPage() {
                 className={`notice-content${expanded === notice.id ? ' expanded' : ''}`}
                 onClick={() => setExpanded(expanded === notice.id ? null : notice.id)}
               >
-                {notice.content}
+                {notice.content || notice.body || ''}
               </p>
-              {notice.content.length > 120 && (
+              {(notice.content || notice.body || '').length > 120 && (
                 <button className="notice-read-more" onClick={() => setExpanded(expanded === notice.id ? null : notice.id)}>
                   {expanded === notice.id ? 'Show less' : 'Read more'}
                 </button>
@@ -162,7 +202,7 @@ export default function NoticesPage() {
       )}
 
       {/* Post Notice Sheet (admin only) */}
-      {uploadOpen && (
+      {uploadOpen && isAdmin && (
         <div className="notices-overlay" onClick={e => { if (e.target === e.currentTarget) setUploadOpen(false) }}>
           <div className="notices-sheet">
             <div className="notices-sheet-handle" />
