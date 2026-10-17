@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Flag, Trash2, Link2 } from 'lucide-react'
+import { Flag, Trash2, Link2, LockKeyhole } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import CommentsSheet from '@/components/CommentsSheet'
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
+import styles from './anon-feed.module.css'
 
 interface AnonPost {
   id: string
@@ -145,7 +146,9 @@ export default function AnonPage() {
 
   const [composeText, setComposeText] = useState('')
   const [composing, setComposing]     = useState(false)
-  const [postsToday, setPostsToday]   = useState(0)
+  // The current API enforces the daily limit but does not return usage counts.
+  // Keep the count unknown until the backend supplies it; never display a fake 0.
+  const [postsToday, setPostsToday]   = useState<number | null>(null)
 
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null)
   const [reportPostId, setReportPostId]     = useState<string | null>(null)
@@ -166,12 +169,12 @@ export default function AnonPage() {
     try {
       const params = new URLSearchParams({ limit: '20' })
       if (!initial && cursor) params.set('before', cursor)
-      const res = await api.get<{
+      const res = await api.get(`/anon?${params}`) as unknown as {
         data: AnonPost[]
         next_cursor: string | null
         has_more: boolean
         posts_today?: number
-      }>(`/anon?${params}`)
+      }
       setPosts(prev => (initial ? res.data || [] : [...prev, ...(res.data || [])]))
       setCursor(res.next_cursor)
       setHasMore(res.has_more)
@@ -207,21 +210,23 @@ export default function AnonPage() {
   async function handleCompose(e: React.FormEvent) {
     e.preventDefault()
     if (!composeText.trim() || composing) return
-    if (postsToday >= 3) {
+    if (postsToday !== null && postsToday >= 3) {
       toast.error('You can only post 3 anonymous posts per day')
       return
     }
     setComposing(true)
     try {
-      const res = await api.post<{ data: AnonPost; posts_today: number }>('/anon', {
+      const res = await api.post('/anon', {
         content: composeText.trim(),
-      })
+      }) as unknown as { data: AnonPost; posts_today?: number }
       setPosts(prev => [{ ...res.data, is_own: true }, ...prev])
-      setPostsToday(res.posts_today)
+      if (res.posts_today !== undefined) setPostsToday(res.posts_today)
       setComposeText('')
       toast.success('Posted anonymously 👻')
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to post')
+      const message = err instanceof Error ? err.message : 'Failed to post'
+      if (/daily|limit/i.test(message)) setPostsToday(3)
+      toast.error(message)
     } finally {
       setComposing(false)
     }
@@ -279,7 +284,7 @@ export default function AnonPage() {
     }
   }
 
-  const canPost = postsToday < 3
+  const canPost = postsToday === null || postsToday < 3
 
   // ─────────────────────────────────────────────────────────────────────
   // RENDER
@@ -291,58 +296,58 @@ export default function AnonPage() {
         │  WRAPPER — matches Stitch's bg-slate-50/50 feed background  │
         └─────────────────────────────────────────────────────────────┘
       */}
-      <div className="w-full min-h-screen" style={{ background: 'rgb(248 250 252 / 0.5)' }}>
+      <div className={styles.page}>
 
         {/* ══ SUBHEADER + COMPOSER (Stitch: section.bg-white px-4 pt-3 pb-3) ══ */}
-        <section className="bg-white px-4 pt-3 pb-3 border-b border-slate-100">
+        <section className={`${styles.header} bg-white px-4 pt-3 pb-3 border-b border-slate-100`}>
 
           {/* Feed title row */}
-          <div className="flex items-center justify-between pb-3">
-            <div className="flex items-center space-x-2">
+          <div className={`${styles.titleRow} flex items-center justify-between pb-3`}>
+            <div className={`${styles.titleGroup} flex items-center`}>
               {/* Ghost icon — Stitch exact */}
-              <div className="text-slate-700">
+              <div className={styles.titleIcon}>
                 <GhostIcon className="w-5 h-5" />
               </div>
-              <h1 className="text-base font-bold text-slate-900 tracking-tight">
+              <h1 className={`${styles.pageTitle} text-base font-bold text-slate-900 tracking-tight`}>
                 Anonymous Feed
               </h1>
             </div>
             {/* Posts counter pill — Stitch: px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/70 text-[11px] font-medium text-slate-500 */}
-            <div className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/70 text-[11px] font-medium text-slate-500 select-none">
-              {postsToday}/3 posts today
+            <div className={`${styles.counter} px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/70 text-[11px] font-medium text-slate-500 select-none`} aria-label={postsToday === null ? 'Daily limit: 3 posts' : `${postsToday} of 3 posts today`}>
+              {postsToday === null ? '3 posts per day' : `${postsToday}/3 posts today`}
             </div>
           </div>
 
           {/* Composer box — Stitch: mt-1 bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-3 */}
           <form
             onSubmit={handleCompose}
-            className="mt-1 bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-3"
+            className={`${styles.composer} mt-1 bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-3`}
           >
-            <div className="flex items-start space-x-3">
+            <div className={`${styles.composerTop} flex items-start`}>
               {/* Ghost avatar — Stitch: w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center text-lg flex-shrink-0 shadow-inner */}
-              <div className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center text-lg flex-shrink-0 shadow-inner">
-                👻
+              <div className={`${styles.composerAvatar} w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center text-lg flex-shrink-0 shadow-inner`} aria-hidden="true">
+                <GhostIcon className="w-4 h-4" />
               </div>
               {/* Textarea */}
               <div className="flex-1 min-w-0">
                 <textarea
                   value={composeText}
                   onChange={e => setComposeText(e.target.value)}
-                  placeholder={canPost ? 'Share something anonymously... 🎭' : 'Daily limit reached (3/3 posts)'}
+                  placeholder={canPost ? 'Share something anonymously...' : 'Daily limit reached (3/3 posts)'}
                   disabled={!canPost}
                   maxLength={1000}
                   rows={2}
-                  className="w-full text-sm placeholder-slate-400 text-slate-800 border-none p-0 focus:ring-0 resize-none bg-transparent outline-none disabled:opacity-50"
+                  className={`${styles.textarea} w-full text-sm placeholder-slate-400 text-slate-800 border-none p-0 focus:ring-0 resize-none bg-transparent outline-none disabled:opacity-50`}
                 />
               </div>
             </div>
 
             {/* Actions bar — Stitch: mt-2.5 pt-2 border-t border-slate-100 flex justify-between items-center */}
-            <div className="mt-2.5 pt-2 border-t border-slate-100 flex justify-between items-center">
+            <div className={`${styles.composerFooter} mt-2.5 pt-2 border-t border-slate-100 flex justify-between items-center`}>
               {/* Masked Identity label — Stitch: button.inline-flex.items-center.space-x-1.5.text-xs.text-slate-400 */}
               <button
                 type="button"
-                className="inline-flex items-center space-x-1.5 text-xs text-slate-400 hover:text-slate-600 transition cursor-default"
+                className={`${styles.maskedIdentity} inline-flex items-center text-xs text-slate-400 hover:text-slate-600 transition cursor-default`}
                 tabIndex={-1}
               >
                 <MaskIcon className="w-4 h-4" />
@@ -353,7 +358,7 @@ export default function AnonPage() {
               <button
                 type="submit"
                 disabled={!composeText.trim() || composing || !canPost}
-                className={`inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm active:scale-95 ${
+                className={`${styles.submitButton} inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm active:scale-95 ${
                   composing
                     ? 'bg-amber-500 text-white cursor-not-allowed'
                     : composeText.trim() && canPost
@@ -374,16 +379,16 @@ export default function AnonPage() {
         {/* ══ END SUBHEADER + COMPOSER ══ */}
 
         {/* ══ MODERATION NOTICE — Stitch: section.bg-amber-50/70.border-y.border-amber-100/90.px-4.py-2.5 ══ */}
-        <section className="bg-amber-50/70 border-y border-amber-100/90 px-4 py-2.5">
-          <div className="flex items-center space-x-2 text-amber-900/80 text-[11px] leading-relaxed">
-            <span className="text-sm select-none flex-shrink-0">🔒</span>
+        <section className={`${styles.moderation} bg-amber-50/70 border-y border-amber-100/90 px-4 py-2.5`}>
+          <div className={`${styles.moderationText} flex items-center space-x-2 text-amber-900/80 text-[11px] leading-relaxed`}>
+            <LockKeyhole className={styles.lockIcon} aria-hidden="true" />
             <p>Posts appear anonymous but your identity is stored for moderation. Violations can be traced.</p>
           </div>
         </section>
         {/* ══ END MODERATION NOTICE ══ */}
 
         {/* ══ FEED POST LIST — Stitch: section.divide-y.divide-slate-100.bg-white ══ */}
-        <section className="divide-y divide-slate-100 bg-white">
+        <section className={`${styles.feed} divide-y divide-slate-100 bg-white`}>
           {loading ? (
             /* Loading state */
             <div className="py-12 flex justify-center">
@@ -394,9 +399,9 @@ export default function AnonPage() {
             <div className="p-8 text-center text-red-500 text-sm">{error}</div>
           ) : posts.length === 0 ? (
             /* Empty state */
-            <div className="py-16 text-center">
-              <div className="w-10 h-10 rounded-full bg-purple-50 mx-auto flex items-center justify-center text-lg mb-2">
-                👻
+            <div className={`${styles.empty} py-16 text-center`}>
+              <div className={`${styles.emptyAvatar} w-10 h-10 rounded-full bg-purple-50 mx-auto flex items-center justify-center text-lg mb-2`} aria-hidden="true">
+                <GhostIcon className="w-5 h-5" />
               </div>
               <p className="text-xs font-bold text-slate-800">No anonymous posts yet</p>
               <p className="text-[11px] text-slate-400 mt-1">Be the first to share something anonymously!</p>
@@ -410,37 +415,34 @@ export default function AnonPage() {
                 <article
                   key={post.id}
                   id={`anon-${post.id}`}
-                  className="p-4 bg-white transition hover:bg-slate-50/50"
+                  className={`${styles.post} p-4 bg-white transition hover:bg-slate-50/50`}
                 >
                   {/* ── Post header row ── */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className={`${styles.postHeader} flex items-center justify-between`}>
+                    <div className="flex items-center min-w-0">
 
                       {/* Pastel ghost avatar — Stitch: w-9 h-9 rounded-full bg-{color}-50 border border-{color}-100 flex items-center justify-center text-base shadow-sm */}
                       <div
-                        className={`w-9 h-9 rounded-full border flex items-center justify-center text-base shadow-sm flex-shrink-0 ${avatar.bg} ${avatar.border}`}
+                        className={`${styles.avatar} w-9 h-9 rounded-full border flex items-center justify-center text-base shadow-sm flex-shrink-0 ${avatar.bg} ${avatar.border}`}
                       >
-                        👻
+                        <GhostIcon className="w-4 h-4" />
                       </div>
 
                       {/* Author + timestamp */}
                       {post.is_own ? (
                         /* Own post: Anonymous [You] • timestamp all inline */
-                        <div className="flex items-center space-x-1.5 min-w-0">
-                          <span className="text-xs font-bold text-slate-800">Anonymous</span>
-                          {/* 'You' amber badge — Stitch: px-1.5 py-0.2 rounded bg-amber-100/90 text-amber-800 text-[10px] font-semibold tracking-tight */}
-                          <span className="px-1.5 py-0.5 rounded bg-amber-100/90 text-amber-800 text-[10px] font-semibold tracking-tight">
-                            You
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-normal truncate">
-                            • {timeAgo}
-                          </span>
+                        <div className={`${styles.author} min-w-0`}>
+                          <div className={styles.authorLine}>
+                            <span className={`${styles.authorName} text-xs font-bold text-slate-800`}>Anonymous</span>
+                            <span className={`${styles.ownBadge} px-1.5 py-0.5 rounded bg-amber-100/90 text-amber-800 text-[10px] font-semibold tracking-tight`}>You</span>
+                          </div>
+                          <span className={`${styles.timestamp} text-[11px] text-slate-400 font-normal truncate`}>{timeAgo}</span>
                         </div>
                       ) : (
                         /* Other post: name on top, timestamp below */
                         <div>
-                          <span className="text-xs font-bold text-slate-800">Anonymous</span>
-                          <p className="text-[11px] text-slate-400 font-normal">{timeAgo}</p>
+                          <div className={styles.author}><span className={`${styles.authorName} text-xs font-bold text-slate-800`}>Anonymous</span>
+                          <p className={`${styles.timestamp} text-[11px] text-slate-400 font-normal`}>{timeAgo}</p></div>
                         </div>
                       )}
                     </div>
@@ -450,7 +452,7 @@ export default function AnonPage() {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer focus-visible:outline-none flex-shrink-0"
+                          className={`${styles.menuButton} text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer focus-visible:outline-none flex-shrink-0`}
                           aria-label="More options"
                         >
                           <DotsIcon className="w-4 h-4" />
@@ -487,19 +489,19 @@ export default function AnonPage() {
                   </div>
 
                   {/* ── Post content — Stitch: mt-2.5 text-sm text-slate-800 font-normal leading-relaxed pl-1 ── */}
-                  <div className="mt-2.5 text-sm text-slate-800 font-normal leading-relaxed pl-1 whitespace-pre-wrap break-words">
+                  <div className={`${styles.content} mt-2.5 text-sm text-slate-800 font-normal leading-relaxed pl-1 whitespace-pre-wrap break-words`}>
                     {post.content}
                   </div>
 
                   {/* ── Engagement buttons — Stitch: mt-3 flex items-center space-x-2 ── */}
-                  <div className="mt-3 flex items-center space-x-2">
+                  <div className={`${styles.actions} mt-3 flex items-center`}>
 
                     {/* Upvote — Stitch active: bg-emerald-50 text-emerald-700, inactive: bg-slate-100 text-slate-500 */}
                     <button
                       type="button"
                       onClick={() => handleVote(post.id, 'up', post.my_vote)}
                       aria-label="Upvote"
-                      className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                      className={`${styles.voteButton} inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer ${
                         post.my_vote === 'up'
                           ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                           : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -514,7 +516,7 @@ export default function AnonPage() {
                       type="button"
                       onClick={() => handleVote(post.id, 'down', post.my_vote)}
                       aria-label="Downvote"
-                      className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs transition active:scale-95 cursor-pointer ${
+                      className={`${styles.voteButton} inline-flex items-center px-2.5 py-1 rounded-lg text-xs transition active:scale-95 cursor-pointer ${
                         post.my_vote === 'down'
                           ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
                           : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -531,7 +533,7 @@ export default function AnonPage() {
                       type="button"
                       onClick={() => setCommentsPostId(post.id)}
                       aria-label="Comments"
-                      className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-medium transition active:scale-95 cursor-pointer"
+                      className={`${styles.commentButton} inline-flex items-center px-3 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-medium transition active:scale-95 cursor-pointer`}
                     >
                       <CommentIcon className="w-3.5 h-3.5 text-slate-500" />
                       <span>

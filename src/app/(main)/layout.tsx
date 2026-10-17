@@ -36,6 +36,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoading, isLoggedIn, isActive, needsProfile, mustChangePassword, profile } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const isAnonRoute = pathname === '/anon'
   const [createOpen, setCreateOpen] = useState(false)
   const currentLink = [...primaryLinks, ...campusLinks].find(link =>
     link.href === '/feed' ? pathname === '/feed' : pathname === link.href || pathname.startsWith(link.href + '/')
@@ -67,14 +68,18 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
-      <header className="mobile-header">
+      <header className={`mobile-header${isAnonRoute ? ' anon-mobile-header' : ''}`}>
         <Link href="/feed" className="brand-lockup" aria-label="Unigram home">
           <img src="/icons/icon-192.png" alt="" width={30} height={30} />
           <span>unigram</span>
         </Link>
         <div className="mobile-header-actions">
-          <span className="mobile-page-title">{pageTitle}</span>
-          <Link href="/notifications" className="icon-control" aria-label="Notifications"><Bell size={20} /></Link>
+          {isAnonRoute ? (
+            <Link href="/profile" className="anon-mobile-profile" aria-label="Your profile">
+              <span className="anon-mobile-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials}</span>
+              <span className="anon-mobile-presence" aria-hidden="true" />
+            </Link>
+          ) : <><span className="mobile-page-title">{pageTitle}</span><Link href="/notifications" className="icon-control" aria-label="Notifications"><Bell size={20} /></Link></>}
         </div>
       </header>
 
@@ -124,12 +129,20 @@ function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
       </div>
 
-      <nav className="mobile-bottom-nav" aria-label="Primary navigation">
-        <Link href="/feed" className={pathname === '/feed' ? 'is-active' : ''} aria-current={pathname === '/feed' ? 'page' : undefined}><Home size={21} /><span>Home</span></Link>
-        <Link href="/more" className={pathname === '/more' ? 'is-active' : ''} aria-current={pathname === '/more' ? 'page' : undefined}><Compass size={21} /><span>Explore</span></Link>
-        <button className="mobile-create-button" onClick={() => setCreateOpen(true)} aria-label="Create"><Plus size={22} /></button>
-        <Link href="/dm" className={pathname === '/dm' || pathname.startsWith('/dm/') ? 'is-active' : ''} aria-current={pathname.startsWith('/dm') ? 'page' : undefined}><MessageCircle size={21} /><span>Chats</span></Link>
-        <Link href="/profile" className={pathname.startsWith('/profile') ? 'is-active' : ''} aria-current={pathname.startsWith('/profile') ? 'page' : undefined}><UserRound size={21} /><span>You</span></Link>
+      <nav className={`mobile-bottom-nav${isAnonRoute ? ' anon-context-nav' : ''}`} aria-label="Primary navigation">
+        {isAnonRoute ? <>
+          <Link href="/feed" aria-label="Feed"><Home size={19} /><span>Feed</span></Link>
+          <Link href="/anon" className="is-active" aria-current="page"><ShieldCheck size={19} /><span>Anon</span></Link>
+          <Link href="/dm" aria-label="DMs"><MessageCircle size={19} /><span>DMs</span></Link>
+          <Link href="/profile" aria-label="Profile"><UserRound size={19} /><span>Profile</span></Link>
+          <Link href="/more" aria-label="More"><Compass size={19} /><span>More</span></Link>
+        </> : <>
+          <Link href="/feed" className={pathname === '/feed' ? 'is-active' : ''} aria-current={pathname === '/feed' ? 'page' : undefined}><Home size={21} /><span>Home</span></Link>
+          <Link href="/more" className={pathname === '/more' ? 'is-active' : ''} aria-current={pathname === '/more' ? 'page' : undefined}><Compass size={21} /><span>Explore</span></Link>
+          <button className="mobile-create-button" onClick={() => setCreateOpen(true)} aria-label="Create"><Plus size={22} /></button>
+          <Link href="/dm" className={pathname === '/dm' || pathname.startsWith('/dm/') ? 'is-active' : ''} aria-current={pathname.startsWith('/dm') ? 'page' : undefined}><MessageCircle size={21} /><span>Chats</span></Link>
+          <Link href="/profile" className={pathname.startsWith('/profile') ? 'is-active' : ''} aria-current={pathname.startsWith('/profile') ? 'page' : undefined}><UserRound size={21} /><span>You</span></Link>
+        </>}
       </nav>
 
       {createOpen && <div className="create-overlay" onMouseDown={event => { if (event.target === event.currentTarget) setCreateOpen(false) }}>
