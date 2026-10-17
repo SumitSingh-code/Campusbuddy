@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Send, Trash2 } from 'lucide-react'
+import { X, Send, Trash2, Ghost } from 'lucide-react'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
@@ -173,7 +173,7 @@ export default function CommentsSheet({
                     overflow: 'hidden',
                   }}>
                     {isAnonComment ? (
-                      '👻'
+                      <Ghost size={16} aria-hidden="true" />
                     ) : comment.author?.avatar_url ? (
                       <img src={comment.author.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                     ) : (

@@ -24,7 +24,7 @@ export function useTheme() {
     // Update theme-color meta tag
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) {
-      meta.setAttribute('content', newTheme === 'dark' ? '#0D1424' : '#FAFAF7')
+      meta.setAttribute('content', newTheme === 'dark' ? '#101217' : '#F8F8F5')
     }
   }, [])
 

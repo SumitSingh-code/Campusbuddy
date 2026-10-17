@@ -1,80 +1,63 @@
 'use client'
 
 import Link from 'next/link'
-import { useAuth } from '@/lib/auth-context'
 import {
-  FileText, Clock, Search, BookOpen, Bell,
-  Bookmark, MessageCircle, Settings, User, Trophy
+  ArrowUpRight, Bell, BookOpen, Bookmark, CalendarDays, FileText, Ghost,
+  MessageCircle, Search, Trophy,
 } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 
-const FEATURES = [
-  { href: '/pyq',           icon: FileText,       label: 'PYQ Papers',        desc: 'Previous year question papers', color: '#6B55E8' },
-  { href: '/timetable',     icon: Clock,          label: 'Timetable',         desc: 'Your class schedule',           color: '#2196F3' },
-  { href: '/lost-found',    icon: Search,         label: 'Lost & Found',      desc: 'Lost something? Find it here',  color: '#FF9800' },
-  { href: '/notes',         icon: BookOpen,       label: 'Study Notes',       desc: 'Shared notes repository',       color: '#4CAF50' },
-  { href: '/notices',       icon: Bell,           label: 'Notices',           desc: 'Official department notices',   color: '#E91E63' },
-  { href: '/bookmarks',     icon: Bookmark,       label: 'Bookmarks',         desc: 'Your saved posts',              color: '#D4AF37' },
-  { href: '/notifications', icon: MessageCircle,  label: 'Notifications',     desc: 'Activity & alerts',             color: '#00BCD4' },
-  { href: '/wall',          icon: Trophy,         label: 'Contribution Wall', desc: 'People who built Unigram',      color: '#EAB308' },
-  { href: '/settings',      icon: Settings,       label: 'Settings',          desc: 'App preferences & account',     color: 'var(--ink-muted)' },
+const campusSpaces = [
+  { href: '/anon', icon: Ghost, title: 'Anonymous', description: 'Say what’s on your mind, without your name attached.', label: 'Open conversations' },
+  { href: '/notices', icon: Bell, title: 'Bulletin', description: 'Official notices and updates from campus.', label: 'Read notices' },
+  { href: '/lost-found', icon: Search, title: 'Lost & found', description: 'Help lost things find their people again.', label: 'Browse items' },
 ]
 
-export default function MorePage() {
+const studyLinks = [
+  { href: '/notes', icon: BookOpen, title: 'Study notes', description: 'Notes shared by students' },
+  { href: '/pyq', icon: FileText, title: 'Past papers', description: 'Previous year question papers' },
+  { href: '/timetable', icon: CalendarDays, title: 'Timetable', description: 'Keep your week in view' },
+]
+
+export default function ExplorePage() {
   const { profile } = useAuth()
+  const initials = profile?.full_name?.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'U'
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: '1rem' }}>
-      {/* Header */}
-      <div style={{ padding: '0.5rem 0 1.25rem' }}>
-        <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 800, color: 'var(--ink)', margin: 0 }}>More</h1>
-        <p style={{ fontSize: '0.8125rem', color: 'var(--ink-muted)', margin: '0.2rem 0 0' }}>All features in one place</p>
-      </div>
+    <div className="explore-page">
+      <header className="explore-heading">
+        <div><h1>Find your corner.</h1><p>People, notes, notices and the little things that make campus yours.</p></div>
+      </header>
 
-      {/* Quick profile strip */}
-      {profile && (
-        <Link href="/profile" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.85rem', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', marginBottom: '1.25rem', textDecoration: 'none' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-            {profile.avatar_url
-              ? <img src={profile.avatar_url} alt={profile.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '1rem' }}>{profile.full_name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}</span>
-            }
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: '0.9rem' }}>{profile.full_name}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>{profile.roll_number} · {profile.department}</div>
-          </div>
-          <User size={16} style={{ color: 'var(--ink-muted)', flexShrink: 0 }} />
-        </Link>
-      )}
+      {profile && <Link href="/profile" className="explore-profile">
+        <span className="explore-avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials}</span>
+        <span><strong>{profile.full_name}</strong><small>{profile.department} · Your campus identity</small></span>
+        <ArrowUpRight size={18} />
+      </Link>}
 
-      {/* Feature grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-        {FEATURES.map(({ href, icon: Icon, label, desc, color }) => (
-          <Link
-            key={href}
-            href={href}
-            style={{
-              display: 'flex', flexDirection: 'column', gap: '0.6rem',
-              padding: '1rem', background: 'var(--surface)',
-              borderRadius: 14, border: '1px solid var(--border)',
-              textDecoration: 'none', transition: 'background 0.12s',
-            }}
-          >
-            <div style={{ width: 40, height: 40, borderRadius: 11, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon size={20} style={{ color }} />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--ink)' }}>{label}</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--ink-muted)', marginTop: '0.1rem', lineHeight: 1.4 }}>{desc}</div>
-            </div>
-          </Link>
-        ))}
-      </div>
+      <section className="explore-section">
+        <div className="explore-section-heading"><h2>Campus spaces</h2><p>Pick up where the conversation is.</p></div>
+        <div className="explore-space-list">{campusSpaces.map(({ href, icon: Icon, title, description, label }) => <Link key={href} href={href} className="explore-space-row">
+          <span className="explore-space-icon"><Icon size={19} /></span>
+          <span className="explore-space-copy"><strong>{title}</strong><small>{description}</small></span>
+          <span className="explore-space-action">{label}<ArrowUpRight size={15} /></span>
+        </Link>)}</div>
+      </section>
 
-      {/* Footer */}
-      <div style={{ textAlign: 'center', padding: '2rem 0 1rem', fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
-        Unigram · CRSU Jind · Independent student platform
-      </div>
+      <section className="explore-section explore-study-section">
+        <div className="explore-section-heading"><h2>Study together</h2><p>Useful things, passed from one student to another.</p></div>
+        <div className="explore-study-list">{studyLinks.map(({ href, icon: Icon, title, description }) => <Link key={href} href={href} className="explore-study-row">
+          <Icon size={19} /><span><strong>{title}</strong><small>{description}</small></span><ArrowUpRight size={15} />
+        </Link>)}</div>
+      </section>
+
+      <section className="explore-personal-links" aria-label="Your saved and contribution activity">
+        <Link href="/bookmarks"><Bookmark size={17} /><span><strong>Your saved posts</strong><small>Pick up something worth keeping</small></span><ArrowUpRight size={16} /></Link>
+        <Link href="/wall"><Trophy size={17} /><span><strong>Contribution wall</strong><small>Meet the people who help build Unigram</small></span><ArrowUpRight size={16} /></Link>
+        <Link href="/dm"><MessageCircle size={17} /><span><strong>Start a conversation</strong><small>Catch up with someone from campus</small></span><ArrowUpRight size={16} /></Link>
+      </section>
+
+      <footer className="explore-footer">A student space for CRSU, made to feel like yours.</footer>
     </div>
   )
 }

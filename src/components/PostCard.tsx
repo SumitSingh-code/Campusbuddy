@@ -1,7 +1,7 @@
 'use client'
 
 import { formatDistanceToNow } from 'date-fns'
-import { MoreHorizontal, ThumbsUp, ThumbsDown, MessageCircle, Flag, Pencil, Trash2, Link2 } from 'lucide-react'
+import { MoreHorizontal, ThumbsUp, ThumbsDown, MessageCircle, Flag, Pencil, Trash2, Link2, Ghost } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu'
 import { toast } from 'sonner'
 
@@ -40,16 +40,16 @@ interface PostCardProps {
 }
 
 const DEPT_COLORS = [
-  { bg: 'rgba(30,64,175,.15)', text: '#93C5FD' },
-  { bg: 'rgba(107,33,168,.15)', text: '#C4B5FD' },
-  { bg: 'rgba(6,95,70,.15)', text: '#6EE7B7' },
-  { bg: 'rgba(146,64,14,.15)', text: '#FCD34D' },
-  { bg: 'rgba(157,23,77,.15)', text: '#F9A8D4' },
-  { bg: 'rgba(22,78,99,.15)', text: '#67E8F9' },
-  { bg: 'rgba(55,48,163,.15)', text: '#A5B4FC' },
-  { bg: 'rgba(20,83,45,.15)', text: '#86EFAC' },
-  { bg: 'rgba(159,18,57,.15)', text: '#FDA4AF' },
-  { bg: 'rgba(113,63,18,.15)', text: '#FDE68A' },
+  { bg: '#EAF0FF', text: '#36528D' },
+  { bg: '#F0EAFE', text: '#604A91' },
+  { bg: '#E3F4EB', text: '#276B4C' },
+  { bg: '#FFF0D5', text: '#815614' },
+  { bg: '#FCE8EF', text: '#8C3C58' },
+  { bg: '#E2F3F5', text: '#2C6470' },
+  { bg: '#E9ECFF', text: '#424B8A' },
+  { bg: '#E5F2E3', text: '#3F6B39' },
+  { bg: '#FCE7E8', text: '#8C3F48' },
+  { bg: '#F8EFDB', text: '#725324' },
 ]
 
 function getDeptColor(dept: string) {
@@ -104,14 +104,7 @@ export default function PostCard({
   }
 
   return (
-    <article
-      id={`post-${post.id}`}
-      style={{
-        background: 'var(--surface)',
-        borderBottom: '1px solid var(--border)',
-        padding: '1rem',
-      }}
-    >
+    <article id={`post-${post.id}`} className="post-card">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: '0.75rem' }}>
         {/* Avatar */}
@@ -120,7 +113,7 @@ export default function PostCard({
             width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'var(--bg-muted)', fontSize: '1.25rem',
-          }}>👻</div>
+          }}><Ghost size={19} aria-hidden="true" /></div>
         ) : (
           <div style={{
             width: 40, height: 40, borderRadius: '50%', flexShrink: 0,

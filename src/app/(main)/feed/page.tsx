@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import { ImagePlus, X, Send, Bell, Plus, Trash2, FileText, Sparkles, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
@@ -295,27 +296,36 @@ export default function FeedPage() {
   const avatarInitials = profile?.full_name?.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'U'
 
   // Filter Pills list (Matches reference image)
-  const PILLS: { id: FeedFilterType; label: string; icon?: string; isDept?: boolean }[] = [
-    { id: 'all', label: 'All Campus' },
+  const PILLS: { id: FeedFilterType; label: string; isDept?: boolean }[] = [
+    { id: 'all', label: 'For you' },
     { id: 'dept', label: 'My Department', isDept: true },
-    { id: 'announcements', label: 'Announcements', icon: '📢' },
-    { id: 'holiday', label: 'Holidays', icon: '🏖️' },
-    { id: 'exam', label: 'Exams', icon: '📝' },
-    { id: 'event', label: 'Events', icon: '🎉' },
+    { id: 'announcements', label: 'Announcements' },
+    { id: 'holiday', label: 'Holidays' },
+    { id: 'exam', label: 'Exams' },
+    { id: 'event', label: 'Events' },
   ]
 
   function getCategoryNoticeTitle(filter: FeedFilterType) {
     switch (filter) {
-      case 'holiday': return '🏖️ Campus Holiday Notices'
-      case 'exam': return '📝 Exam Schedules & Circulars'
-      case 'event': return '🎉 Campus Events & Activities'
-      default: return '📢 Official University Announcements'
+      case 'holiday': return 'Campus holidays'
+      case 'exam': return 'Exam schedules and circulars'
+      case 'event': return 'Campus events and activities'
+      default: return 'Official university announcements'
     }
   }
 
   return (
     <div>
       {/* ── TOP HORIZONTAL FILTER STRIP ("Campus Pulse") ── */}
+      {!isNoticeView && <section className="feed-page-intro">
+        <div><h1>Campus, in the loop.</h1><p>Good things happen when we keep each other posted.</p></div>
+        <span className="feed-campus-mark" aria-hidden="true"><span /></span>
+      </section>}
+      {!isNoticeView && <nav className="feed-pulse-links" aria-label="Explore campus spaces">
+        <Link href="/anon"><span className="pulse-link-mark pulse-anon" />Anonymous conversations</Link>
+        <Link href="/notices"><span className="pulse-link-mark pulse-notices" />Campus bulletin</Link>
+        <Link href="/notes"><span className="pulse-link-mark pulse-notes" />Study library</Link>
+      </nav>}
       <div className="feed-strip-wrapper">
         <div className="feed-strip-container">
           {PILLS.map(pill => {
@@ -331,7 +341,6 @@ export default function FeedPage() {
                   <span className={`feed-dept-dot ${isActive ? 'feed-dept-dot-active' : ''}`} />
                 )}
                 <span>{pill.label}</span>
-                {pill.icon && <span style={{ marginLeft: 3 }}>{pill.icon}</span>}
               </button>
             )
           })}
@@ -358,7 +367,7 @@ export default function FeedPage() {
 
       {/* ── COMPOSER BOX (Shown on Feed tabs: 'all' and 'dept') ── */}
       {!isNoticeView && (
-        <form onSubmit={handleCompose} style={{ borderBottom: '1px solid var(--border)', padding: '1rem', background: 'var(--surface)' }}>
+        <form id="composer" className="feed-composer" onSubmit={handleCompose} style={{ borderBottom: '1px solid var(--border)', padding: '1rem', background: 'var(--surface)' }}>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{
               width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
