@@ -147,12 +147,15 @@ try {
 }
 
 try {
-  app.use('/api/lostfound', require('../src/routes/lostfound'));
-  console.log('[Startup] OK: /api/lostfound');
+  const lostfoundRoute = require('../src/routes/lostfound');
+  app.use('/api/lostfound',  lostfoundRoute);
+  app.use('/api/lost-found', lostfoundRoute);
+  console.log('[Startup] OK: /api/lostfound and /api/lost-found');
 } catch (e) {
-  console.error('[Startup] FAILED /api/lostfound:', e.message);
+  console.error('[Startup] FAILED /api/lostfound & /api/lost-found:', e.message);
   _routeErrors.push({ route: '/api/lostfound', error: e.message });
-  app.use('/api/lostfound', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'lostfound', detail: e.message }));
+  app.use('/api/lostfound',  (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'lostfound', detail: e.message }));
+  app.use('/api/lost-found', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'lost-found', detail: e.message }));
 }
 
 try {
