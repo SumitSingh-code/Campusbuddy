@@ -50,8 +50,8 @@ export default function LostFoundPage() {
     setLoading(true)
     try {
       const q = filterType !== 'all' ? `?type=${filterType}` : ''
-      const res = await api.get(`/lost-found${q}`)
-      setItems(res.data || [])
+      const res = await api.get<{ data: LostItem[] }>(`/lost-found${q}`)
+      setItems(Array.isArray(res.data) ? res.data : [])
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to load items')
     } finally {
@@ -73,22 +73,36 @@ export default function LostFoundPage() {
       toast.error('Title, description and location are required')
       return
     }
+    if (title.trim().length < 3) {
+      toast.error('Title must be at least 3 characters')
+      return
+    }
     setSaving(true)
     try {
       let imageUrl: string | undefined
       if (image) {
         const compressed = await compressImage(image, 800, 300)
-        imageUrl = await uploadToStorage(compressed, `lost-found/${user!.id}/${Date.now()}.jpg`)
+        imageUrl = await uploadToStorage(compressed, `lost-found/${user?.id || 'user'}/${Date.now()}.jpg`)
       }
-      const res = await api.post('/lost-found', {
-        type, title: title.trim(), description: description.trim(),
-        location: location.trim(), contact_info: contactInfo.trim() || null,
+      const res = await api.post<{ data: LostItem }>('/lost-found', {
+        type,
+        title: title.trim(),
+        description: description.trim(),
+        location: location.trim(),
+        contact_info: contactInfo.trim() || null,
         image_url: imageUrl || null,
       })
-      setItems(prev => [res.data, ...prev])
+      if (res.data) {
+        setItems(prev => [res.data, ...prev])
+      }
       setPostOpen(false)
-      setTitle(''); setDescription(''); setLocation(''); setContactInfo(''); setImage(null); setImagePreview(null)
-      toast.success('Posted successfully')
+      setTitle('')
+      setDescription('')
+      setLocation('')
+      setContactInfo('')
+      setImage(null)
+      setImagePreview(null)
+      toast.success('Posted successfully 🎉')
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Post failed')
     } finally {

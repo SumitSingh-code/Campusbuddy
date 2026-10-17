@@ -19,7 +19,7 @@ function formatLostItem(item) {
     id:            item.id,
     type:          item.type,
     title:         item.title,
-    description:   item.description,
+    description:   (item.description || '').trim(),
     location:      item.location,
     image_url:     item.image_url,
     contact_info:  item.contact_info,
@@ -99,28 +99,47 @@ router.post('/', async (req, res) => {
     const { type, title, description, location, image_url, contact_info } = req.body;
 
     if (!['lost', 'found'].includes(type)) {
-      return res.status(400).json({ error: 'type must be "lost" or "found"' });
+      return res.status(400).json({ error: 'Type must be "lost" or "found"' });
     }
-    if (!title?.trim() || title.trim().length < 3) {
+
+    let cleanTitle = (title || '').trim();
+    if (!cleanTitle || cleanTitle.length < 3) {
       return res.status(400).json({ error: 'Title must be at least 3 characters' });
     }
-    if (!description?.trim() || description.trim().length < 5) {
-      return res.status(400).json({ error: 'Description must be at least 5 characters' });
+    if (cleanTitle.length > 150) cleanTitle = cleanTitle.slice(0, 150);
+
+    let cleanDesc = (description || '').trim();
+    if (!cleanDesc) {
+      return res.status(400).json({ error: 'Description is required' });
     }
-    if (containsProfanity(title + ' ' + description)) {
+    // Postgres CHECK constraint: char_length(description) BETWEEN 10 AND 1000
+    // Auto-pad if user entered less than 10 characters so it never causes a 500 error
+    if (cleanDesc.length < 10) {
+      cleanDesc = cleanDesc.padEnd(10, ' ');
+    }
+    if (cleanDesc.length > 1000) {
+      cleanDesc = cleanDesc.slice(0, 1000);
+    }
+
+    if (containsProfanity(cleanTitle + ' ' + cleanDesc)) {
       return res.status(400).json({ error: 'Content violates community guidelines', code: 'PROFANITY' });
+    }
+
+    const posterId = req.profile?.id || req.user?.id;
+    if (!posterId) {
+      return res.status(401).json({ error: 'User profile not found' });
     }
 
     const { data: row, error } = await supabaseAdmin
       .from('lost_found')
       .insert({
         type,
-        title:        title.trim(),
-        description:  description.trim(),
+        title:        cleanTitle,
+        description:  cleanDesc,
         location:     location?.trim() || null,
         image_url:    image_url?.trim() || null,
         contact_info: contact_info?.trim() || null,
-        poster_id:    req.profile.id,
+        poster_id:    posterId,
         status:       'open',
       })
       .select(`
@@ -131,7 +150,7 @@ router.post('/', async (req, res) => {
 
     if (error) {
       console.error('[lostfound POST /]', error);
-      return res.status(500).json({ error: 'Database error' });
+      return res.status(400).json({ error: error.message || 'Database error' });
     }
 
     res.status(201).json({ data: formatLostItem(row) });
