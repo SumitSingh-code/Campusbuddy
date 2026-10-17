@@ -15,7 +15,16 @@ import EditPostDialog from '@/components/EditPostDialog'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
 
-export type FeedFilterType = 'all' | 'dept' | 'announcements' | 'holiday' | 'exam' | 'event'
+export type FeedFilterType =
+  | 'all'
+  | 'dept'
+  | 'announcements'
+  | 'academic'
+  | 'exam'
+  | 'event'
+  | 'administrative'
+  | 'holiday'
+  | 'other'
 
 interface FeedNotice {
   id: string
@@ -70,7 +79,15 @@ export default function FeedPage() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const isNoticeView = ['announcements', 'holiday', 'exam', 'event'].includes(activeFilter)
+  const isNoticeView = [
+    'announcements',
+    'academic',
+    'exam',
+    'event',
+    'administrative',
+    'holiday',
+    'other',
+  ].includes(activeFilter)
 
   // Load feed posts
   const loadFeed = useCallback(async (initial = false, deptOverride?: string | null) => {
@@ -107,14 +124,17 @@ export default function FeedPage() {
   const loadNotices = useCallback(async (category: FeedFilterType) => {
     setNoticesLoading(true)
     try {
-      let catParam = category === 'announcements' ? 'general' : category
+      const catParam = category === 'announcements' ? 'general' : category
       const res = await api.get<{ data: FeedNotice[] }>(`/notices?category=${encodeURIComponent(catParam)}`)
       const raw = Array.isArray(res.data) ? res.data : []
-      const mapped = raw.map((n: FeedNotice) => ({
-        ...n,
-        content: n.content || n.body || '',
-        poster_name: n.poster_name || 'Admin',
-      }))
+      const targetCat = catParam.toLowerCase()
+      const mapped = raw
+        .map((n: FeedNotice) => ({
+          ...n,
+          content: n.content || n.body || '',
+          poster_name: n.poster_name || 'Admin',
+        }))
+        .filter((n: FeedNotice) => (n.category || '').toLowerCase() === targetCat)
       setNotices(mapped)
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to load notices')
@@ -295,14 +315,17 @@ export default function FeedPage() {
 
   const avatarInitials = profile?.full_name?.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'U'
 
-  // Filter Pills list (Matches reference image)
+  // Filter Pills list (Matches reference image + all notice categories)
   const PILLS: { id: FeedFilterType; label: string; isDept?: boolean }[] = [
     { id: 'all', label: 'For you' },
     { id: 'dept', label: 'My Department', isDept: true },
     { id: 'announcements', label: 'Announcements' },
-    { id: 'holiday', label: 'Holidays' },
+    { id: 'academic', label: 'Academic' },
     { id: 'exam', label: 'Exams' },
     { id: 'event', label: 'Events' },
+    { id: 'administrative', label: 'Administrative' },
+    { id: 'holiday', label: 'Holidays' },
+    { id: 'other', label: 'Other' },
   ]
 
   function getCategoryNoticeTitle(filter: FeedFilterType) {
@@ -310,6 +333,9 @@ export default function FeedPage() {
       case 'holiday': return 'Campus holidays'
       case 'exam': return 'Exam schedules and circulars'
       case 'event': return 'Campus events and activities'
+      case 'academic': return 'Academic circulars and notices'
+      case 'administrative': return 'Administrative orders and circulars'
+      case 'other': return 'Other campus notices'
       default: return 'Official university announcements'
     }
   }

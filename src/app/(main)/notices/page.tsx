@@ -20,7 +20,7 @@ interface Notice {
   created_at: string
 }
 
-const CATEGORIES = ['General', 'Academic', 'Exam', 'Event', 'Administrative', 'Holiday']
+const CATEGORIES = ['General', 'Academic', 'Exam', 'Event', 'Administrative', 'Holiday', 'Other']
 
 export default function NoticesPage() {
   const { isAdmin } = useAuth()
@@ -51,7 +51,11 @@ export default function NoticesPage() {
         content: n.content || n.body || '',
         poster_name: n.poster_name || 'Admin',
       }))
-      setNotices(mapped)
+      // Double check category filtering on frontend as safety net
+      const filtered = filterCat === 'All'
+        ? mapped
+        : mapped.filter((n: Notice) => (n.category || '').toLowerCase() === filterCat.toLowerCase())
+      setNotices(filtered)
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to load notices')
     } finally {
@@ -74,18 +78,24 @@ export default function NoticesPage() {
     }
     setSaving(true)
     try {
+      const chosenCat = category.toLowerCase().trim()
       const res = await api.post('/notices', {
         title: title.trim(),
         body: content.trim(),
         content: content.trim(),
-        category: category.toLowerCase(),
+        category: chosenCat,
       })
-      const createdNotice = {
+      const createdNotice: Notice = {
         ...res.data,
         content: res.data?.content || res.data?.body || content.trim(),
         poster_name: res.data?.poster_name || 'Admin',
+        category: res.data?.category || chosenCat,
       }
-      setNotices(prev => [createdNotice, ...prev])
+      
+      // If current filter is All or matches created notice category, add to top
+      if (filterCat === 'All' || filterCat.toLowerCase() === chosenCat) {
+        setNotices(prev => [createdNotice, ...prev])
+      }
       setUploadOpen(false)
       setTitle('')
       setContent('')
@@ -122,7 +132,7 @@ export default function NoticesPage() {
       holiday: '🏖️',
       other: '📌',
     }
-    return map[c] || '📢'
+    return map[c] || '📌'
   }
 
   return (
@@ -158,7 +168,7 @@ export default function NoticesPage() {
       ) : notices.length === 0 ? (
         <div className="notices-empty">
           <Bell size={36} strokeWidth={1.2} />
-          <p>No notices yet</p>
+          <p>No notices in this category</p>
         </div>
       ) : (
         <div className="notices-list">
