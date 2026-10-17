@@ -315,16 +315,16 @@ export default function FeedPage() {
 
   const avatarInitials = profile?.full_name?.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'U'
 
-  // Filter Pills list (Matches reference image + all notice categories)
+  // Filter Pills list (Student priority order: For you -> My Department -> Announcements -> Holidays -> Events -> Exams -> etc.)
   const PILLS: { id: FeedFilterType; label: string; isDept?: boolean }[] = [
     { id: 'all', label: 'For you' },
     { id: 'dept', label: 'My Department', isDept: true },
     { id: 'announcements', label: 'Announcements' },
-    { id: 'academic', label: 'Academic' },
-    { id: 'exam', label: 'Exams' },
-    { id: 'event', label: 'Events' },
-    { id: 'administrative', label: 'Administrative' },
     { id: 'holiday', label: 'Holidays' },
+    { id: 'event', label: 'Events' },
+    { id: 'exam', label: 'Exams' },
+    { id: 'academic', label: 'Academic' },
+    { id: 'administrative', label: 'Administrative' },
     { id: 'other', label: 'Other' },
   ]
 
