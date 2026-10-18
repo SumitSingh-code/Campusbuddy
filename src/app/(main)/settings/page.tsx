@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, LogOut, Moon, Sun, Lock, User, Pencil, Shield, Users, Info, FileText, BookOpen, Mail, ExternalLink, Bookmark, Bell } from 'lucide-react'
+import { ChevronRight, LogOut, Moon, Sun, Lock, User, Pencil, Shield, Users, Info, FileText, BookOpen, Mail, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
@@ -140,16 +140,6 @@ export default function SettingsPage() {
                 <Row icon={<Shield size={16} />} label="Admin Panel" href="/admin.html" external />
               </>
             )}
-          </>
-        )}
-
-        {/* Activity */}
-        {sectionLabel('Activity')}
-        {card(
-          <>
-            <Row icon={<Bookmark size={16} />} label="Bookmarks" sub="Your saved campus posts" href="/bookmarks" />
-            {divider}
-            <Row icon={<Bell size={16} />} label="Notifications" sub="Activity and alerts" href="/notifications" />
           </>
         )}
 
