@@ -64,6 +64,12 @@ export default function RootLayout({
             __html: `(function(){var t=localStorage.getItem('unigram_theme');if(t!=='light'){document.documentElement.setAttribute('data-theme','dark');if(!t)localStorage.setItem('unigram_theme','dark');}})();`,
           }}
         />
+        {/* PWA Service Worker Registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(e){console.warn('SW reg failed',e);});});}`,
+          }}
+        />
       </head>
       <body className="antialiased">
         {children}

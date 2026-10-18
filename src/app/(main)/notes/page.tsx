@@ -77,6 +77,10 @@ export default function NotesPage() {
       toast.error('Fill subject, department and select a file')
       return
     }
+    if (file.size > 3.5 * 1024 * 1024) {
+      toast.error('File is too large (max 3.5MB). Please compress before uploading.')
+      return
+    }
     setUploading(true)
     try {
       const url = await uploadToStorage(file, `notes/${user!.id}/${Date.now()}_${file.name}`)
@@ -224,7 +228,21 @@ export default function NotesPage() {
                   <><Upload size={22} /><span>Tap to select file</span></>
                 )}
               </div>
-              <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.ppt,.pptx"
+                hidden
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f && f.size > 3.5 * 1024 * 1024) {
+                    toast.error('File is too large (max 3.5MB). Please compress before uploading.')
+                    if (fileInputRef.current) fileInputRef.current.value = ''
+                    return
+                  }
+                  setFile(f || null)
+                }}
+              />
 
               <button className="notes-submit-btn" onClick={handleUpload} disabled={uploading}>
                 {uploading ? 'Uploading…' : 'Upload Notes'}

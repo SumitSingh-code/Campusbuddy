@@ -10,6 +10,7 @@ import {
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { uploadToStorage } from '@/lib/storage'
+import { compressImage } from '@/lib/image'
 import { DEPARTMENTS } from '@/lib/constants'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
@@ -237,11 +238,15 @@ export default function TimetablePage() {
         if (item.isExisting && item.previewUrl) {
           uploadedUrls.push(item.previewUrl)
         } else if (item.file) {
-          const ext = item.file.name.split('.').pop() || 'jpg'
           const safeDept = formDept.replace(/[^a-zA-Z0-9]/g, '_')
           const safeYear = formYear.replace(/[^a-zA-Z0-9]/g, '_')
+          const isImg = item.file.type.startsWith('image/')
+          const ext = isImg ? 'jpg' : (item.file.name.split('.').pop() || 'jpg')
           const path = `timetable/${safeDept}_${safeYear}_p${i + 1}_${Date.now()}.${ext}`
-          const url = await uploadToStorage(item.file, path)
+          const fileToUpload = isImg
+            ? await compressImage(item.file, 1600, 400)
+            : item.file
+          const url = await uploadToStorage(fileToUpload, path)
           uploadedUrls.push(url)
         }
       }

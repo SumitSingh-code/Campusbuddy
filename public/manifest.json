@@ -49,13 +49,13 @@
   "shortcuts": [
     {
       "name": "Campus Feed",
-      "url": "/#/feed",
+      "url": "/feed",
       "description": "Open the campus feed",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Anonymous Feed",
-      "url": "/#/anon",
+      "url": "/anon",
       "description": "Open the anonymous feed",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
