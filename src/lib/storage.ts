@@ -28,9 +28,10 @@ export async function uploadToStorage(
   path: string
 ): Promise<string> {
   // Derive folder from path prefix
-  const folder = path.startsWith('avatar') ? 'avatars'
-               : path.startsWith('notes')  ? 'notes'
-               : path.startsWith('pyq')    ? 'pyq'
+  const folder = path.startsWith('avatar')    ? 'avatars'
+               : path.startsWith('notes')     ? 'notes'
+               : path.startsWith('pyq')       ? 'pyq'
+               : path.startsWith('timetable') ? 'timetable'
                : 'posts'
 
   const mime   = file instanceof File ? file.type : 'image/jpeg'
