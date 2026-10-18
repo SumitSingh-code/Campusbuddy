@@ -6,7 +6,8 @@
  * Rules:
  * 1. Only admin team (moderator, super_admin) can upload, update, or delete timetables.
  * 2. Students ONLY see the official timetable for their registered department.
- * 3. Timetables are photo/image-based with department and year tags.
+ * 3. Timetables are photo/image-based and support MULTI-PAGE uploads (1, 2, 3 or more pages).
+ * 4. A single timetable can cover "All Years / All Semesters (Combined)" or a specific year/semester.
  */
 
 const express = require('express');
@@ -22,12 +23,22 @@ function formatTimetableRow(row) {
     ? row.slots
     : (Array.isArray(row.slots) && row.slots[0] && typeof row.slots[0] === 'object' ? row.slots[0] : {});
 
+  // Extract images array, with fallback to single image_url
+  let images = [];
+  if (Array.isArray(slotsData.images) && slotsData.images.length > 0) {
+    images = slotsData.images.filter(img => typeof img === 'string' && img.trim().length > 0);
+  } else if (slotsData.image_url && typeof slotsData.image_url === 'string') {
+    images = [slotsData.image_url];
+  }
+
   return {
     id: row.id,
     department: row.department,
     title: row.label || '',
-    year: slotsData.year || '1st Year',
-    image_url: slotsData.image_url || null,
+    year: slotsData.year || 'All Years (Combined)',
+    image_url: images[0] || slotsData.image_url || null,
+    images: images,
+    page_count: images.length,
     owner_id: row.owner_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -83,20 +94,30 @@ router.get('/mine', getTimetablesHandler);
 // ─── POST / — Upload timetable (Admin only) ─────────────────────────────────
 router.post('/', adminGuard, async (req, res) => {
   try {
-    const { department, year, image_url, title } = req.body;
+    const { department, year, images, image_url, title } = req.body;
 
     if (!department || typeof department !== 'string' || !department.trim()) {
       return res.status(400).json({ error: 'Department is required' });
     }
     if (!year || typeof year !== 'string' || !year.trim()) {
-      return res.status(400).json({ error: 'Year is required' });
+      return res.status(400).json({ error: 'Year / Scope is required' });
     }
-    if (!image_url || typeof image_url !== 'string' || !image_url.trim()) {
-      return res.status(400).json({ error: 'Timetable image is required' });
+
+    // Support both multi-image array and single image_url
+    let finalImages = [];
+    if (Array.isArray(images) && images.length > 0) {
+      finalImages = images.map(img => (typeof img === 'string' ? img.trim() : '')).filter(Boolean);
+    } else if (image_url && typeof image_url === 'string' && image_url.trim()) {
+      finalImages = [image_url.trim()];
+    }
+
+    if (finalImages.length === 0) {
+      return res.status(400).json({ error: 'At least one timetable page/image is required' });
     }
 
     const slots = {
-      image_url: image_url.trim(),
+      images: finalImages,
+      image_url: finalImages[0],
       year: year.trim(),
     };
 
@@ -130,7 +151,7 @@ router.post('/', adminGuard, async (req, res) => {
 // ─── PUT /:id — Update timetable (Admin only) ───────────────────────────────
 router.put('/:id', adminGuard, async (req, res) => {
   try {
-    const { department, year, image_url, title } = req.body;
+    const { department, year, images, image_url, title } = req.body;
 
     const { data: existing, error: fetchErr } = await supabaseAdmin
       .from('timetables')
@@ -146,9 +167,17 @@ router.put('/:id', adminGuard, async (req, res) => {
       ? existing.slots
       : {};
 
+    let finalImages = prevSlots.images || (prevSlots.image_url ? [prevSlots.image_url] : []);
+    if (Array.isArray(images) && images.length > 0) {
+      finalImages = images.map(img => (typeof img === 'string' ? img.trim() : '')).filter(Boolean);
+    } else if (image_url && typeof image_url === 'string' && image_url.trim()) {
+      finalImages = [image_url.trim()];
+    }
+
     const updatedSlots = {
       ...prevSlots,
-      ...(image_url ? { image_url: image_url.trim() } : {}),
+      images: finalImages,
+      image_url: finalImages[0] || null,
       ...(year ? { year: year.trim() } : {}),
     };
 

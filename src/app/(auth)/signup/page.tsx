@@ -5,13 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
-
-const DEPARTMENTS = [
-  'Mathematics','Physics','Chemistry','Computer Science','Commerce',
-  'Economics','History','Political Science','English','Hindi','Punjabi',
-  'Sociology','Geography','Law','Management','Education','Physical Education',
-  'Fine Arts','Music','Library Science','Other',
-]
+import { DEPARTMENTS } from '@/lib/constants'
 
 function SignupContent() {
   const { signUpWithEmail, completeProfile, isLoggedIn, isLoading, needsProfile } = useAuth()
