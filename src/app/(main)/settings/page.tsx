@@ -43,7 +43,22 @@ function Row({ icon, label, sub, href, onClick, danger, external }: { icon: Reac
       {external ? <ExternalLink size={14} style={{ color: 'var(--ink-subtle)', flexShrink: 0 }} /> : <ChevronRight size={16} style={{ color: 'var(--ink-subtle)', flexShrink: 0 }} />}
     </div>
   )
-  if (href) return <Link href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined} style={{ textDecoration: 'none', display: 'block' }}>{content}</Link>
+  if (href) {
+    const isStaticOrExternal = external || href.endsWith('.html') || href.startsWith('http') || href.startsWith('mailto:')
+    if (isStaticOrExternal) {
+      return (
+        <a
+          href={href}
+          target={external && href.startsWith('http') ? '_blank' : undefined}
+          rel={external && href.startsWith('http') ? 'noopener noreferrer' : undefined}
+          style={{ textDecoration: 'none', display: 'block' }}
+        >
+          {content}
+        </a>
+      )
+    }
+    return <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>{content}</Link>
+  }
   return <button onClick={onClick} style={{ width: '100%', background: 'none', border: 'none', textAlign: 'left', padding: 0 }}>{content}</button>
 }
 
