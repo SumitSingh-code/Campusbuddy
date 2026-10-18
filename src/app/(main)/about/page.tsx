@@ -10,7 +10,6 @@ export default function AboutPage() {
     ['🗓️', 'Timetable', 'Personal class schedule editor'],
     ['🔍', 'Lost & Found', 'Help reunite people with their things'],
     ['📚', 'Study Notes', 'Shared notes repository'],
-    ['🔖', 'Bookmarks', 'Save posts for later'],
   ]
 
   const techStack = [

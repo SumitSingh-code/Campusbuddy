@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Bell, BookOpen, Bookmark, CalendarDays, ChevronRight, Compass, FileText,
+  Bell, BookOpen, CalendarDays, ChevronRight, Compass, FileText,
   Home, MessageCircle, Plus, Search, ShieldCheck, UserRound, X,
 } from 'lucide-react'
 import { useAuth, AuthProvider } from '@/lib/auth-context'
@@ -22,7 +22,6 @@ const campusLinks = [
   { href: '/notes', label: 'Study notes', Icon: BookOpen },
   { href: '/pyq', label: 'Past papers', Icon: FileText },
   { href: '/timetable', label: 'Timetable', Icon: CalendarDays },
-  { href: '/bookmarks', label: 'Saved', Icon: Bookmark },
 ]
 
 const createActions = [

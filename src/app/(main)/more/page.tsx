@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import {
-  ArrowUpRight, Bell, BookOpen, Bookmark, CalendarDays, FileText, Ghost,
+  ArrowUpRight, Bell, BookOpen, CalendarDays, FileText, Ghost,
   MessageCircle, Search, Settings, Trophy,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
@@ -51,8 +51,7 @@ export default function ExplorePage() {
         </Link>)}</div>
       </section>
 
-      <section className="explore-personal-links" aria-label="Your saved and contribution activity">
-        <Link href="/bookmarks"><Bookmark size={17} /><span><strong>Your saved posts</strong><small>Pick up something worth keeping</small></span><ArrowUpRight size={16} /></Link>
+      <section className="explore-personal-links" aria-label="Your contribution and settings activity">
         <Link href="/wall"><Trophy size={17} /><span><strong>Contribution wall</strong><small>Meet the people who help build Unigram</small></span><ArrowUpRight size={16} /></Link>
         <Link href="/dm"><MessageCircle size={17} /><span><strong>Start a conversation</strong><small>Catch up with someone from campus</small></span><ArrowUpRight size={16} /></Link>
         <Link href="/settings"><Settings size={17} /><span><strong>Settings</strong><small>Preferences, theme & account</small></span><ArrowUpRight size={16} /></Link>
