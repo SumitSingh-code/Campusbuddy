@@ -12,12 +12,11 @@ console.log('[Startup] SUPABASE_URL set:              ', !!process.env.SUPABASE_
 console.log('[Startup] SUPABASE_SERVICE_ROLE_KEY set: ', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 console.log('[Startup] SUPABASE_ANON_KEY set:         ', !!process.env.SUPABASE_ANON_KEY);
 console.log('[Startup] FRONTEND_URL:                  ', process.env.FRONTEND_URL || '(not set)');
-console.log('[Startup] Node.js version:               ', process.version);
-
 const app = express();
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // ── Route mounting ────────────────────────────────────────────────────────────
 // Each require() uses a LITERAL string path so Vercel's static bundler can
@@ -188,9 +187,9 @@ app.get('/api/config', async (req, res) => {
   }
 });
 
-// ── Server-side image upload (uses service role key — no RLS issues) ──────────
-// POST /api/upload  — multipart or base64 body
-// Body: { data: '<base64 string>', mime: 'image/jpeg', folder: 'posts|avatars' }
+// ── Server-side file upload (uses service role key — no RLS issues) ──────────
+// POST /api/upload  — base64 body
+// Body: { data: '<base64 string>', mime: 'application/pdf' | 'image/...', folder: 'pyq|notes|posts|avatars|timetable', fileName?: '...' }
 // Returns: { url: '<public URL>' }
 app.post('/api/upload', async (req, res) => {
   try {
@@ -204,17 +203,52 @@ app.post('/api/upload', async (req, res) => {
   }
   try {
     const { supabaseAdmin } = require('../src/lib/supabase-admin');
-    const { data: b64, mime, folder } = req.body;
+    const { data: b64, mime, folder, fileName } = req.body;
 
-    if (!b64 || !mime || !mime.startsWith('image/')) {
-      return res.status(400).json({ error: 'data (base64) and mime (image/*) are required' });
+    let resolvedMime = (mime || '').toLowerCase().trim();
+    if (!resolvedMime || resolvedMime === 'application/octet-stream') {
+      const extFromName = (fileName || '').split('.').pop()?.toLowerCase();
+      if (extFromName === 'pdf') resolvedMime = 'application/pdf';
+      else if (['jpg', 'jpeg'].includes(extFromName)) resolvedMime = 'image/jpeg';
+      else if (extFromName === 'png') resolvedMime = 'image/png';
+      else if (extFromName === 'webp') resolvedMime = 'image/webp';
+      else if (extFromName === 'gif') resolvedMime = 'image/gif';
     }
 
-    const BUCKET = 'unigram';
-    const ext    = mime === 'image/png' ? 'png' : mime === 'image/gif' ? 'gif' : mime === 'image/webp' ? 'webp' : 'jpg';
-    const safeFolder = ['posts', 'avatars', 'notes', 'pyq'].includes(folder) ? folder : 'posts';
-    const path   = `${safeFolder}/${req.profile.id}/${Date.now()}.${ext}`;
+    const isImage = resolvedMime.startsWith('image/');
+    const isPdf   = resolvedMime === 'application/pdf' || resolvedMime === 'application/x-pdf' || resolvedMime.includes('pdf');
+    const isDoc   = resolvedMime.includes('word') || resolvedMime.includes('document') || resolvedMime.includes('text/plain');
 
+    if (!b64 || (!isImage && !isPdf && !isDoc)) {
+      return res.status(400).json({ error: 'Valid file data (base64) and mime (image/* or PDF/document) are required' });
+    }
+
+    let ext = 'jpg';
+    if (isPdf) {
+      ext = 'pdf';
+    } else if (resolvedMime.includes('wordprocessingml') || resolvedMime.includes('docx')) {
+      ext = 'docx';
+    } else if (resolvedMime.includes('msword') || resolvedMime.includes('doc')) {
+      ext = 'doc';
+    } else if (resolvedMime === 'image/png') {
+      ext = 'png';
+    } else if (resolvedMime === 'image/gif') {
+      ext = 'gif';
+    } else if (resolvedMime === 'image/webp') {
+      ext = 'webp';
+    } else if (resolvedMime === 'image/svg+xml') {
+      ext = 'svg';
+    }
+
+    const safeFolder = ['posts', 'avatars', 'notes', 'pyq', 'timetable', 'lost-found', 'lostfound'].includes(folder)
+      ? folder
+      : 'posts';
+
+    const BUCKET = safeFolder === 'pyq' ? 'pyq-files'
+                 : safeFolder === 'notes' ? 'notes-files'
+                 : 'unigram';
+
+    const path   = `${safeFolder}/${req.profile.id}/${Date.now()}.${ext}`;
     const buffer = Buffer.from(b64, 'base64');
 
     // Ensure bucket exists
@@ -223,15 +257,19 @@ app.post('/api/upload', async (req, res) => {
     if (!bucketExists) {
       const { error: cbErr } = await supabaseAdmin.storage.createBucket(BUCKET, {
         public: true,
-        allowedMimeTypes: ['image/*'],
-        fileSizeLimit: 10485760, // 10MB
+        allowedMimeTypes: null,
+        fileSizeLimit: 15728640, // 15MB
       });
       if (cbErr) console.warn('[/api/upload] bucket create warn:', cbErr.message);
     }
 
     const { error: upErr } = await supabaseAdmin.storage
       .from(BUCKET)
-      .upload(path, buffer, { contentType: mime, upsert: true, cacheControl: '3600' });
+      .upload(path, buffer, {
+        contentType: resolvedMime || (isPdf ? 'application/pdf' : 'application/octet-stream'),
+        upsert: true,
+        cacheControl: '3600',
+      });
 
     if (upErr) {
       console.error('[/api/upload] upload error:', upErr);

@@ -17,17 +17,22 @@ router.use(authGuard);
 router.get('/', async (req, res) => {
   try {
     const {
-      subject  = '',
-      year     = '',
-      exam     = '',
-      dept     = '',
-      page     = 1,
-      limit    = 20,
+      subject     = '',
+      year        = '',
+      exam        = '',
+      exam_type   = '',
+      dept        = '',
+      department  = '',
+      page        = 1,
+      limit       = 20,
     } = req.query;
 
     const pageNum  = Math.max(1, parseInt(page));
     const pageSize = Math.min(50, Math.max(1, parseInt(limit)));
     const offset   = (pageNum - 1) * pageSize;
+
+    const deptFilter = (department || dept || '').trim();
+    const examFilter = (exam_type || exam || '').trim();
 
     let query = supabaseAdmin
       .from('pyq_files')
@@ -40,10 +45,10 @@ router.get('/', async (req, res) => {
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1);
 
-    if (subject) query = query.ilike('subject', `%${subject}%`);
+    if (subject) query = query.ilike('subject', `%${subject.trim()}%`);
     if (year)    query = query.eq('year', parseInt(year));
-    if (exam)    query = query.eq('exam_type', exam);
-    if (dept)    query = query.eq('department', dept);
+    if (examFilter) query = query.eq('exam_type', examFilter);
+    if (deptFilter && deptFilter !== 'All') query = query.eq('department', deptFilter);
 
     const { data, count, error } = await query;
     if (error) {
@@ -51,8 +56,16 @@ router.get('/', async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
+    const mapped = (data || []).map(r => ({
+      ...r,
+      file_name: r.title || r.subject || 'Question Paper',
+      file_size: r.file_size_bytes || 0,
+      uploaded_by: r.uploader_id,
+      uploader_name: r.uploader?.full_name || 'Student',
+    }));
+
     res.json({
-      data: data || [],
+      data: mapped,
       total: count || 0,
       page: pageNum,
       limit: pageSize,
@@ -65,37 +78,37 @@ router.get('/', async (req, res) => {
 });
 
 // ─── POST / — Upload a PYQ record ────────────────────────────────────────────
-// The client uploads the file directly to Supabase Storage (signed URL or public URL),
-// then sends the resulting file_url + metadata to this endpoint to create the DB record.
 
 router.post('/', async (req, res) => {
   try {
-    const { title, subject, year, exam_type, department, file_url, file_size_bytes } = req.body;
+    const { title, subject, year, exam_type, department, file_url, file_size_bytes, file_name, file_size } = req.body;
 
-    // Validation
-    if (!title?.trim() || title.trim().length < 3) {
-      return res.status(400).json({ error: 'Title must be at least 3 characters' });
-    }
-    if (!subject?.trim()) return res.status(400).json({ error: 'Subject is required' });
-    if (!year || isNaN(parseInt(year)) || parseInt(year) < 2000 || parseInt(year) > new Date().getFullYear() + 1) {
+    const safeSubject = (subject || title || file_name || '').trim();
+    const safeTitle   = (title || subject || file_name || 'Question Paper').trim();
+    const safeDept    = (department || req.profile?.department || '').trim();
+    const safeYear    = year ? parseInt(year) : new Date().getFullYear();
+    const safeExam    = ['mid', 'end', 'backlog', 'other'].includes(exam_type) ? exam_type : 'end';
+    const safeSize    = file_size_bytes ? parseInt(file_size_bytes) : file_size ? parseInt(file_size) : null;
+
+    if (!safeSubject) return res.status(400).json({ error: 'Subject is required' });
+    if (!safeDept)    return res.status(400).json({ error: 'Department is required' });
+    if (!file_url?.trim()) return res.status(400).json({ error: 'file_url is required' });
+    if (isNaN(safeYear) || safeYear < 1990 || safeYear > new Date().getFullYear() + 2) {
       return res.status(400).json({ error: 'Please enter a valid exam year' });
     }
-    if (!['mid', 'end', 'backlog', 'other'].includes(exam_type)) {
-      return res.status(400).json({ error: 'exam_type must be mid, end, backlog, or other' });
-    }
-    if (!department?.trim()) return res.status(400).json({ error: 'Department is required' });
-    if (!file_url?.trim())   return res.status(400).json({ error: 'file_url is required' });
+
+    const finalTitle = safeTitle.length >= 3 ? safeTitle : `${safeTitle} PYQ`;
 
     const { data: row, error } = await supabaseAdmin
       .from('pyq_files')
       .insert({
-        title:           title.trim(),
-        subject:         subject.trim(),
-        year:            parseInt(year),
-        exam_type,
-        department:      department.trim(),
+        title:           finalTitle,
+        subject:         safeSubject,
+        year:            safeYear,
+        exam_type:       safeExam,
+        department:      safeDept,
         file_url:        file_url.trim(),
-        file_size_bytes: file_size_bytes ? parseInt(file_size_bytes) : null,
+        file_size_bytes: safeSize,
         uploader_id:     req.profile.id,
         status:          'published',
       })
@@ -107,7 +120,15 @@ router.post('/', async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    res.status(201).json({ data: row });
+    res.status(201).json({
+      data: {
+        ...row,
+        file_name: row.title,
+        file_size: row.file_size_bytes || 0,
+        uploaded_by: req.profile.id,
+        uploader_name: req.profile.full_name || 'You',
+      }
+    });
   } catch (err) {
     console.error('[pyq POST /]', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -131,6 +152,21 @@ router.delete('/:id', async (req, res) => {
     if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Access denied' });
 
     await supabaseAdmin.from('pyq_files').update({ status: 'deleted' }).eq('id', req.params.id);
+
+    // Best-effort cleanup in storage
+    if (row.file_url) {
+      try {
+        const match = row.file_url.match(/\/object\/public\/([^/]+)\/(.+)$/);
+        if (match) {
+          const bucket = match[1];
+          const path = decodeURIComponent(match[2]);
+          await supabaseAdmin.storage.from(bucket).remove([path]);
+        }
+      } catch (stErr) {
+        console.warn('[pyq DELETE storage remove warn]:', stErr.message);
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('[pyq DELETE /:id]', err);

@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { uploadToStorage } from '@/lib/storage'
 import { fmtBytes } from '@/lib/format'
 import { timeAgo } from '@/lib/date'
+import { DEPARTMENTS as CRSU_DEPARTMENTS } from '@/lib/constants'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
 
@@ -16,18 +17,21 @@ interface Note {
   department: string
   semester?: string | number
   file_url: string
-  file_name: string
-  file_size: number
-  uploaded_by: string
+  file_name?: string
+  file_size?: number
+  file_size_bytes?: number
+  uploaded_by?: string
+  uploader_id?: string
   uploader_name?: string
+  uploader?: { full_name?: string; roll_number?: string }
   created_at: string
 }
 
-const DEPARTMENTS = ['All', 'Computer Science', 'Physics', 'Chemistry', 'Mathematics', 'Commerce', 'Arts', 'Other']
+const DEPARTMENTS = ['All', ...CRSU_DEPARTMENTS]
 const SEMESTERS = ['All', '1', '2', '3', '4', '5', '6', '7', '8']
 
 export default function NotesPage() {
-  const { user, isAdmin } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
   const [filterDept, setFilterDept] = useState('All')
@@ -44,6 +48,13 @@ export default function NotesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadNotes() }, [filterDept, filterSem])
+
+  // Pre-fill department when modal opens if empty
+  useEffect(() => {
+    if (uploadOpen && !department && profile?.department) {
+      setDepartment(profile.department)
+    }
+  }, [uploadOpen, profile?.department, department])
 
   async function loadNotes() {
     setLoading(true)
@@ -70,16 +81,18 @@ export default function NotesPage() {
     try {
       const url = await uploadToStorage(file, `notes/${user!.id}/${Date.now()}_${file.name}`)
       await api.post('/notes', {
+        title: subject.trim(),
         subject: subject.trim(),
         department: department.trim(),
         semester: semester ? parseInt(semester) : null,
         file_url: url,
         file_name: file.name,
         file_size: file.size,
+        file_size_bytes: file.size,
       })
       toast.success('Notes uploaded!')
       setUploadOpen(false)
-      setSubject(''); setDepartment(''); setSemester(''); setFile(null)
+      setSubject(''); setSemester(''); setFile(null)
       loadNotes()
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Upload failed')
@@ -148,17 +161,17 @@ export default function NotesPage() {
                 <div className="notes-card-meta">
                   <span className="notes-dept-badge">{note.department}</span>
                   {note.semester && <span>Sem {note.semester}</span>}
-                  <span>{fmtBytes(note.file_size)}</span>
+                  <span>{fmtBytes(note.file_size || note.file_size_bytes || 0)}</span>
                 </div>
                 <div className="notes-card-uploader">
-                  {note.uploader_name || 'Anonymous'} · {timeAgo(note.created_at)}
+                  {note.uploader_name || note.uploader?.full_name || 'Student'} · {timeAgo(note.created_at)}
                 </div>
               </div>
               <div className="notes-card-actions">
-                <a href={note.file_url} target="_blank" rel="noopener noreferrer" className="notes-download-btn" aria-label="Download">
+                <a href={note.file_url} target="_blank" rel="noopener noreferrer" download={note.file_name || `${note.subject}_notes.pdf`} className="notes-download-btn" aria-label="Download">
                   <Download size={16} />
                 </a>
-                {(note.uploaded_by === user?.id || isAdmin) && (
+                {(note.uploaded_by === user?.id || note.uploader_id === user?.id || isAdmin) && (
                   <button className="notes-delete-btn" onClick={() => setConfirmDelete(note.id)} aria-label="Delete">
                     <Trash2 size={15} />
                   </button>
@@ -186,8 +199,8 @@ export default function NotesPage() {
                 <div className="notes-col">
                   <label className="notes-label">Department *</label>
                   <select className="notes-input" value={department} onChange={e => setDepartment(e.target.value)}>
-                    <option value="">Select…</option>
-                    {DEPARTMENTS.filter(d => d !== 'All').map(d => <option key={d}>{d}</option>)}
+                    <option value="">Select department…</option>
+                    {CRSU_DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div className="notes-col">

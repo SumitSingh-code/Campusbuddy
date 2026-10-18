@@ -32,10 +32,21 @@ export async function uploadToStorage(
                : path.startsWith('notes')     ? 'notes'
                : path.startsWith('pyq')       ? 'pyq'
                : path.startsWith('timetable') ? 'timetable'
+               : path.startsWith('lost-found') || path.startsWith('lostfound') ? 'lost-found'
                : 'posts'
 
-  const mime   = file instanceof File ? file.type : 'image/jpeg'
-  const b64    = await fileToBase64(file)
+  let mime = file instanceof File ? file.type : 'image/jpeg'
+  const fileName = file instanceof File ? file.name : ''
+  if (!mime && fileName) {
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    if (ext === 'pdf') mime = 'application/pdf'
+    else if (['jpg', 'jpeg'].includes(ext || '')) mime = 'image/jpeg'
+    else if (ext === 'png') mime = 'image/png'
+    else if (ext === 'webp') mime = 'image/webp'
+    else if (ext === 'gif') mime = 'image/gif'
+  }
+
+  const b64 = await fileToBase64(file)
 
   // Get auth token
   const { supabase } = await import('./supabase')
@@ -48,7 +59,7 @@ export async function uploadToStorage(
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ data: b64, mime, folder }),
+    body: JSON.stringify({ data: b64, mime, folder, fileName }),
   })
 
   if (!res.ok) {
@@ -67,15 +78,13 @@ export async function uploadToStorage(
  * Delegates to the backend (best-effort, non-blocking for the caller).
  */
 export async function deleteFromStorage(publicUrl: string): Promise<void> {
-  // Extraction is now done server-side on delete; client just ignores failures.
   try {
     const { supabase } = await import('./supabase')
-    const BUCKET = 'unigram'
-    const marker = `/object/public/${BUCKET}/`
-    const idx = publicUrl.indexOf(marker)
-    if (idx === -1) return
-    const path = decodeURIComponent(publicUrl.slice(idx + marker.length))
-    await supabase.storage.from(BUCKET).remove([path])
+    const match = publicUrl.match(/\/object\/public\/([^/]+)\/(.+)$/)
+    if (!match) return
+    const bucket = match[1]
+    const path = decodeURIComponent(match[2])
+    await supabase.storage.from(bucket).remove([path])
   } catch {
     // Non-critical — backend also handles cleanup on delete
   }

@@ -40,8 +40,8 @@ router.get('/', async (req, res) => {
       .range(offset, offset + pageSize - 1);
 
     if (subject)    query = query.ilike('subject', `%${subject}%`);
-    if (department) query = query.eq('department', department);
-    if (semester)   query = query.eq('semester', parseInt(semester));
+    if (department && department !== 'All') query = query.eq('department', department);
+    if (semester && semester !== 'All')   query = query.eq('semester', parseInt(semester));
 
     const { data, count, error } = await query;
     if (error) {
@@ -49,8 +49,16 @@ router.get('/', async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
+    const mapped = (data || []).map(r => ({
+      ...r,
+      file_name: r.title || r.subject || 'Study Notes',
+      file_size: r.file_size_bytes || 0,
+      uploaded_by: r.uploader_id,
+      uploader_name: r.uploader?.full_name || 'Student',
+    }));
+
     res.json({
-      data: data || [],
+      data: mapped,
       total: count || 0,
       page: pageNum,
       limit: pageSize,
@@ -66,37 +74,41 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { title, subject, department, semester, description, file_url, file_size_bytes } = req.body;
+    const { title, subject, department, semester, description, file_url, file_size_bytes, file_name, file_size } = req.body;
 
-    if (!title?.trim() || title.trim().length < 3) {
-      return res.status(400).json({ error: 'Title must be at least 3 characters' });
-    }
-    if (!subject?.trim())    return res.status(400).json({ error: 'Subject is required' });
-    if (!department?.trim()) return res.status(400).json({ error: 'Department is required' });
+    const safeSubject = (subject || title || file_name || '').trim();
+    const safeTitle   = (title || subject || file_name || 'Study Notes').trim();
+    const safeDept    = (department || req.profile?.department || '').trim();
+    const safeSize    = file_size_bytes ? parseInt(file_size_bytes) : file_size ? parseInt(file_size) : null;
+
+    if (!safeSubject) return res.status(400).json({ error: 'Subject is required' });
+    if (!safeDept)    return res.status(400).json({ error: 'Department is required' });
     if (!file_url?.trim())   return res.status(400).json({ error: 'file_url is required' });
 
-    if (semester !== undefined && semester !== null) {
+    if (semester !== undefined && semester !== null && semester !== '') {
       const sem = parseInt(semester);
       if (isNaN(sem) || sem < 1 || sem > 8) {
         return res.status(400).json({ error: 'Semester must be between 1 and 8' });
       }
     }
 
+    const finalTitle = safeTitle.length >= 3 ? safeTitle : `${safeTitle} Notes`;
+
     const { data: row, error } = await supabaseAdmin
       .from('notes')
       .insert({
-        title:           title.trim(),
-        subject:         subject.trim(),
-        department:      department.trim(),
+        title:           finalTitle,
+        subject:         safeSubject,
+        department:      safeDept,
         semester:        semester ? parseInt(semester) : null,
         description:     description?.trim() || null,
         file_url:        file_url.trim(),
-        file_size_bytes: file_size_bytes ? parseInt(file_size_bytes) : null,
+        file_size_bytes: safeSize,
         uploader_id:     req.profile.id,
         status:          'published',
         downloads:       0,
       })
-      .select('id, title, subject, department, semester, file_url, created_at')
+      .select('id, title, subject, department, semester, file_url, file_size_bytes, created_at')
       .single();
 
     if (error) {
@@ -104,7 +116,15 @@ router.post('/', async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    res.status(201).json({ data: row });
+    res.status(201).json({
+      data: {
+        ...row,
+        file_name: row.title,
+        file_size: row.file_size_bytes || 0,
+        uploaded_by: req.profile.id,
+        uploader_name: req.profile.full_name || 'You',
+      }
+    });
   } catch (err) {
     console.error('[notes POST /]', err);
     res.status(500).json({ error: 'Internal server error' });
