@@ -349,7 +349,7 @@ export default function FeedPage() {
       </section>}
       {!isNoticeView && <nav className="feed-pulse-links" aria-label="Explore campus spaces">
         <Link href="/anon"><span className="pulse-link-mark pulse-anon" />Anonymous conversations</Link>
-        <Link href="/notices"><span className="pulse-link-mark pulse-notices" />Campus bulletin</Link>
+        <Link href="/notices"><span className="pulse-link-mark pulse-notices" />Campus notices</Link>
         <Link href="/notes"><span className="pulse-link-mark pulse-notes" />Study library</Link>
       </nav>}
       <div className="feed-strip-wrapper">

@@ -18,7 +18,7 @@ const primaryLinks = [
 
 const campusLinks = [
   { href: '/anon', label: 'Anonymous', Icon: ShieldCheck },
-  { href: '/notices', label: 'Bulletin', Icon: Bell },
+  { href: '/notices', label: 'Notices', Icon: Bell },
   { href: '/notes', label: 'Study notes', Icon: BookOpen },
   { href: '/pyq', label: 'Past papers', Icon: FileText },
   { href: '/timetable', label: 'Timetable', Icon: CalendarDays },
@@ -123,7 +123,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             <div className="campus-context-mark"><span /></div>
             <h2>{profile?.university_name || 'CRSU Jind'}</h2>
             <p>Your campus, in the loop.</p>
-            <Link href="/notices">Check the bulletin <ChevronRight size={15} /></Link>
+            <Link href="/notices">Check notices <ChevronRight size={15} /></Link>
           </div>
           <div className="context-links">
             <h2>Quick stops</h2>

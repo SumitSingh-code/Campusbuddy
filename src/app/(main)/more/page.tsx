@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth-context'
 
 const campusSpaces = [
   { href: '/anon', icon: Ghost, title: 'Anonymous', description: 'Say what’s on your mind, without your name attached.', label: 'Open conversations' },
-  { href: '/notices', icon: Bell, title: 'Bulletin', description: 'Official notices and updates from campus.', label: 'Read notices' },
+  { href: '/notices', icon: Bell, title: 'Notices', description: 'Official notices and updates from campus.', label: 'Read notices' },
   { href: '/lost-found', icon: Search, title: 'Lost & found', description: 'Help lost things find their people again.', label: 'Browse items' },
 ]
 
