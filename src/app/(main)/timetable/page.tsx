@@ -60,6 +60,7 @@ export default function TimetablePage() {
   const [timetables, setTimetables] = useState<TimetableItem[]>([])
   const [loading, setLoading] = useState(true)
   const [userDept, setUserDept] = useState<string>('')
+  const [departmentList, setDepartmentList] = useState<string[]>([...DEPARTMENTS])
 
   // Active page per timetable card (for cards with multiple pages)
   const [activeCardPages, setActiveCardPages] = useState<Record<string, number>>({})
@@ -91,13 +92,24 @@ export default function TimetablePage() {
   async function loadData() {
     setLoading(true)
     try {
-      const res = await api.get<{ data: TimetableItem[]; user_department: string; is_admin: boolean }>('/timetable')
+      const res = await api.get<{
+        data: TimetableItem[]
+        user_department: string
+        is_admin: boolean
+        departments?: string[]
+      }>('/timetable')
       const items = res.data || []
       setTimetables(items)
       const dept = res.user_department || profile?.department || ''
       setUserDept(dept)
+
+      if (res.departments && Array.isArray(res.departments) && res.departments.length > 0) {
+        const merged = Array.from(new Set([...res.departments, ...DEPARTMENTS]))
+        setDepartmentList(merged)
+      }
+
       if (!selectedDept) {
-        setSelectedDept(isAdmin ? 'All' : (dept || 'Computer Science'))
+        setSelectedDept(isAdmin ? 'All' : (dept || DEPARTMENTS[0]))
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to load timetables')
@@ -387,7 +399,7 @@ export default function TimetablePage() {
                 onChange={e => setSelectedDept(e.target.value)}
               >
                 <option value="All">All Departments</option>
-                {DEPARTMENTS.map(d => (
+                {departmentList.map(d => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
@@ -708,7 +720,7 @@ export default function TimetablePage() {
                   onChange={e => setFormDept(e.target.value)}
                   disabled={submitting}
                 >
-                  {DEPARTMENTS.map(d => (
+                  {departmentList.map(d => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>

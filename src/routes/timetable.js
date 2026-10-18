@@ -8,6 +8,7 @@
  * 2. Students ONLY see the official timetable for their registered department.
  * 3. Timetables are photo/image-based and support MULTI-PAGE uploads (1, 2, 3 or more pages).
  * 4. A single timetable can cover "All Years / All Semesters (Combined)" or a specific year/semester.
+ * 5. Returns all registered and official departments without duplication.
  */
 
 const express = require('express');
@@ -17,6 +18,37 @@ const { adminGuard }    = require('../middleware/adminGuard');
 const { supabaseAdmin } = require('../lib/supabase-admin');
 
 router.use(authGuard);
+
+const OFFICIAL_DEPARTMENTS = [
+  'Computer Science & Engineering',
+  'Computer science and applications',
+  'DCSA (B.tech AI & ML)',
+  'Information Technology',
+  'Electronics & Communication Engineering',
+  'Electrical Engineering',
+  'Mechanical Engineering',
+  'Civil Engineering',
+  'Commerce',
+  'Management',
+  'Economics',
+  'Law',
+  'Mathematics',
+  'Physics',
+  'Chemistry',
+  'Political Science',
+  'History',
+  'English',
+  'Hindi',
+  'Punjabi',
+  'Sociology',
+  'Geography',
+  'Education',
+  'Physical Education',
+  'Fine Arts',
+  'Music',
+  'Library Science',
+  'Other',
+];
 
 function formatTimetableRow(row) {
   const slotsData = typeof row.slots === 'object' && row.slots !== null && !Array.isArray(row.slots)
@@ -52,18 +84,27 @@ async function getTimetablesHandler(req, res) {
     const isAdmin = ['moderator', 'super_admin'].includes(role);
     const userDept = req.profile?.department || '';
 
+    // Fetch all registered departments from profiles table so any student's department is guaranteed to be present
+    const { data: profileDepts } = await supabaseAdmin
+      .from('profiles')
+      .select('department')
+      .not('department', 'is', null);
+
+    const registeredDepts = Array.from(new Set((profileDepts || []).map(p => p.department).filter(Boolean)));
+    const allDepartments = Array.from(new Set([...registeredDepts, ...OFFICIAL_DEPARTMENTS]));
+
     let query = supabaseAdmin
       .from('timetables')
       .select('id, department, label, slots, is_master, created_at, updated_at, owner_id')
       .eq('is_master', true)
       .order('created_at', { ascending: false });
 
-    // Students only ever see their own department's timetable
+    // Students only ever see their own department's timetable (case-insensitive match)
     if (!isAdmin) {
       if (!userDept) {
-        return res.json({ data: [], user_department: '', is_admin: false });
+        return res.json({ data: [], user_department: '', is_admin: false, departments: allDepartments });
       }
-      query = query.eq('department', userDept);
+      query = query.ilike('department', userDept);
     } else if (req.query.department && req.query.department !== 'All') {
       // Admins can filter by department if query param is passed
       query = query.eq('department', req.query.department);
@@ -81,6 +122,7 @@ async function getTimetablesHandler(req, res) {
       data: timetables,
       user_department: userDept,
       is_admin: isAdmin,
+      departments: allDepartments,
     });
   } catch (err) {
     console.error('[timetable GET]', err);
