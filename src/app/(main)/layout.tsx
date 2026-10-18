@@ -74,11 +74,18 @@ function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="mobile-header-actions">
           {isAnonRoute ? (
-            <Link href="/profile" className="anon-mobile-profile" aria-label="Your profile">
-              <span className="anon-mobile-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials}</span>
+            <Link href="/profile" className="header-mobile-profile" aria-label="Your profile">
+              <span className="header-mobile-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials}</span>
               <span className="anon-mobile-presence" aria-hidden="true" />
             </Link>
-          ) : <><span className="mobile-page-title">{pageTitle}</span><Link href="/notifications" className="icon-control" aria-label="Notifications"><Bell size={20} /></Link></>}
+          ) : (
+            <>
+              <span className="mobile-page-title">{pageTitle}</span>
+              <Link href="/profile" className="header-mobile-profile" aria-label="Your profile">
+                <span className="header-mobile-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials}</span>
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
