@@ -18,7 +18,10 @@ router.get('/', async (req, res) => {
   try {
     const {
       subject     = '',
+      search      = '',
+      q           = '',
       year        = '',
+      semester    = '',
       exam        = '',
       exam_type   = '',
       dept        = '',
@@ -27,12 +30,22 @@ router.get('/', async (req, res) => {
       limit       = 20,
     } = req.query;
 
+    const isAdmin = ['moderator', 'super_admin'].includes(req.profile.role);
+    const userDept = (req.profile.department || '').trim();
+
     const pageNum  = Math.max(1, parseInt(page));
     const pageSize = Math.min(50, Math.max(1, parseInt(limit)));
     const offset   = (pageNum - 1) * pageSize;
 
-    const deptFilter = (department || dept || '').trim();
+    // Students only see their own department's PYQ; admins can see All or any dept
+    let effectiveDept = (department || dept || '').trim();
+    if (!isAdmin && userDept) {
+      effectiveDept = userDept;
+    }
+
     const examFilter = (exam_type || exam || '').trim();
+    const searchQuery = (search || q || subject || '').trim();
+    const semNum = semester && semester !== 'All' ? parseInt(semester) : null;
 
     let query = supabaseAdmin
       .from('pyq_files')
@@ -45,10 +58,15 @@ router.get('/', async (req, res) => {
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1);
 
-    if (subject) query = query.ilike('subject', `%${subject.trim()}%`);
-    if (year)    query = query.eq('year', parseInt(year));
+    if (searchQuery) {
+      query = query.or(`subject.ilike.%${searchQuery}%,title.ilike.%${searchQuery}%`);
+    }
+    if (year) query = query.eq('year', parseInt(year));
     if (examFilter) query = query.eq('exam_type', examFilter);
-    if (deptFilter && deptFilter !== 'All') query = query.eq('department', deptFilter);
+    if (effectiveDept && effectiveDept !== 'All') query = query.eq('department', effectiveDept);
+    if (semNum && !isNaN(semNum) && semNum >= 1 && semNum <= 8) {
+      query = query.ilike('title', `%Sem%${semNum}%`);
+    }
 
     const { data, count, error } = await query;
     if (error) {
@@ -56,17 +74,27 @@ router.get('/', async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    const mapped = (data || []).map(r => ({
-      ...r,
-      file_name: r.title || r.subject || 'Question Paper',
-      file_size: r.file_size_bytes || 0,
-      uploaded_by: r.uploader_id,
-      uploader_name: r.uploader?.full_name || 'Student',
-    }));
+    const mapped = (data || []).map(r => {
+      let sem = r.semester || null;
+      if (!sem && r.title) {
+        const m = r.title.match(/\[Sem\s*(\d+)\]/i) || r.title.match(/Sem\s*(\d+)/i);
+        if (m) sem = parseInt(m[1]);
+      }
+      return {
+        ...r,
+        semester: sem,
+        file_name: r.title || r.subject || 'Question Paper',
+        file_size: r.file_size_bytes || 0,
+        uploaded_by: r.uploader_id,
+        uploader_name: r.uploader?.full_name || 'Student',
+      };
+    });
 
     res.json({
       data: mapped,
       total: count || 0,
+      user_department: userDept,
+      is_admin: isAdmin,
       page: pageNum,
       limit: pageSize,
       has_more: offset + pageSize < (count || 0),
@@ -81,14 +109,30 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { title, subject, year, exam_type, department, file_url, file_size_bytes, file_name, file_size } = req.body;
+    const {
+      title,
+      subject,
+      year,
+      semester,
+      exam_type,
+      department,
+      file_url,
+      file_size_bytes,
+      file_name,
+      file_size,
+    } = req.body;
+
+    const isAdmin = ['moderator', 'super_admin'].includes(req.profile.role);
+    const userDept = (req.profile?.department || '').trim();
 
     const safeSubject = (subject || title || file_name || '').trim();
     const safeTitle   = (title || subject || file_name || 'Question Paper').trim();
-    const safeDept    = (department || req.profile?.department || '').trim();
+    // Non-admin students upload to their own registered department
+    const safeDept    = (!isAdmin && userDept ? userDept : (department || userDept || '')).trim();
     const safeYear    = year ? parseInt(year) : new Date().getFullYear();
     const safeExam    = ['mid', 'end', 'backlog', 'other'].includes(exam_type) ? exam_type : 'end';
     const safeSize    = file_size_bytes ? parseInt(file_size_bytes) : file_size ? parseInt(file_size) : null;
+    const safeSem     = semester ? parseInt(semester) : null;
 
     if (!safeSubject) return res.status(400).json({ error: 'Subject is required' });
     if (!safeDept)    return res.status(400).json({ error: 'Department is required' });
@@ -97,7 +141,11 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Please enter a valid exam year' });
     }
 
-    const finalTitle = safeTitle.length >= 3 ? safeTitle : `${safeTitle} PYQ`;
+    const semPrefix = safeSem && safeSem >= 1 && safeSem <= 8 ? `[Sem ${safeSem}] ` : '';
+    let finalTitle = safeTitle.length >= 3 ? safeTitle : `${safeTitle} PYQ`;
+    if (semPrefix && !finalTitle.includes(`Sem ${safeSem}`)) {
+      finalTitle = `${semPrefix}${finalTitle}`;
+    }
 
     const { data: row, error } = await supabaseAdmin
       .from('pyq_files')
@@ -123,6 +171,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({
       data: {
         ...row,
+        semester: safeSem,
         file_name: row.title,
         file_size: row.file_size_bytes || 0,
         uploaded_by: req.profile.id,
