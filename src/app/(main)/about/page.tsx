@@ -74,6 +74,8 @@ export default function AboutPage() {
       <div className="about-section">
         <h2 className="about-section-title">🔗 Links</h2>
         <div className="about-links">
+          <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer" className="about-link-item">📸 Instagram (@unigramjind) ↗</a>
+          <a href="mailto:unigramjind@gmail.com" className="about-link-item">📬 Email: unigramjind@gmail.com ↗</a>
           <a href="/privacy" className="about-link-item">Privacy Policy →</a>
           <a href="/terms" className="about-link-item">Terms &amp; Conditions →</a>
           <a href="/contact" className="about-link-item">Grievance / Contact →</a>

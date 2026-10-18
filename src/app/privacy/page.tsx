@@ -13,7 +13,7 @@ export default function PrivacyPage() {
         <section className="legal-section">
           <h2>1. Who We Are</h2>
           <p>Unigram is an independent student-run platform built for students of Chaudhary Ranbir Singh University (CRSU), Jind, Haryana. We are not officially affiliated with, endorsed by, or connected to CRSU or any university body in any way.</p>
-          <p>Contact: <a href="mailto:grievance@unigram.app">grievance@unigram.app</a></p>
+          <p>Contact: <a href="mailto:unigramjind@gmail.com">unigramjind@gmail.com</a> | Instagram: <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer">@unigramjind</a></p>
         </section>
 
         <section className="legal-section">
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
             <li><strong>Correction:</strong> Request correction of inaccurate data</li>
             <li><strong>Deletion:</strong> Request deletion of your account and data</li>
           </ul>
-          <p>To exercise these rights, email <a href="mailto:grievance@unigram.app">grievance@unigram.app</a> with subject &quot;Data Request&quot;. We respond within 7 days.</p>
+          <p>To exercise these rights, email <a href="mailto:unigramjind@gmail.com">unigramjind@gmail.com</a> with subject &quot;Data Request&quot;. We respond within 7 days.</p>
         </section>
 
         <section className="legal-section">
@@ -78,7 +78,8 @@ export default function PrivacyPage() {
 
         <section className="legal-section">
           <h2>11. Contact</h2>
-          <p><a href="mailto:grievance@unigram.app">grievance@unigram.app</a></p>
+          <p>Email: <a href="mailto:unigramjind@gmail.com">unigramjind@gmail.com</a></p>
+          <p>Instagram: <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer">@unigramjind</a></p>
         </section>
 
         <div className="legal-nav">

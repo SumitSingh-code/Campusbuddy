@@ -94,8 +94,11 @@ export default function PendingPage() {
         )}
 
         <div className="pending-contact">
-          <p>Need help?</p>
-          <a href="mailto:grievance@unigram.app" className="pending-contact-link">grievance@unigram.app</a>
+          <p>Need help or have questions?</p>
+          <a href="mailto:unigramjind@gmail.com" className="pending-contact-link">unigramjind@gmail.com</a>
+          <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginTop: 4, color: 'var(--accent)', fontSize: '0.8rem', fontWeight: 600 }}>
+            Instagram: @unigramjind
+          </a>
         </div>
 
         <button className="pending-signout-btn" onClick={() => signOut().then(() => router.push('/login'))}>

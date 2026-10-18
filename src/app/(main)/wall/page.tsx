@@ -312,9 +312,13 @@ export default function ContributionWallPage() {
             Want to contribute?
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: '0.1rem' }}>
-            Reach out to the admin team or email{' '}
-            <a href="mailto:grievance@unigram.app" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
-              grievance@unigram.app
+            Reach out to the admin team, DM us on{' '}
+            <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+              Instagram (@unigramjind)
+            </a>{' '}
+            or email{' '}
+            <a href="mailto:unigramjind@gmail.com" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+              unigramjind@gmail.com
             </a>{' '}
             to get recognized on this wall.
           </div>

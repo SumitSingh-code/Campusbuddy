@@ -26,7 +26,7 @@ export default function TermsPage() {
             <li>You are responsible for all activity that occurs under your account.</li>
             <li>Do not share your login credentials with anyone.</li>
             <li>Provide real, accurate information — fake or borrowed details will result in immediate account termination.</li>
-            <li>Notify us immediately at <a href="mailto:grievance@unigram.app">grievance@unigram.app</a> if you suspect unauthorized access to your account.</li>
+            <li>Notify us immediately at <a href="mailto:unigramjind@gmail.com">unigramjind@gmail.com</a> if you suspect unauthorized access to your account.</li>
           </ul>
         </section>
 
@@ -67,7 +67,7 @@ export default function TermsPage() {
 
         <section className="legal-section">
           <h2>8. Takedown Process (IT Rules 2021)</h2>
-          <p>To report illegal or harmful content, email <a href="mailto:grievance@unigram.app">grievance@unigram.app</a> with subject &quot;Grievance: [Issue Type]&quot;. We acknowledge within 24 hours and take action within 36 hours as required under IT Rules 2021.</p>
+          <p>To report illegal or harmful content, email <a href="mailto:unigramjind@gmail.com">unigramjind@gmail.com</a> with subject &quot;Grievance: [Issue Type]&quot;. We acknowledge within 24 hours and take action within 36 hours as required under IT Rules 2021.</p>
         </section>
 
         <section className="legal-section">
@@ -82,7 +82,8 @@ export default function TermsPage() {
 
         <section className="legal-section">
           <h2>11. Contact</h2>
-          <p><a href="mailto:grievance@unigram.app">grievance@unigram.app</a></p>
+          <p>Email: <a href="mailto:unigramjind@gmail.com">unigramjind@gmail.com</a></p>
+          <p>Instagram: <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer">@unigramjind</a></p>
         </section>
 
         <div className="legal-nav">

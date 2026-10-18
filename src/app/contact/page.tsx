@@ -11,12 +11,15 @@ export default function ContactPage() {
         <p className="legal-date">IT Rules 2021 Compliant · Updated August 2026</p>
 
         <div className="contact-officer-card">
-          <div className="contact-officer-icon">⚖️</div>
+          <div className="contact-officer-icon">📬</div>
           <div>
-            <div className="contact-officer-title">Grievance Officer</div>
-            <div className="contact-officer-name">[Grievance Officer]</div>
-            <div className="contact-officer-role">Grievance Officer, Unigram</div>
-            <a href="mailto:grievance@unigram.app" className="contact-officer-email">grievance@unigram.app</a>
+            <div className="contact-officer-title">Official Contact &amp; Grievance</div>
+            <div className="contact-officer-name">Unigram Support &amp; Grievance Team</div>
+            <div className="contact-officer-role">CRSU Campus Social Platform</div>
+            <a href="mailto:unigramjind@gmail.com" className="contact-officer-email">unigramjind@gmail.com</a>
+            <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6, color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>
+              📸 Instagram: @unigramjind
+            </a>
           </div>
         </div>
 
@@ -26,8 +29,8 @@ export default function ContactPage() {
         </section>
 
         <section className="legal-section">
-          <h2>How to File a Complaint</h2>
-          <p>Email us at <a href="mailto:grievance@unigram.app">grievance@unigram.app</a> with the following details:</p>
+          <h2>How to File a Complaint or Contact Us</h2>
+          <p>Email us at <a href="mailto:unigramjind@gmail.com">unigramjind@gmail.com</a> or reach out on Instagram <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer">@unigramjind</a> with the following details:</p>
           <ul>
             <li><strong>Subject format:</strong> &quot;Grievance: [Issue Type]&quot;</li>
             <li>Examples: &quot;Grievance: Defamatory Post&quot;, &quot;Grievance: Privacy&quot;, &quot;Grievance: Account Issue&quot;</li>

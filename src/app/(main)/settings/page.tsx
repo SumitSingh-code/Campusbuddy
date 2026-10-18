@@ -9,6 +9,16 @@ import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
+function InstagramIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+    </svg>
+  )
+}
+
 const THEME_KEY = 'unigram_theme'
 
 function isDark() {
@@ -173,10 +183,16 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Community */}
-        {sectionLabel('Community')}
+        {/* Connect & Community */}
+        {sectionLabel('Connect & Community')}
         {card(
-          <Row icon={<Users size={16} />} label="Contribution Wall" sub="People who built Unigram" href="/wall" />
+          <>
+            <Row icon={<Users size={16} />} label="Contribution Wall" sub="People who built Unigram" href="/wall" />
+            {divider}
+            <Row icon={<InstagramIcon size={16} />} label="Instagram" sub="@unigramjind" href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" external />
+            {divider}
+            <Row icon={<Mail size={16} />} label="Official Email" sub="unigramjind@gmail.com" href="mailto:unigramjind@gmail.com" external />
+          </>
         )}
 
         {/* Legal */}
@@ -189,7 +205,7 @@ export default function SettingsPage() {
             {divider}
             <Row icon={<FileText size={16} />} label="Terms & Conditions" href="/terms" />
             {divider}
-            <Row icon={<BookOpen size={16} />} label="Community Guidelines" href="/guidelines.html" external />
+            <Row icon={<BookOpen size={16} />} label="Community Guidelines" href="/guidelines" />
             {divider}
             <Row icon={<Mail size={16} />} label="Contact / Grievance" href="/contact" />
           </>

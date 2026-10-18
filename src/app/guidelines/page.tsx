@@ -65,7 +65,7 @@ export default function GuidelinesPage() {
 
         <section className="legal-section">
           <h2>📬 Report Content</h2>
-          <p>Use the 3-dot menu on any post to report it. For urgent matters, email <a href="mailto:grievance@unigram.app">grievance@unigram.app</a>.</p>
+          <p>Use the 3-dot menu on any post to report it. For urgent matters, email <a href="mailto:unigramjind@gmail.com">unigramjind@gmail.com</a> or DM <a href="https://www.instagram.com/unigramjind?psln=eDk0Y2NiY3VwMDM3" target="_blank" rel="noopener noreferrer">@unigramjind</a> on Instagram.</p>
         </section>
 
         <div className="legal-nav">
