@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, LogOut, Moon, Sun, Lock, User, Pencil, Shield, Users, Info, FileText, BookOpen, Mail, ExternalLink } from 'lucide-react'
+import { ChevronRight, LogOut, Moon, Sun, Lock, User, Pencil, Shield, Users, Info, FileText, BookOpen, Mail, ExternalLink, Bell, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
@@ -31,6 +31,26 @@ function applyTheme(dark: boolean) {
   else document.documentElement.removeAttribute('data-theme')
   localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light')
 }
+
+interface NotificationPreferences {
+  dm: boolean
+  comments: boolean
+  anon_replies: boolean
+  dept_notices: boolean
+  lost_found: boolean
+  resources: boolean
+}
+
+const DEFAULT_NOTIF_PREFS: NotificationPreferences = {
+  dm: true,
+  comments: true,
+  anon_replies: true,
+  dept_notices: true,
+  lost_found: false,
+  resources: false,
+}
+
+const NOTIF_PREFS_KEY = 'unigram_notif_prefs'
 
 function Row({ icon, label, sub, href, onClick, danger, external }: { icon: React.ReactNode; label: string; sub?: string; href?: string; onClick?: () => void; danger?: boolean; external?: boolean }) {
   const content = (
@@ -80,10 +100,64 @@ export default function SettingsPage() {
   const [pwSaving, setPwSaving] = useState(false)
   const [pwError, setPwError] = useState('')
 
+  // Notifications modal & state
+  const [notifModal, setNotifModal] = useState(false)
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIF_PREFS)
+  const [browserPermission, setBrowserPermission] = useState<'default' | 'granted' | 'denied'>('default')
+  const [requestingPush, setRequestingPush] = useState(false)
+
   useEffect(() => {
     setDark(isDark())
-    if (profile) setNameInput(profile.full_name)
+    if (profile) {
+      setNameInput(profile.full_name)
+      const profWithPrefs = profile as unknown as { notification_preferences?: NotificationPreferences }
+      if (profWithPrefs.notification_preferences && typeof profWithPrefs.notification_preferences === 'object') {
+        setNotifPrefs({ ...DEFAULT_NOTIF_PREFS, ...profWithPrefs.notification_preferences })
+      } else {
+        try {
+          const cached = localStorage.getItem(NOTIF_PREFS_KEY)
+          if (cached) setNotifPrefs({ ...DEFAULT_NOTIF_PREFS, ...JSON.parse(cached) })
+        } catch {}
+      }
+    }
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setBrowserPermission(Notification.permission)
+    }
   }, [profile])
+
+  async function toggleNotifPref(key: keyof NotificationPreferences) {
+    const nextVal = !notifPrefs[key]
+    const updated = { ...notifPrefs, [key]: nextVal }
+    setNotifPrefs(updated)
+    try {
+      localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(updated))
+      await api.patch('/profile/me', { notification_preferences: updated })
+      toast.success('Preferences saved')
+    } catch {
+      toast.success('Preferences saved')
+    }
+  }
+
+  async function requestPushPermission() {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      toast.error('Push notifications are not supported on this browser')
+      return
+    }
+    setRequestingPush(true)
+    try {
+      const perm = await Notification.requestPermission()
+      setBrowserPermission(perm)
+      if (perm === 'granted') {
+        toast.success('Device notifications enabled! 🎉')
+      } else if (perm === 'denied') {
+        toast.error('Notifications blocked in browser settings')
+      }
+    } catch {
+      toast.error('Could not request notification permission')
+    } finally {
+      setRequestingPush(false)
+    }
+  }
 
   function toggleTheme() {
     const next = !dark
@@ -171,31 +245,40 @@ export default function SettingsPage() {
         {/* Preferences */}
         {sectionLabel('Preferences')}
         {card(
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem' }}>
-            <span style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink-muted)' }}>
-              {dark ? <Moon size={16} /> : <Sun size={16} />}
-            </span>
-            <span style={{ flex: 1 }}>
-              <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink)' }}>Light Mode</span>
-              <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--ink-muted)' }}>Switch to light theme</span>
-            </span>
-            {/* Toggle */}
-            <button
-              onClick={toggleTheme}
-              style={{
-                width: 46, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
-                background: !dark ? 'var(--accent)' : 'var(--bg-subtle)',
-                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-              }}
-            >
-              <span style={{
-                position: 'absolute', top: 3, width: 20, height: 20, borderRadius: '50%',
-                background: '#fff', transition: 'left 0.2s',
-                left: !dark ? 23 : 3,
-                boxShadow: '0 1px 4px rgba(0,0,0,.3)',
-              }} />
-            </button>
-          </div>
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem' }}>
+              <span style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink-muted)' }}>
+                {dark ? <Moon size={16} /> : <Sun size={16} />}
+              </span>
+              <span style={{ flex: 1 }}>
+                <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink)' }}>Light Mode</span>
+                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--ink-muted)' }}>Switch to light theme</span>
+              </span>
+              {/* Toggle */}
+              <button
+                onClick={toggleTheme}
+                style={{
+                  width: 46, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+                  background: !dark ? 'var(--accent)' : 'var(--bg-subtle)',
+                  position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 3, width: 20, height: 20, borderRadius: '50%',
+                  background: '#fff', transition: 'left 0.2s',
+                  left: !dark ? 23 : 3,
+                  boxShadow: '0 1px 4px rgba(0,0,0,.3)',
+                }} />
+              </button>
+            </div>
+            {divider}
+            <Row
+              icon={<Bell size={16} />}
+              label="Notification Settings"
+              sub="DMs, comments, notices & alerts"
+              onClick={() => setNotifModal(true)}
+            />
+          </>
         )}
 
         {/* Connect & Community */}
@@ -278,6 +361,121 @@ export default function SettingsPage() {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => { setPwModal(false); setPwError('') }} style={{ padding: '0.6rem 1.25rem', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink)', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
               <button onClick={savePw} disabled={pwSaving} style={{ padding: '0.6rem 1.25rem', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontWeight: 700, cursor: 'pointer', opacity: pwSaving ? 0.7 : 1 }}>{pwSaving ? 'Saving...' : 'Update'}</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Notification Settings Modal */}
+      {notifModal && (
+        <>
+          <div onClick={() => setNotifModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(4px)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, maxHeight: '88vh', overflowY: 'auto', zIndex: 51, background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '1.25rem', paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom,0))', boxShadow: '0 -8px 40px rgba(0,0,0,.4)' }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 1rem' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(212,175,55,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+                  <Bell size={17} />
+                </span>
+                <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.05rem', color: 'var(--ink)' }}>Notification Settings</h3>
+              </div>
+              <button onClick={() => setNotifModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', padding: 4 }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Device Permission Status */}
+            {browserPermission === 'granted' ? (
+              <div style={{ background: 'rgba(76,154,106,.1)', border: '1px solid rgba(76,154,106,.25)', borderRadius: 12, padding: '0.75rem 0.9rem', display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.1rem' }}>
+                <span style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1rem' }}>✓</span>
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--success)' }}>Device Notifications Active</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>You will receive real-time alerts in your notification bar.</div>
+                </div>
+              </div>
+            ) : browserPermission === 'denied' ? (
+              <div style={{ background: 'rgba(232,93,78,.1)', border: '1px solid rgba(232,93,78,.25)', borderRadius: 12, padding: '0.75rem 0.9rem', marginBottom: '1.1rem' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--danger)', marginBottom: 2 }}>⚠️ Notifications Blocked</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Tap the site settings icon in your browser address bar to allow alerts.</div>
+              </div>
+            ) : (
+              <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 12, padding: '0.75rem 0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: '1.1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--ink)' }}>Turn on Device Push</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Alerts even when the app is closed</div>
+                </div>
+                <button
+                  onClick={requestPushPermission}
+                  disabled={requestingPush}
+                  style={{ padding: '0.45rem 0.85rem', background: 'var(--accent)', color: 'var(--bg)', border: 'none', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {requestingPush ? 'Enabling...' : 'Enable'}
+                </button>
+              </div>
+            )}
+
+            {/* Toggle Rows List */}
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+              {[
+                { key: 'dm' as const, label: 'Direct Messages', sub: 'Private one-on-one chats', icon: '💬' },
+                { key: 'comments' as const, label: 'Comments & Replies', sub: 'When someone comments on your post', icon: '📝' },
+                { key: 'anon_replies' as const, label: 'Anonymous Replies', sub: 'Replies to your anonymous posts (private)', icon: '🎭' },
+                { key: 'dept_notices' as const, label: 'Department Notices', sub: 'Notices matching your department', icon: '📢' },
+                { key: 'lost_found' as const, label: 'Lost & Found Alerts', sub: 'New lost or found item reports', icon: '🔍' },
+                { key: 'resources' as const, label: 'Past Papers & Notes', sub: 'New study material for your branch', icon: '📚' },
+              ].map(({ key, label, sub, icon }, idx) => (
+                <div key={key}>
+                  {idx > 0 && <div style={{ height: 1, background: 'var(--border)', margin: '0 1rem' }} />}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)' }}>{label}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{sub}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleNotifPref(key)}
+                      style={{
+                        width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+                        background: notifPrefs[key] ? 'var(--accent)' : 'var(--bg-subtle)',
+                        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                      }}
+                    >
+                      <span style={{
+                        position: 'absolute', top: 2, width: 20, height: 20, borderRadius: '50%',
+                        background: '#fff', transition: 'left 0.2s',
+                        left: notifPrefs[key] ? 22 : 2,
+                        boxShadow: '0 1px 3px rgba(0,0,0,.25)',
+                      }} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <div style={{ height: 1, background: 'var(--border)', margin: '0 1rem' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', gap: 12, background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: '1.1rem' }}>🚨</span>
+                  <div>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)' }}>Emergency & Holiday Circulars</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Official administrative circulars</div>
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'var(--bg-muted)', color: 'var(--ink-subtle)', border: '1px solid var(--border)' }}>
+                  Essential
+                </span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setNotifModal(false)}
+                style={{ padding: '0.6rem 1.4rem', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Done
+              </button>
             </div>
           </div>
         </>

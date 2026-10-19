@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { adminGuard, superAdminGuard } = require('../middleware/adminGuard');
 const { supabaseAdmin } = require('../lib/supabase-admin');
+const { notify } = require('../lib/notify');
 
 router.use(adminGuard);
 
@@ -79,6 +80,14 @@ router.patch('/users/:id/approve', async (req, res) => {
     if (!data || data.length === 0) {
       return res.status(404).json({ error: 'User not found or not in pending status' });
     }
+
+    notify(req.params.id, {
+      type: 'admin',
+      title: 'Account Approved! 🎉',
+      body: 'Your UniGram account has been approved. Welcome to CRSU student community!',
+      refId: req.params.id,
+      refType: 'profile'
+    }).catch(() => {});
 
     res.json({ success: true });
   } catch (err) {

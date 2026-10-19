@@ -31,6 +31,14 @@ export interface Profile {
   notes_uploaded: number
   must_change_password: boolean
   created_at: string
+  notification_preferences?: {
+    dm?: boolean
+    comments?: boolean
+    anon_replies?: boolean
+    dept_notices?: boolean
+    lost_found?: boolean
+    resources?: boolean
+  }
 }
 
 interface AuthContextType {

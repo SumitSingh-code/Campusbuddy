@@ -248,6 +248,7 @@ router.post('/conversations', async (req, res) => {
       body:    trimmed.substring(0, 120),
       refId:   convId,
       refType: 'conversation',
+      prefKey: 'dm',
     });
 
     res.status(201).json({
@@ -387,6 +388,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
       body:    trimmed.substring(0, 120),
       refId:   req.params.id,
       refType: 'conversation',
+      prefKey: 'dm',
     });
 
     res.status(201).json({

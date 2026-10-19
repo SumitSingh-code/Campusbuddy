@@ -76,12 +76,32 @@ router.patch('/me', async (req, res) => {
       updates.avatar_url = avatar_url?.trim() || null;
     }
 
-    const { data: updated, error } = await supabaseAdmin
+    if (req.body.notification_preferences !== undefined && typeof req.body.notification_preferences === 'object') {
+      updates.notification_preferences = req.body.notification_preferences;
+    }
+
+    let { data: updated, error } = await supabaseAdmin
       .from('profiles')
       .update(updates)
       .eq('id', req.profile.id)
       .select('id, full_name, bio, phone_number, avatar_url, updated_at')
       .single();
+
+    // If notification_preferences column does not exist yet in DB schema, safely fallback
+    if (error && error.code === '42703' && updates.notification_preferences !== undefined) {
+      delete updates.notification_preferences;
+      if (Object.keys(updates).length === 0) {
+        return res.json({ data: req.profile });
+      }
+      const fallback = await supabaseAdmin
+        .from('profiles')
+        .update(updates)
+        .eq('id', req.profile.id)
+        .select('id, full_name, bio, phone_number, avatar_url, updated_at')
+        .single();
+      updated = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       console.error('[profile PATCH /me]', error);

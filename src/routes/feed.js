@@ -6,6 +6,7 @@ const { authGuard } = require('../middleware/authGuard');
 const { adminGuard } = require('../middleware/adminGuard');
 const { supabaseAdmin } = require('../lib/supabase-admin');
 const { containsProfanity, getMatchedWord } = require('../lib/profanity');
+const { notify } = require('../lib/notify');
 
 // All feed routes require auth
 router.use(authGuard);
@@ -413,7 +414,7 @@ router.post('/:id/comments', async (req, res) => {
     // Verify post exists and is published
     const { data: post } = await supabaseAdmin
       .from('posts')
-      .select('id, status')
+      .select('id, user_id, status')
       .eq('id', req.params.id)
       .single();
 
@@ -438,6 +439,18 @@ router.post('/:id/comments', async (req, res) => {
     if (error) {
       console.error('[feed POST /:id/comments]', error);
       return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Notify post author if not commenting on own post
+    if (post && post.user_id && post.user_id !== req.profile.id) {
+      notify(post.user_id, {
+        type: 'comment',
+        title: `${req.profile.full_name || 'Someone'} commented on your post`,
+        body: trimmed.slice(0, 120),
+        refId: post.id,
+        refType: 'post',
+        prefKey: 'comments',
+      }).catch(() => {});
     }
 
     res.status(201).json({ data: comment });

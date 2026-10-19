@@ -14,6 +14,7 @@ const { authGuard }       = require('../middleware/authGuard');
 const { adminGuard }      = require('../middleware/adminGuard');
 const { supabaseAdmin }   = require('../lib/supabase-admin');
 const { containsProfanity } = require('../lib/profanity');
+const { notify }            = require('../lib/notify');
 
 router.use(authGuard);
 
@@ -384,7 +385,7 @@ router.post('/:id/comments', async (req, res) => {
 
     const { data: post } = await supabaseAdmin
       .from('anon_posts')
-      .select('id, status')
+      .select('id, user_id, status')
       .eq('id', req.params.id)
       .single();
 
@@ -406,6 +407,18 @@ router.post('/:id/comments', async (req, res) => {
     if (error) {
       console.error('[anon POST /:id/comments]', error);
       return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Notify author of anonymous post (keeps author identity 100% secret)
+    if (post && post.user_id && post.user_id !== req.profile.id) {
+      notify(post.user_id, {
+        type: 'comment',
+        title: 'Someone commented on your anonymous post',
+        body: trimmed.slice(0, 120),
+        refId: post.id,
+        refType: 'anon_post',
+        prefKey: 'anon_replies',
+      }).catch(() => {});
     }
 
     const isAdmin = ['moderator', 'super_admin'].includes(req.profile.role);

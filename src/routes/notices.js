@@ -9,6 +9,7 @@ const router  = express.Router();
 const { authGuard }       = require('../middleware/authGuard');
 const { adminGuard }      = require('../middleware/adminGuard');
 const { supabaseAdmin }   = require('../lib/supabase-admin');
+const { notify }          = require('../lib/notify');
 
 router.use(authGuard);
 
@@ -190,6 +191,34 @@ router.post('/', adminGuard, async (req, res) => {
     if (error) {
       console.error('[notices POST /]', error);
       return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Send notification for important or exam/academic notice
+    if (row && (is_important || pinned || exactCategory === 'holiday' || exactCategory === 'exam')) {
+      (async () => {
+        try {
+          const { data: students } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('status', 'active')
+            .limit(100);
+
+          for (const s of (students || [])) {
+            if (s.id !== req.profile.id) {
+              notify(s.id, {
+                type: 'notice',
+                title: is_important ? `🚨 Important Notice: ${noticeTitle}` : `📢 Notice: ${noticeTitle}`,
+                body: cleanContent.slice(0, 120),
+                refId: row.id,
+                refType: 'notice',
+                prefKey: 'dept_notices'
+              }).catch(() => {});
+            }
+          }
+        } catch (notifErr) {
+          console.warn('[notices] Broadcast notification error:', notifErr.message);
+        }
+      })();
     }
 
     res.status(201).json({ data: formatNotice(row) });
