@@ -8,6 +8,8 @@ import {
   Home, MessageCircle, Plus, Search, ShieldCheck, UserRound, X,
 } from 'lucide-react'
 import { useAuth, AuthProvider } from '@/lib/auth-context'
+import { isPushSupported, syncPushSubscription, enablePushNotifications } from '@/lib/push-client'
+import { toast } from 'sonner'
 
 const primaryLinks = [
   { href: '/feed', label: 'Home', Icon: Home },
@@ -37,11 +39,29 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isAnonRoute = pathname === '/anon'
   const [createOpen, setCreateOpen] = useState(false)
+  const [showNotifBanner, setShowNotifBanner] = useState(false)
+  const [enablingPush, setEnablingPush] = useState(false)
   const currentLink = [...primaryLinks, ...campusLinks].find(link =>
     link.href === '/feed' ? pathname === '/feed' : pathname === link.href || pathname.startsWith(link.href + '/')
   )
   const pageTitle = currentLink?.label || (pathname === '/more' ? 'Explore' : 'Campus')
   const initials = profile?.full_name?.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'U'
+
+  useEffect(() => {
+    if (!isLoggedIn || !isActive) return
+    if (!isPushSupported()) return
+
+    const perm = Notification.permission
+    if (perm === 'granted') {
+      // Auto-sync push subscription silently in background
+      syncPushSubscription().catch(() => {})
+    } else if (perm === 'default') {
+      const dismissed = localStorage.getItem('unigram_notif_banner_dismissed')
+      if (!dismissed || Date.now() - parseInt(dismissed, 10) > 24 * 60 * 60 * 1000) {
+        setShowNotifBanner(true)
+      }
+    }
+  }, [isLoggedIn, isActive])
 
   useEffect(() => {
     if (isLoading) return
@@ -116,7 +136,77 @@ function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="mobile-header-spacer" />
-        <main className="main-column">{children}</main>
+        <main className="main-column">
+          {showNotifBanner && (
+            <div style={{
+              margin: '0.5rem 0.75rem 0.25rem',
+              padding: '0.75rem 1rem',
+              borderRadius: 14,
+              background: 'linear-gradient(135deg, rgba(212,175,55,.18) 0%, rgba(212,175,55,.06) 100%)',
+              border: '1px solid rgba(212,175,55,.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              animation: 'fadeIn 0.2s ease',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>🔔</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--ink)' }}>Enable Lock Screen Alerts</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Get notified instantly for new DMs and campus notices.</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <button
+                  onClick={async () => {
+                    setEnablingPush(true)
+                    const res = await enablePushNotifications()
+                    setEnablingPush(false)
+                    if (res.granted) {
+                      setShowNotifBanner(false)
+                      toast.success('Lock screen notifications active! 📲')
+                    } else if (res.error) {
+                      toast.error(res.error)
+                    }
+                  }}
+                  disabled={enablingPush}
+                  style={{
+                    background: 'var(--accent)',
+                    color: 'var(--bg)',
+                    border: 'none',
+                    borderRadius: 9,
+                    padding: '0.45rem 0.85rem',
+                    fontWeight: 700,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {enablingPush ? 'Enabling...' : 'Allow'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNotifBanner(false)
+                    localStorage.setItem('unigram_notif_banner_dismissed', Date.now().toString())
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--ink-muted)',
+                    cursor: 'pointer',
+                    padding: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  aria-label="Dismiss banner"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+          {children}
+        </main>
 
         <aside className="context-sidebar" aria-label="Campus shortcuts">
           <div className="context-card campus-context">

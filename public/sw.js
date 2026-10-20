@@ -37,11 +37,14 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || 'UniGram';
+  const tag = data.tag || 'unigram-alert-' + Date.now();
   const options = {
     body: data.body || '',
     icon: '/icons/icon-192.png',
     badge: '/icons/favicon-32x32.png',
-    vibrate: [100, 50, 100],
+    vibrate: [200, 100, 200],
+    tag: tag,
+    renotify: true,
     data: {
       url: data.url || '/feed'
     }

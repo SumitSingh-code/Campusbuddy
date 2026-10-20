@@ -8,6 +8,13 @@ import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import {
+  isPushSupported,
+  getNotificationPermission,
+  enablePushNotifications,
+  syncPushSubscription,
+  sendTestNotification as apiSendTestNotification
+} from '@/lib/push-client'
 
 function InstagramIcon({ size = 16 }: { size?: number }) {
   return (
@@ -51,17 +58,6 @@ const DEFAULT_NOTIF_PREFS: NotificationPreferences = {
 }
 
 const NOTIF_PREFS_KEY = 'unigram_notif_prefs'
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = window.atob(base64)
-  const outputArray = new Uint8Array(rawData.length)
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i)
-  }
-  return outputArray
-}
 
 function Row({ icon, label, sub, href, onClick, danger, external }: { icon: React.ReactNode; label: string; sub?: string; href?: string; onClick?: () => void; danger?: boolean; external?: boolean }) {
   const content = (
@@ -116,7 +112,6 @@ export default function SettingsPage() {
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIF_PREFS)
   const [browserPermission, setBrowserPermission] = useState<'default' | 'granted' | 'denied'>('default')
   const [deviceSubscribed, setDeviceSubscribed] = useState(false)
-  const [requestingPush, setRequestingPush] = useState(false)
   const [testingPush, setTestingPush] = useState(false)
 
   useEffect(() => {
@@ -133,18 +128,12 @@ export default function SettingsPage() {
         } catch {}
       }
     }
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setBrowserPermission(Notification.permission)
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(async (reg) => {
-          try {
-            const sub = await reg.pushManager.getSubscription()
-            if (sub) {
-              setDeviceSubscribed(true)
-            }
-          } catch (e) {
-            console.warn('[push] Sub check:', e)
-          }
+    if (typeof window !== 'undefined' && isPushSupported()) {
+      const perm = Notification.permission
+      setBrowserPermission(perm)
+      if (perm === 'granted') {
+        syncPushSubscription().then((res) => {
+          if (res.success) setDeviceSubscribed(true)
         }).catch(() => {})
       }
     }
@@ -164,79 +153,30 @@ export default function SettingsPage() {
   }
 
   async function handleOneClickEnableAndTest() {
-    if (typeof window === 'undefined') return
-    if (!('Notification' in window)) {
+    if (!isPushSupported()) {
       toast.error('Push notifications are not supported on this browser')
       return
     }
 
     setTestingPush(true)
-    const toastId = toast.loading('Connecting device notifications...')
+    const toastId = toast.loading('1/3 Connecting device...')
 
     try {
-      // 1. Request permission if not already granted
-      const perm = await Notification.requestPermission()
-      setBrowserPermission(perm)
-      if (perm !== 'granted') {
+      const permRes = await enablePushNotifications()
+      setBrowserPermission(Notification.permission)
+
+      if (!permRes.granted) {
         toast.dismiss(toastId)
-        if (perm === 'denied') {
-          toast.error('Notifications blocked in Chrome settings for this site')
-        } else {
-          toast.error('Notification permission was not granted')
-        }
+        toast.error(permRes.error || 'Notification permission was not granted')
         return
       }
 
-      // 2. Ensure Service Worker is registered and active
-      if (!('serviceWorker' in navigator)) {
-        toast.dismiss(toastId)
-        toast.error('Service worker is not supported')
-        return
-      }
-
-      let reg = await navigator.serviceWorker.getRegistration()
-      if (!reg) {
-        reg = await navigator.serviceWorker.register('/sw.js')
-      }
-      await navigator.serviceWorker.ready
-
-      // 3. Get VAPID public key
-      let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-      if (!vapidKey) {
-        const keyRes = await api.get<{ publicKey: string }>('/push/public-key')
-        vapidKey = keyRes.publicKey
-      }
-
-      if (!vapidKey) {
-        toast.dismiss(toastId)
-        toast.error('VAPID public key not found on server')
-        return
-      }
-
-      // 4. Get or create Push Subscription
-      toast.loading('Subscribing device to push...', { id: toastId })
-      let sub = await reg.pushManager.getSubscription()
-      if (!sub) {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey)
-        })
-      }
-
-      // 5. Send subscription to server
-      toast.loading('Saving device to database...', { id: toastId })
-      await api.post('/push/subscribe', {
-        subscription: sub.toJSON(),
-        user_agent: navigator.userAgent
-      })
       setDeviceSubscribed(true)
+      toast.loading('2/3 Syncing with server...', { id: toastId })
 
-      // 6. Fire instant test alert to lockscreen
-      toast.loading('Sending test alert to lock screen...', { id: toastId })
-      const res = await api.post<{ success: boolean; message: string }>('/push/test', {})
-
+      const testRes = await apiSendTestNotification()
       toast.dismiss(toastId)
-      toast.success(res.message || 'Alert sent! Check your notification bar now 📲', { duration: 5000 })
+      toast.success(testRes.message || 'Alert sent! Check your notification bar now 📲', { duration: 5000 })
     } catch (err: unknown) {
       toast.dismiss(toastId)
       console.error('Push test error:', err)
@@ -367,36 +307,73 @@ export default function SettingsPage() {
               </button>
             </div>
             {divider}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                <span style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(212,175,55,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--accent)' }}>
-                  <Bell size={17} />
-                </span>
-                <div style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink)' }}>Lock Screen Alerts</span>
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: deviceSubscribed ? 'var(--success)' : 'var(--ink-muted)', marginTop: 1 }}>
-                    {deviceSubscribed ? '● Active on this phone' : 'Tap to enable & test on phone'}
+            <div style={{ padding: '0.85rem 1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                  <span style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: browserPermission === 'granted' ? 'rgba(76,154,106,.15)' : 'rgba(212,175,55,.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    color: browserPermission === 'granted' ? 'var(--success)' : 'var(--accent)',
+                  }}>
+                    <Bell size={18} />
                   </span>
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: 'var(--ink)' }}>
+                      Lock Screen Alerts
+                    </span>
+                    <span style={{
+                      display: 'block',
+                      fontSize: '0.75rem',
+                      color: browserPermission === 'granted' ? 'var(--success)' : browserPermission === 'denied' ? 'var(--danger)' : 'var(--ink-muted)',
+                      marginTop: 2,
+                    }}>
+                      {browserPermission === 'granted'
+                        ? '● Active — alerts arrive on lock screen'
+                        : browserPermission === 'denied'
+                        ? '● Blocked in browser settings'
+                        : '● Tap to enable on this device'}
+                    </span>
+                  </div>
                 </div>
+                <button
+                  onClick={handleOneClickEnableAndTest}
+                  disabled={testingPush}
+                  style={{
+                    padding: '0.48rem 0.9rem',
+                    background: 'var(--accent)',
+                    color: 'var(--bg)',
+                    border: 'none',
+                    borderRadius: 9,
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                >
+                  {testingPush ? 'Testing...' : browserPermission === 'granted' ? 'Test Alert 📲' : 'Enable & Test 📲'}
+                </button>
               </div>
-              <button
-                onClick={handleOneClickEnableAndTest}
-                disabled={testingPush}
-                style={{
-                  padding: '0.45rem 0.85rem',
-                  background: 'var(--accent)',
-                  color: 'var(--bg)',
-                  border: 'none',
-                  borderRadius: 9,
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}
-              >
-                {testingPush ? 'Testing...' : 'Test Alert 📲'}
-              </button>
+
+              {browserPermission === 'denied' && (
+                <div style={{
+                  marginTop: 10,
+                  padding: '0.6rem 0.8rem',
+                  borderRadius: 10,
+                  background: 'rgba(232,93,78,.1)',
+                  color: 'var(--danger)',
+                  fontSize: '0.76rem',
+                  lineHeight: 1.45,
+                }}>
+                  ⚠️ Notifications are blocked in Chrome for this site. Tap the site/lock icon 🔒 in the address bar and toggle <strong>Notifications</strong> to <strong>Allow</strong>, then refresh.
+                </div>
+              )}
             </div>
             {divider}
             <Row
@@ -523,7 +500,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <button
-                  onClick={sendTestNotification}
+                  onClick={handleOneClickEnableAndTest}
                   disabled={testingPush}
                   style={{ padding: '0.45rem 0.75rem', background: 'var(--accent)', color: 'var(--bg)', border: 'none', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
                 >
@@ -533,7 +510,7 @@ export default function SettingsPage() {
             ) : browserPermission === 'denied' ? (
               <div style={{ background: 'rgba(232,93,78,.1)', border: '1px solid rgba(232,93,78,.25)', borderRadius: 12, padding: '0.75rem 0.9rem', marginBottom: '1.1rem' }}>
                 <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--danger)', marginBottom: 2 }}>⚠️ Notifications Blocked</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Tap the site settings icon in your browser address bar to allow alerts.</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Tap the lock icon in your address bar and set Notifications to Allow.</div>
               </div>
             ) : (
               <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 12, padding: '0.75rem 0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: '1.1rem' }}>
@@ -542,11 +519,11 @@ export default function SettingsPage() {
                   <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Alerts even when the app is closed</div>
                 </div>
                 <button
-                  onClick={requestPushPermission}
-                  disabled={requestingPush}
+                  onClick={handleOneClickEnableAndTest}
+                  disabled={testingPush}
                   style={{ padding: '0.45rem 0.85rem', background: 'var(--accent)', color: 'var(--bg)', border: 'none', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
                 >
-                  {requestingPush ? 'Enabling...' : 'Enable'}
+                  {testingPush ? 'Enabling...' : 'Enable'}
                 </button>
               </div>
             )}
