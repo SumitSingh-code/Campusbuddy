@@ -7,24 +7,32 @@ type Theme = 'dark' | 'light'
 const STORAGE_KEY = 'unigram_theme'
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>('dark')
+  const [theme, setThemeState] = useState<Theme>('light')
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null
-    const initial = stored || 'dark'
+    const initial = stored === 'dark' ? 'dark' : 'light'
     setThemeState(initial)
-    document.documentElement.setAttribute('data-theme', initial)
+    if (initial === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark')
+    } else {
+      document.documentElement.removeAttribute('data-theme')
+    }
   }, [])
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme)
     localStorage.setItem(STORAGE_KEY, newTheme)
-    document.documentElement.setAttribute('data-theme', newTheme)
+    if (newTheme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark')
+    } else {
+      document.documentElement.removeAttribute('data-theme')
+    }
 
     // Update theme-color meta tag
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) {
-      meta.setAttribute('content', newTheme === 'dark' ? '#101217' : '#F8F8F5')
+      meta.setAttribute('content', newTheme === 'dark' ? '#101217' : '#FAFAF7')
     }
   }, [])
 

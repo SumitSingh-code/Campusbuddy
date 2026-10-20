@@ -21,7 +21,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#101217',
+  themeColor: '#FAFAF7',
 }
 
 export default function RootLayout({
@@ -40,10 +40,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-        {/* Dark theme default — prevents FOUC */}
+        {/* Theme initialization — defaults to light */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('unigram_theme');if(t!=='light'){document.documentElement.setAttribute('data-theme','dark');if(!t)localStorage.setItem('unigram_theme','dark');}})();`,
+            __html: `(function(){var t=localStorage.getItem('unigram_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else{document.documentElement.removeAttribute('data-theme');if(!t)localStorage.setItem('unigram_theme','light');}})();`,
           }}
         />
         {/* PWA Service Worker Registration */}

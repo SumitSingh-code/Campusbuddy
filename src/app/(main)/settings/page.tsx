@@ -29,13 +29,19 @@ function InstagramIcon({ size = 16 }: { size?: number }) {
 const THEME_KEY = 'unigram_theme'
 
 function isDark() {
-  if (typeof window === 'undefined') return true
+  if (typeof window === 'undefined') return false
+  const t = localStorage.getItem(THEME_KEY)
+  if (t === 'dark') return true
+  if (t === 'light') return false
   return document.documentElement.getAttribute('data-theme') === 'dark'
 }
 
 function applyTheme(dark: boolean) {
-  if (dark) document.documentElement.setAttribute('data-theme', 'dark')
-  else document.documentElement.removeAttribute('data-theme')
+  if (dark) {
+    document.documentElement.setAttribute('data-theme', 'dark')
+  } else {
+    document.documentElement.removeAttribute('data-theme')
+  }
   localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light')
 }
 
@@ -92,7 +98,7 @@ function Row({ icon, label, sub, href, onClick, danger, external }: { icon: Reac
 export default function SettingsPage() {
   const { profile, signOut, isAdmin } = useAuth()
   const router = useRouter()
-  const [dark, setDark] = useState(true)
+  const [dark, setDark] = useState(false)
   const [signOutConfirm, setSignOutConfirm] = useState(false)
 
   // Name modal
@@ -286,22 +292,22 @@ export default function SettingsPage() {
                 {dark ? <Moon size={16} /> : <Sun size={16} />}
               </span>
               <span style={{ flex: 1 }}>
-                <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink)' }}>Light Mode</span>
-                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--ink-muted)' }}>Switch to light theme</span>
+                <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink)' }}>Dark Mode</span>
+                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--ink-muted)' }}>{dark ? 'Dark theme is active' : 'Switch to dark theme'}</span>
               </span>
               {/* Toggle */}
               <button
                 onClick={toggleTheme}
                 style={{
                   width: 46, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
-                  background: !dark ? 'var(--accent)' : 'var(--bg-subtle)',
+                  background: dark ? 'var(--accent)' : 'var(--bg-subtle)',
                   position: 'relative', transition: 'background 0.2s', flexShrink: 0,
                 }}
               >
                 <span style={{
                   position: 'absolute', top: 3, width: 20, height: 20, borderRadius: '50%',
                   background: '#fff', transition: 'left 0.2s',
-                  left: !dark ? 23 : 3,
+                  left: dark ? 23 : 3,
                   boxShadow: '0 1px 4px rgba(0,0,0,.3)',
                 }} />
               </button>
