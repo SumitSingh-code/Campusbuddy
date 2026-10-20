@@ -92,6 +92,15 @@ try {
 }
 
 try {
+  app.use('/api/push', require('../src/routes/push'));
+  console.log('[Startup] OK: /api/push');
+} catch (e) {
+  console.error('[Startup] FAILED /api/push:', e.message);
+  _routeErrors.push({ route: '/api/push', error: e.message });
+  app.use('/api/push', (req, res) => res.status(503).json({ error: 'Route unavailable', route: 'push', detail: e.message }));
+}
+
+try {
   app.use('/api/profile', require('../src/routes/profile'));
   console.log('[Startup] OK: /api/profile');
 } catch (e) {

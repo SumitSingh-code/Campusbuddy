@@ -52,6 +52,17 @@ const DEFAULT_NOTIF_PREFS: NotificationPreferences = {
 
 const NOTIF_PREFS_KEY = 'unigram_notif_prefs'
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}
+
 function Row({ icon, label, sub, href, onClick, danger, external }: { icon: React.ReactNode; label: string; sub?: string; href?: string; onClick?: () => void; danger?: boolean; external?: boolean }) {
   const content = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem', cursor: 'pointer', textDecoration: 'none', color: danger ? 'var(--danger)' : 'var(--ink)' }}>
@@ -105,6 +116,7 @@ export default function SettingsPage() {
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIF_PREFS)
   const [browserPermission, setBrowserPermission] = useState<'default' | 'granted' | 'denied'>('default')
   const [requestingPush, setRequestingPush] = useState(false)
+  const [testingPush, setTestingPush] = useState(false)
 
   useEffect(() => {
     setDark(isDark())
@@ -122,6 +134,30 @@ export default function SettingsPage() {
     }
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setBrowserPermission(Notification.permission)
+      if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+        navigator.serviceWorker.ready.then(async (reg) => {
+          try {
+            const sub = await reg.pushManager.getSubscription()
+            if (!sub) {
+              // Re-subscribe device in background if permission is granted but subscription is missing
+              const keyRes = await api.get<{ publicKey: string }>('/push/public-key').catch(() => null)
+              const vapidKey = keyRes?.publicKey || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+              if (vapidKey) {
+                const newSub = await reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                })
+                await api.post('/push/subscribe', {
+                  subscription: newSub.toJSON(),
+                  user_agent: navigator.userAgent
+                })
+              }
+            }
+          } catch (e) {
+            console.warn('[push] Background sub check:', e)
+          }
+        }).catch(() => {})
+      }
     }
   }, [profile])
 
@@ -139,7 +175,7 @@ export default function SettingsPage() {
   }
 
   async function requestPushPermission() {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
       toast.error('Push notifications are not supported on this browser')
       return
     }
@@ -147,15 +183,54 @@ export default function SettingsPage() {
     try {
       const perm = await Notification.requestPermission()
       setBrowserPermission(perm)
-      if (perm === 'granted') {
-        toast.success('Device notifications enabled! 🎉')
-      } else if (perm === 'denied') {
-        toast.error('Notifications blocked in browser settings')
+      if (perm !== 'granted') {
+        if (perm === 'denied') toast.error('Notifications blocked in browser settings')
+        return
       }
-    } catch {
-      toast.error('Could not request notification permission')
+
+      // Get VAPID public key
+      let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!vapidKey) {
+        const keyRes = await api.get<{ publicKey: string }>('/push/public-key')
+        vapidKey = keyRes.publicKey
+      }
+
+      if (!vapidKey) {
+        toast.error('VAPID key not found on server')
+        return
+      }
+
+      // Subscribe device to push manager via service worker
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+      })
+
+      // Send subscription to backend
+      await api.post('/push/subscribe', {
+        subscription: sub.toJSON(),
+        user_agent: navigator.userAgent
+      })
+
+      toast.success('Lock screen notifications active! 🎉')
+    } catch (err: unknown) {
+      console.error('Push enable error:', err)
+      toast.error(err instanceof Error ? err.message : 'Could not enable push notifications')
     } finally {
       setRequestingPush(false)
+    }
+  }
+
+  async function sendTestNotification() {
+    setTestingPush(true)
+    try {
+      const res = await api.post<{ success: boolean; message: string }>('/push/test', {})
+      toast.success(res.message || 'Test alert sent! Check your notification bar.')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send test push')
+    } finally {
+      setTestingPush(false)
     }
   }
 
@@ -387,12 +462,21 @@ export default function SettingsPage() {
 
             {/* Device Permission Status */}
             {browserPermission === 'granted' ? (
-              <div style={{ background: 'rgba(76,154,106,.1)', border: '1px solid rgba(76,154,106,.25)', borderRadius: 12, padding: '0.75rem 0.9rem', display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.1rem' }}>
-                <span style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1rem' }}>✓</span>
-                <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--success)' }}>Device Notifications Active</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>You will receive real-time alerts in your notification bar.</div>
+              <div style={{ background: 'rgba(76,154,106,.1)', border: '1px solid rgba(76,154,106,.25)', borderRadius: 12, padding: '0.75rem 0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: '1.1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                  <span style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1rem', flexShrink: 0 }}>✓</span>
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--success)' }}>Lock Screen Alerts Active</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Device will vibrate & show notifications.</div>
+                  </div>
                 </div>
+                <button
+                  onClick={sendTestNotification}
+                  disabled={testingPush}
+                  style={{ padding: '0.45rem 0.75rem', background: 'var(--accent)', color: 'var(--bg)', border: 'none', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+                >
+                  {testingPush ? 'Sending...' : 'Test Alert 📲'}
+                </button>
               </div>
             ) : browserPermission === 'denied' ? (
               <div style={{ background: 'rgba(232,93,78,.1)', border: '1px solid rgba(232,93,78,.25)', borderRadius: 12, padding: '0.75rem 0.9rem', marginBottom: '1.1rem' }}>
