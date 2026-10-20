@@ -115,6 +115,7 @@ export default function SettingsPage() {
   const [notifModal, setNotifModal] = useState(false)
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIF_PREFS)
   const [browserPermission, setBrowserPermission] = useState<'default' | 'granted' | 'denied'>('default')
+  const [deviceSubscribed, setDeviceSubscribed] = useState(false)
   const [requestingPush, setRequestingPush] = useState(false)
   const [testingPush, setTestingPush] = useState(false)
 
@@ -134,27 +135,15 @@ export default function SettingsPage() {
     }
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setBrowserPermission(Notification.permission)
-      if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(async (reg) => {
           try {
             const sub = await reg.pushManager.getSubscription()
-            if (!sub) {
-              // Re-subscribe device in background if permission is granted but subscription is missing
-              const keyRes = await api.get<{ publicKey: string }>('/push/public-key').catch(() => null)
-              const vapidKey = keyRes?.publicKey || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-              if (vapidKey) {
-                const newSub = await reg.pushManager.subscribe({
-                  userVisibleOnly: true,
-                  applicationServerKey: urlBase64ToUint8Array(vapidKey)
-                })
-                await api.post('/push/subscribe', {
-                  subscription: newSub.toJSON(),
-                  user_agent: navigator.userAgent
-                })
-              }
+            if (sub) {
+              setDeviceSubscribed(true)
             }
           } catch (e) {
-            console.warn('[push] Background sub check:', e)
+            console.warn('[push] Sub check:', e)
           }
         }).catch(() => {})
       }
@@ -174,21 +163,44 @@ export default function SettingsPage() {
     }
   }
 
-  async function requestPushPermission() {
-    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+  async function handleOneClickEnableAndTest() {
+    if (typeof window === 'undefined') return
+    if (!('Notification' in window)) {
       toast.error('Push notifications are not supported on this browser')
       return
     }
-    setRequestingPush(true)
+
+    setTestingPush(true)
+    const toastId = toast.loading('Connecting device notifications...')
+
     try {
+      // 1. Request permission if not already granted
       const perm = await Notification.requestPermission()
       setBrowserPermission(perm)
       if (perm !== 'granted') {
-        if (perm === 'denied') toast.error('Notifications blocked in browser settings')
+        toast.dismiss(toastId)
+        if (perm === 'denied') {
+          toast.error('Notifications blocked in Chrome settings for this site')
+        } else {
+          toast.error('Notification permission was not granted')
+        }
         return
       }
 
-      // Get VAPID public key
+      // 2. Ensure Service Worker is registered and active
+      if (!('serviceWorker' in navigator)) {
+        toast.dismiss(toastId)
+        toast.error('Service worker is not supported')
+        return
+      }
+
+      let reg = await navigator.serviceWorker.getRegistration()
+      if (!reg) {
+        reg = await navigator.serviceWorker.register('/sw.js')
+      }
+      await navigator.serviceWorker.ready
+
+      // 3. Get VAPID public key
       let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       if (!vapidKey) {
         const keyRes = await api.get<{ publicKey: string }>('/push/public-key')
@@ -196,42 +208,50 @@ export default function SettingsPage() {
       }
 
       if (!vapidKey) {
-        toast.error('VAPID key not found on server')
+        toast.dismiss(toastId)
+        toast.error('VAPID public key not found on server')
         return
       }
 
-      // Subscribe device to push manager via service worker
-      const reg = await navigator.serviceWorker.ready
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey)
-      })
+      // 4. Get or create Push Subscription
+      toast.loading('Subscribing device to push...', { id: toastId })
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey)
+        })
+      }
 
-      // Send subscription to backend
+      // 5. Send subscription to server
+      toast.loading('Saving device to database...', { id: toastId })
       await api.post('/push/subscribe', {
         subscription: sub.toJSON(),
         user_agent: navigator.userAgent
       })
+      setDeviceSubscribed(true)
 
-      toast.success('Lock screen notifications active! 🎉')
-    } catch (err: unknown) {
-      console.error('Push enable error:', err)
-      toast.error(err instanceof Error ? err.message : 'Could not enable push notifications')
-    } finally {
-      setRequestingPush(false)
-    }
-  }
-
-  async function sendTestNotification() {
-    setTestingPush(true)
-    try {
+      // 6. Fire instant test alert to lockscreen
+      toast.loading('Sending test alert to lock screen...', { id: toastId })
       const res = await api.post<{ success: boolean; message: string }>('/push/test', {})
-      toast.success(res.message || 'Test alert sent! Check your notification bar.')
+
+      toast.dismiss(toastId)
+      toast.success(res.message || 'Alert sent! Check your notification bar now 📲', { duration: 5000 })
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send test push')
+      toast.dismiss(toastId)
+      console.error('Push test error:', err)
+      toast.error(err instanceof Error ? err.message : 'Could not send test push')
     } finally {
       setTestingPush(false)
     }
+  }
+
+  async function requestPushPermission() {
+    await handleOneClickEnableAndTest()
+  }
+
+  async function sendTestNotification() {
+    await handleOneClickEnableAndTest()
   }
 
   function toggleTheme() {
@@ -347,10 +367,42 @@ export default function SettingsPage() {
               </button>
             </div>
             {divider}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                <span style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(212,175,55,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--accent)' }}>
+                  <Bell size={17} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink)' }}>Lock Screen Alerts</span>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: deviceSubscribed ? 'var(--success)' : 'var(--ink-muted)', marginTop: 1 }}>
+                    {deviceSubscribed ? '● Active on this phone' : 'Tap to enable & test on phone'}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={handleOneClickEnableAndTest}
+                disabled={testingPush}
+                style={{
+                  padding: '0.45rem 0.85rem',
+                  background: 'var(--accent)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: 9,
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {testingPush ? 'Testing...' : 'Test Alert 📲'}
+              </button>
+            </div>
+            {divider}
             <Row
-              icon={<Bell size={16} />}
-              label="Notification Settings"
-              sub="DMs, comments, notices & alerts"
+              icon={<Shield size={16} />}
+              label="Notification Preferences"
+              sub="DMs, comments, notices & alerts toggles"
               onClick={() => setNotifModal(true)}
             />
           </>
