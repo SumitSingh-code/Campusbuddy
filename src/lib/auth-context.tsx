@@ -54,7 +54,7 @@ interface AuthContextType {
   mustChangePassword: boolean
   isGoogleOnly: boolean
   signInWithEmail: (email: string, password: string) => Promise<void>
-  signInWithGoogle: () => Promise<void>
+  signInWithGoogle: (options?: { redirectTo?: string }) => Promise<void>
   signUpWithEmail: (email: string, password: string, profileData: Record<string, string>) => Promise<void>
   completeProfile: (profileData: Record<string, string>) => Promise<void>
   forgotPassword: (rollNumber: string, phoneNumber: string) => Promise<unknown>
@@ -210,10 +210,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchProfile(data.user)
   }, [fetchProfile])
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (options?: { redirectTo?: string }) => {
+    const defaultRedirect = typeof window !== 'undefined' ? `${window.location.origin}/login` : ''
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + '/login' },
+      options: {
+        redirectTo: options?.redirectTo || defaultRedirect,
+      },
     })
     if (error) throw mapAuthError(error)
   }, [])
@@ -242,7 +245,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile])
 
   const completeProfile = useCallback(async (profileData: Record<string, string>) => {
-    await api.post('/auth/signup', { ...profileData, auth_provider: 'google' })
+    await api.post('/auth/signup', {
+      ...profileData,
+      email: user?.email || '',
+      auth_provider: 'google',
+    })
     if (user) await fetchProfile(user)
   }, [user, fetchProfile])
 

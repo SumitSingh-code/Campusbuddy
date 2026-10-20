@@ -30,12 +30,13 @@ router.post('/signup', verifyJwtOnly, async (req, res) => {
     }
 
     const cleanRollNumber = roll_number.trim().toUpperCase();
-    const cleanEmail = email ? email.trim().toLowerCase() : null;
+    const userEmail = email || (req.user && req.user.email) || null;
+    const cleanEmail = userEmail ? userEmail.trim().toLowerCase() : null;
 
     // Check uniqueness manually before insert to give specific error messages
     const { data: existingProfiles, error: checkError } = await supabaseAdmin
       .from('profiles')
-      .select('roll_number, phone_number, email')
+      .select('id, roll_number, phone_number, email')
       .or(`roll_number.eq.${cleanRollNumber},phone_number.eq.${cleaned_phone}${cleanEmail ? `,email.eq.${cleanEmail}` : ''}`);
 
     if (checkError) {
@@ -45,6 +46,9 @@ router.post('/signup', verifyJwtOnly, async (req, res) => {
 
     if (existingProfiles && existingProfiles.length > 0) {
       for (const p of existingProfiles) {
+        if (p.id === req.user.id) {
+          return res.json({ success: true, profile: p });
+        }
         if (p.roll_number === cleanRollNumber) return res.status(409).json({ error: 'Roll number already registered' });
         if (p.phone_number === cleaned_phone) return res.status(409).json({ error: 'Phone number already registered' });
         if (cleanEmail && p.email === cleanEmail) return res.status(409).json({ error: 'Email already registered' });
