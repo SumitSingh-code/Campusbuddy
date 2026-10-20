@@ -7,7 +7,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 
 export default function LoginPage() {
-  const { signInWithEmail, signInWithGoogle, isLoggedIn, isLoading, profile, needsProfile } = useAuth()
+  const { signInWithEmail, signInWithGoogle, isLoggedIn, isLoading, isProfileLoading, profile, needsProfile } = useAuth()
   const router = useRouter()
 
   const [email,    setEmail]    = useState('')
@@ -17,15 +17,17 @@ export default function LoginPage() {
   const [error,    setError]    = useState('')
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading || isProfileLoading) return
     if (!isLoggedIn) return
     if (needsProfile) { router.replace('/signup?step=profile'); return }
     if (profile?.must_change_password)  { router.replace('/change-password'); return }
     if (profile?.status === 'pending' || profile?.status === 'banned' || profile?.status === 'rejected') {
       router.replace('/pending?status=' + profile.status); return
     }
-    router.replace('/feed')
-  }, [isLoading, isLoggedIn, profile, needsProfile, router])
+    if (profile) {
+      router.replace('/feed')
+    }
+  }, [isLoading, isProfileLoading, isLoggedIn, profile, needsProfile, router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

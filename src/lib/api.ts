@@ -1,15 +1,9 @@
 import { supabase } from './supabase'
 
-// ─── Token Cache ─────────────────────────────────────────────────
-let _cachedToken: string | null = null
-let _tokenExpiry = 0
-
+// ─── Token Helper ─────────────────────────────────────────────────
 async function getToken(): Promise<string | null> {
-  if (_cachedToken && Date.now() < _tokenExpiry) return _cachedToken
   const { data: { session } } = await supabase.auth.getSession()
-  _cachedToken = session?.access_token || null
-  _tokenExpiry = _cachedToken ? Date.now() + 50_000 : 0 // 50-second TTL
-  return _cachedToken
+  return session?.access_token || null
 }
 
 // ─── Request Helper ──────────────────────────────────────────────

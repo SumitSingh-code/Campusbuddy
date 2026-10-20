@@ -34,7 +34,7 @@ const createActions = [
 ]
 
 function AppShell({ children }: { children: React.ReactNode }) {
-  const { isLoading, isLoggedIn, isActive, needsProfile, mustChangePassword, profile } = useAuth()
+  const { isLoading, isProfileLoading, isLoggedIn, isActive, needsProfile, mustChangePassword, profile } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const isAnonRoute = pathname === '/anon'
@@ -64,14 +64,14 @@ function AppShell({ children }: { children: React.ReactNode }) {
   }, [isLoggedIn, isActive])
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading || isProfileLoading) return
     if (!isLoggedIn) { router.replace('/login'); return }
     if (needsProfile) { router.replace('/signup?step=profile'); return }
     if (mustChangePassword) { router.replace('/change-password'); return }
     if (profile?.status === 'pending' || profile?.status === 'banned' || profile?.status === 'rejected') {
       router.replace('/pending?status=' + profile.status)
     }
-  }, [isLoading, isLoggedIn, isActive, needsProfile, mustChangePassword, profile, router])
+  }, [isLoading, isProfileLoading, isLoggedIn, isActive, needsProfile, mustChangePassword, profile, router])
 
   useEffect(() => {
     if (!createOpen) return
@@ -82,7 +82,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [createOpen])
 
-  if (isLoading) return <div className="app-loading"><div className="spinner" /></div>
+  if (isLoading || isProfileLoading) return <div className="app-loading"><div className="spinner" /></div>
   if (!isLoggedIn || !isActive) return null
 
   return (

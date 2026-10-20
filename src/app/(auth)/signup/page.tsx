@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { DEPARTMENTS } from '@/lib/constants'
 
 function SignupContent() {
-  const { signUpWithEmail, completeProfile, isLoggedIn, isLoading, needsProfile } = useAuth()
+  const { signUpWithEmail, completeProfile, isLoggedIn, isLoading, isProfileLoading, needsProfile, profile } = useAuth()
   const router = useRouter()
   const params = useSearchParams()
   const isProfileStep = params.get('step') === 'profile'
@@ -25,8 +25,14 @@ function SignupContent() {
   const [error,      setError]      = useState('')
 
   useEffect(() => {
-    if (!isLoading && isLoggedIn && !needsProfile) router.replace('/pending')
-  }, [isLoading, isLoggedIn, needsProfile, router])
+    if (!isLoading && !isProfileLoading && isLoggedIn && !needsProfile) {
+      if (profile?.status === 'active') {
+        router.replace('/feed')
+      } else {
+        router.replace('/pending')
+      }
+    }
+  }, [isLoading, isProfileLoading, isLoggedIn, needsProfile, profile, router])
 
   async function handleStep1(e: React.FormEvent) {
     e.preventDefault()

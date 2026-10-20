@@ -45,6 +45,7 @@ interface AuthContextType {
   user: User | null
   profile: Profile | null
   isLoading: boolean
+  isProfileLoading: boolean
   isLoggedIn: boolean
   isActive: boolean
   isAdmin: boolean
@@ -69,45 +70,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isProfileLoading, setIsProfileLoading] = useState(false)
+  const [profileChecked, setProfileChecked] = useState(false)
 
-  // Fetch profile from backend
+  // Fetch profile from backend or directly from Supabase DB
   const fetchProfile = useCallback(async (currentUser: User | null) => {
     if (!currentUser) {
       setProfile(null)
+      setProfileChecked(true)
+      setIsProfileLoading(false)
       return null
     }
+
+    setIsProfileLoading(true)
+
+    // 1. Instant optimistic profile check from localStorage
     try {
-      const res = await api.get('/auth/status')
-      const p = (res.profile as Profile) || null
-      setProfile(p)
-      if (p) {
-        localStorage.setItem('cw_profile', JSON.stringify(p))
+      const cached = localStorage.getItem('cw_profile')
+      if (cached) {
+        const p = JSON.parse(cached) as Profile
+        if (p && p.id === currentUser.id) {
+          setProfile(p)
+        }
       }
-      return p
-    } catch (err) {
-      // Retry once after 1.5s (handles token-not-yet-ready race condition)
-      try {
-        await new Promise(r => setTimeout(r, 1500))
-        const res2 = await api.get('/auth/status')
-        const p2 = (res2.profile as Profile) || null
-        setProfile(p2)
-        if (p2) localStorage.setItem('cw_profile', JSON.stringify(p2))
-        return p2
-      } catch {
-        // Final fallback to cached profile
+    } catch {}
+
+    // 2. Direct query from Supabase database (sub-50ms via RLS, bypasses serverless cold start)
+    try {
+      const { data: dbProfile, error: dbErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .maybeSingle()
+
+      if (!dbErr && dbProfile) {
+        const p = dbProfile as Profile
+        setProfile(p)
+        localStorage.setItem('cw_profile', JSON.stringify(p))
+        setProfileChecked(true)
+        setIsProfileLoading(false)
+        return p
+      }
+
+      // If dbProfile is null (user genuinely has no profile record yet),
+      // verify via backend /auth/status endpoint
+      if (!dbProfile && !dbErr) {
         try {
-          const cached = localStorage.getItem('cw_profile')
-          if (cached) {
-            const p = JSON.parse(cached) as Profile
-            if (p.id === currentUser.id) {
-              setProfile(p)
-              return p
-            }
+          const res = await api.get<{ profile?: Profile }>('/auth/status')
+          if (res?.profile) {
+            setProfile(res.profile)
+            localStorage.setItem('cw_profile', JSON.stringify(res.profile))
+            setProfileChecked(true)
+            setIsProfileLoading(false)
+            return res.profile
           }
-        } catch { /* ignore parse error */ }
-        console.warn('[Auth] Profile fetch failed:', err)
+        } catch {}
+
+        // User genuinely has no profile row in DB (e.g. brand new Google signup)
+        setProfile(null)
+        setProfileChecked(true)
+        setIsProfileLoading(false)
         return null
       }
+    } catch (err) {
+      console.warn('[Auth] Direct profile fetch error:', err)
+    }
+
+    // 3. Fallback to /api/auth/status
+    try {
+      const res = await api.get<{ profile?: Profile }>('/auth/status')
+      const p = (res?.profile as Profile) || null
+      setProfile(p)
+      if (p) localStorage.setItem('cw_profile', JSON.stringify(p))
+      setProfileChecked(true)
+      setIsProfileLoading(false)
+      return p
+    } catch (err) {
+      console.warn('[Auth] Profile fetch failed:', err)
+      setProfileChecked(true)
+      setIsProfileLoading(false)
+      return null
     }
   }, [])
 
@@ -122,9 +164,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           setUser(session.user)
           await fetchProfile(session.user)
+        } else {
+          setProfileChecked(true)
         }
       } catch (err) {
         console.error('[Auth] Init error:', err)
+        if (mounted) setProfileChecked(true)
       } finally {
         if (mounted) setIsLoading(false)
       }
@@ -142,6 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
           setProfile(null)
+          setProfileChecked(false)
+          setIsProfileLoading(false)
           localStorage.removeItem('cw_profile')
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           setUser(session.user)
@@ -234,11 +281,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     profile,
     isLoading,
+    isProfileLoading,
     isLoggedIn: !!user,
     isActive: profile?.status === 'active',
     isAdmin: ['moderator', 'super_admin'].includes(profile?.role || ''),
     isSuperAdmin: profile?.role === 'super_admin',
-    needsProfile: !!user && !profile && !isLoading,
+    needsProfile: !!user && !profile && !isLoading && !isProfileLoading && profileChecked,
     mustChangePassword: !!profile?.must_change_password,
     isGoogleOnly,
     signInWithEmail,
