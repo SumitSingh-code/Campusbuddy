@@ -182,6 +182,16 @@ async function _fetchProfile() {
     }
     return _profile;
   } catch (err) {
+    // If the server rejected the token as invalid or expired (401),
+    // the session is truly invalid — do NOT fall back to a cached profile!
+    if (err.status === 401 || err.code === 'UNAUTHORIZED' || err.message?.includes('token') || err.message?.includes('expired')) {
+      console.warn('[Auth] Session invalid or expired on server:', err.message);
+      _user = null;
+      _profile = null;
+      localStorage.removeItem('cw_profile');
+      return null;
+    }
+
     // Network error — fall back to cached profile
     const cached = Auth.getCachedProfile();
     if (cached && cached.id === _user.id) {

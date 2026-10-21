@@ -1092,7 +1092,7 @@
       const { user, profile } = await Auth.init();
 
       if (!user || !profile || !Auth.isAdmin()) {
-        window.location.href = profile ? '/feed' : '/login';
+        window.location.href = profile ? '/feed' : '/login?redirect=/admin.html';
         return;
       }
 
@@ -1365,8 +1365,20 @@
         setBadge('bnav-pending-count', stats.pending_signups);
         setBadge('bnav-resets-count',  stats.open_reset_requests);
       } catch (err) {
-        showToast('Failed to load stats: ' + err.message, 'error');
+        handleAdminApiError(err, 'Failed to load stats');
       }
+    }
+
+    function handleAdminApiError(err, fallback = 'Action failed') {
+      if (err?.status === 401 || err?.message?.includes('token') || err?.message?.includes('UNAUTHORIZED') || err?.message?.includes('expired')) {
+        showToast('Session expired. Redirecting to login...', 'error', 3000);
+        setTimeout(() => {
+          window.location.href = '/login?redirect=/admin.html';
+        }, 1200);
+        return true;
+      }
+      showToast(err?.message || fallback, 'error');
+      return false;
     }
 
     window.adminNav = (section) => showSection(section);
@@ -1406,7 +1418,15 @@
             </div>
           </div>`).join('');
       } catch (err) {
-        document.getElementById('pending-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+        if (handleAdminApiError(err, 'Failed to load pending signups')) {
+          document.getElementById('pending-list').innerHTML = `
+            <div class="alert alert--error" style="display:flex;justify-content:space-between;align-items:center;">
+              <span>Session expired. Please sign in again.</span>
+              <a href="/login?redirect=/admin.html" class="btn btn-sm btn-secondary" style="margin-left:1rem;color:var(--adm-text);">Sign in</a>
+            </div>`;
+        } else {
+          document.getElementById('pending-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+        }
       }
     }
 
@@ -1414,9 +1434,9 @@
       try {
         await API.patch(`/admin/users/${id}/approve`);
         document.getElementById(`pending-row-${id}`)?.remove();
-        showToast('User approved!', 'success');
+        showToast('User approved! 🎉', 'success');
         loadStats();
-      } catch (err) { showToast(err.message, 'error'); }
+      } catch (err) { handleAdminApiError(err, 'Could not approve user'); }
     };
 
     window.rejectUser = async (id) => {
@@ -1426,7 +1446,7 @@
         document.getElementById(`pending-row-${id}`)?.remove();
         showToast('User rejected.', 'info');
         loadStats();
-      } catch (err) { showToast(err.message, 'error'); }
+      } catch (err) { handleAdminApiError(err, 'Could not reject user'); }
     };
 
     // ── Users ──────────────────────────────────────────────────────────
@@ -1494,7 +1514,9 @@
           <button class="btn btn-secondary btn-sm" ${!has_more ? 'disabled' : ''} onclick="loadUsers(${page+1})">Next &#x2192;</button>
         `;
       } catch (err) {
-        document.getElementById('users-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+        if (!handleAdminApiError(err, 'Failed to load users')) {
+          document.getElementById('users-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+        }
       }
     }
 
@@ -1506,12 +1528,7 @@
         showToast(`User ${action}d successfully.`, 'success');
         loadUsers(userPage);
       } catch (err) {
-        if (err.status === 401 || err.message?.includes('token') || err.message?.includes('UNAUTHORIZED')) {
-          showToast('Session expired. Reloading...', 'error');
-          setTimeout(() => window.location.reload(), 1000);
-          return;
-        }
-        showToast(err.message, 'error');
+        handleAdminApiError(err, `Could not ${action} user`);
       }
     };
 
@@ -1541,7 +1558,9 @@
             </div>
           </div>`).join('');
       } catch (err) {
-        document.getElementById('resets-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+        if (!handleAdminApiError(err, 'Failed to load resets')) {
+          document.getElementById('resets-list').innerHTML = `<div class="alert alert--error">${escHtml(err.message)}</div>`;
+        }
       }
     }
 

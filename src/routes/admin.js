@@ -43,7 +43,7 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-router.get('/pending-signups', async (req, res) => {
+router.get(['/pending-signups', '/pending_signups'], async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('profiles')
@@ -217,7 +217,7 @@ router.get('/users', async (req, res) => {
   }
 });
 
-router.get('/reset-requests', async (req, res) => {
+router.get(['/reset-requests', '/reset_requests'], async (req, res) => {
   try {
     const status = req.query.status || 'pending';
     const { data, error } = await supabaseAdmin

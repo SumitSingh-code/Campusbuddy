@@ -7,19 +7,24 @@ import Config from './config.js';
 async function getToken(forceRefresh = false) {
   let { data: { session } } = await supabase.auth.getSession();
 
-  // If token is expiring within 60 seconds or force refresh requested
-  const isExpiringSoon = session?.expires_at
-    ? (session.expires_at * 1000 - Date.now() < 60_000)
-    : false;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const isExpired = session?.expires_at ? (session.expires_at <= nowSec) : false;
+  const isExpiringSoon = session?.expires_at ? (session.expires_at - nowSec < 60) : false;
 
-  if (forceRefresh || !session?.access_token || isExpiringSoon) {
+  if (forceRefresh || !session?.access_token || isExpiringSoon || isExpired) {
     try {
-      const refreshed = await supabase.auth.refreshSession();
-      if (refreshed.data?.session) {
-        session = refreshed.data.session;
+      const { data, error } = await supabase.auth.refreshSession();
+      if (!error && data?.session?.access_token) {
+        session = data.session;
+      } else {
+        // If refresh failed and token was expired, clear dead session reference
+        if (isExpired) {
+          session = null;
+        }
       }
     } catch (e) {
       console.warn('[API] Token refresh attempt failed:', e);
+      if (isExpired) session = null;
     }
   }
 
@@ -47,7 +52,7 @@ async function request(method, path, body = null, opts = {}) {
   // Automatic retry on 401 Unauthorized using a freshly refreshed token
   if (response.status === 401 && !opts._retried) {
     const freshToken = await getToken(true);
-    if (freshToken) {
+    if (freshToken && freshToken !== token) {
       return request(method, path, body, { ...opts, token: freshToken, _retried: true });
     }
   }

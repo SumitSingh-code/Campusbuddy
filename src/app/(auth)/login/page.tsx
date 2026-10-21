@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 
-export default function LoginPage() {
+function LoginContent() {
   const { signInWithEmail, signInWithGoogle, isLoggedIn, isLoading, isProfileLoading, profile, needsProfile } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTarget = searchParams.get('redirect')
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -25,9 +27,13 @@ export default function LoginPage() {
       router.replace('/pending?status=' + profile.status); return
     }
     if (profile) {
-      router.replace('/feed')
+      if (redirectTarget && redirectTarget.startsWith('/')) {
+        router.replace(redirectTarget)
+      } else {
+        router.replace('/feed')
+      }
     }
-  }, [isLoading, isProfileLoading, isLoggedIn, profile, needsProfile, router])
+  }, [isLoading, isProfileLoading, isLoggedIn, profile, needsProfile, router, redirectTarget])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,8 +47,12 @@ export default function LoginPage() {
 
   async function handleGoogle() {
     setError(''); setLoading(true)
-    try { await signInWithGoogle() }
-    catch (err: unknown) {
+    try {
+      const redirectUrl = redirectTarget
+        ? `${window.location.origin}/login?redirect=${encodeURIComponent(redirectTarget)}`
+        : `${window.location.origin}/login`
+      await signInWithGoogle({ redirectTo: redirectUrl })
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Google sign-in failed')
       setLoading(false)
     }
@@ -117,5 +127,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   )
 }
