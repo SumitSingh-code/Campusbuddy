@@ -68,8 +68,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
     if (!isLoggedIn) { router.replace('/login'); return }
     if (needsProfile) { router.replace('/signup?step=profile'); return }
     if (mustChangePassword) { router.replace('/change-password'); return }
-    if (profile?.status === 'pending' || profile?.status === 'banned' || profile?.status === 'rejected') {
+    if (profile?.status && profile.status !== 'active') {
       router.replace('/pending?status=' + profile.status)
+      return
     }
   }, [isLoading, isProfileLoading, isLoggedIn, isActive, needsProfile, mustChangePassword, profile, router])
 

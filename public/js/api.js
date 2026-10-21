@@ -3,16 +3,27 @@
 import supabase from './supabase.js';
 import Config from './config.js';
 
-// Token cache — avoids one getSession() call per API request
-let _cachedToken  = null;
-let _tokenExpiry  = 0;
+// Get valid access token, auto-refreshing if expired or about to expire
+async function getToken(forceRefresh = false) {
+  let { data: { session } } = await supabase.auth.getSession();
 
-async function getToken() {
-  if (_cachedToken && Date.now() < _tokenExpiry) return _cachedToken;
-  const { data: { session } } = await supabase.auth.getSession();
-  _cachedToken = session?.access_token || null;
-  _tokenExpiry = _cachedToken ? Date.now() + 50_000 : 0; // 50-second TTL
-  return _cachedToken;
+  // If token is expiring within 60 seconds or force refresh requested
+  const isExpiringSoon = session?.expires_at
+    ? (session.expires_at * 1000 - Date.now() < 60_000)
+    : false;
+
+  if (forceRefresh || !session?.access_token || isExpiringSoon) {
+    try {
+      const refreshed = await supabase.auth.refreshSession();
+      if (refreshed.data?.session) {
+        session = refreshed.data.session;
+      }
+    } catch (e) {
+      console.warn('[API] Token refresh attempt failed:', e);
+    }
+  }
+
+  return session?.access_token || null;
 }
 
 async function request(method, path, body = null, opts = {}) {
@@ -31,6 +42,14 @@ async function request(method, path, body = null, opts = {}) {
     throw Object.assign(new Error('Network error — check your connection'), {
       code: 'NETWORK_ERROR', status: 0,
     });
+  }
+
+  // Automatic retry on 401 Unauthorized using a freshly refreshed token
+  if (response.status === 401 && !opts._retried) {
+    const freshToken = await getToken(true);
+    if (freshToken) {
+      return request(method, path, body, { ...opts, token: freshToken, _retried: true });
+    }
   }
 
   let data;

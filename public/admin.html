@@ -1505,7 +1505,14 @@
         await API.patch(`/admin/users/${id}/${action}`);
         showToast(`User ${action}d successfully.`, 'success');
         loadUsers(userPage);
-      } catch (err) { showToast(err.message, 'error'); }
+      } catch (err) {
+        if (err.status === 401 || err.message?.includes('token') || err.message?.includes('UNAUTHORIZED')) {
+          showToast('Session expired. Reloading...', 'error');
+          setTimeout(() => window.location.reload(), 1000);
+          return;
+        }
+        showToast(err.message, 'error');
+      }
     };
 
     // ── Password Resets ────────────────────────────────────────────────

@@ -21,7 +21,7 @@ export default function LoginPage() {
     if (!isLoggedIn) return
     if (needsProfile) { router.replace('/signup?step=profile'); return }
     if (profile?.must_change_password)  { router.replace('/change-password'); return }
-    if (profile?.status === 'pending' || profile?.status === 'banned' || profile?.status === 'rejected') {
+    if (profile?.status && profile.status !== 'active') {
       router.replace('/pending?status=' + profile.status); return
     }
     if (profile) {
