@@ -77,9 +77,9 @@ export function render() {
       .contrib-wall{display:flex;flex-direction:column;gap:.85rem;}
       .contrib-card{display:flex;gap:1rem;align-items:flex-start;background:var(--bg);border-radius:14px;padding:1rem;animation:about-fadein .4s both;}
       @keyframes about-fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-      .contrib-avatar{width:52px;height:52px;border-radius:14px;border:1.5px solid rgba(212,175,55,.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;flex-shrink:0;background:rgba(212,175,55,.1);color:#D4AF37;position:relative;overflow:hidden;}
-      .contrib-avatar img{width:100%;height:100%;object-fit:cover;border-radius:13px;}
-      .contrib-badge{position:absolute;bottom:-3px;right:-3px;font-size:.75rem;}
+      .contrib-avatar{width:70px;height:70px;border-radius:18px;border:2px solid rgba(212,175,55,.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.35rem;flex-shrink:0;background:rgba(212,175,55,.1);color:#D4AF37;position:relative;box-shadow:0 3px 10px rgba(0,0,0,.07);}
+      .contrib-avatar img{width:100%;height:100%;object-fit:cover;border-radius:16px;}
+      .contrib-badge{position:absolute;bottom:-4px;right:-4px;font-size:.9rem;line-height:1;background:var(--surface);border:1.5px solid var(--border);border-radius:50%;padding:2px;box-shadow:0 2px 5px rgba(0,0,0,.15);}
       .contrib-info{flex:1;min-width:0;}
       .contrib-name{font-weight:700;font-size:.9375rem;color:var(--ink);margin-bottom:.1rem;}
       .contrib-role{font-size:.78rem;font-weight:600;color:var(--accent);margin-bottom:.1rem;}
@@ -108,7 +108,7 @@ export async function init() {
       <div class="contrib-card" style="animation-delay:${i * 0.08}s">
         <div class="contrib-avatar">
           ${c.photo_url ? `<img src="${escHtml(c.photo_url)}" alt="" onerror="this.parentElement.textContent='${escHtml(c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase())}'">` : escHtml(c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase())}
-          <span class="contrib-badge">${BADGES[i % BADGES.length]}</span>
+          ${(c.sort_order === 1 || i === 0) ? `<span class="contrib-badge" title="Founder">👑</span>` : ''}
         </div>
         <div class="contrib-info">
           <div class="contrib-name">${escHtml(c.name)}</div>

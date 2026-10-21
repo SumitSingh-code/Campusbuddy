@@ -141,7 +141,7 @@ export default function ContributionWallPage() {
             <div
               key={i}
               style={{
-                height: 96,
+                height: 108,
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
                 borderRadius: 16,
@@ -170,7 +170,8 @@ export default function ContributionWallPage() {
         ) : (
           contributors.map((c, i) => {
             const color = COLORS[i % COLORS.length]
-            const badge = BADGES[i % BADGES.length]
+            const isFounder = c.sort_order === 1 || i === 0
+            const badge = isFounder ? '👑' : null
             const initials = getInitials(c.name)
 
             return (
@@ -188,52 +189,62 @@ export default function ContributionWallPage() {
                   transition: 'transform 0.15s, border-color 0.15s',
                 }}
               >
-                {/* Avatar */}
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    border: `1.5px solid ${color}44`,
-                    background: `${color}18`,
-                    color: color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 800,
-                    fontSize: '1.1rem',
-                    flexShrink: 0,
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {c.photo_url ? (
-                    <img
-                      src={c.photo_url}
-                      alt={c.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e) => {
-                        // Fallback to initials if photo fails
-                        ;(e.target as HTMLElement).style.display = 'none'
-                      }}
-                    />
-                  ) : (
-                    <span>{initials}</span>
-                  )}
-                  <span
+                {/* Avatar Frame (enlarged for crystal-clear portrait visibility) */}
+                <div style={{ position: 'relative', width: 72, height: 72, flexShrink: 0 }}>
+                  <div
                     style={{
-                      position: 'absolute',
-                      bottom: -2,
-                      right: -2,
-                      fontSize: '0.75rem',
-                      lineHeight: 1,
-                      background: 'var(--surface)',
-                      borderRadius: '50%',
-                      padding: '1px',
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: 18,
+                      border: `2px solid ${color}44`,
+                      background: `${color}18`,
+                      color: color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 800,
+                      fontSize: '1.4rem',
+                      overflow: 'hidden',
+                      boxShadow: '0 3px 10px rgba(0,0,0,0.07)',
                     }}
                   >
-                    {badge}
-                  </span>
+                    {c.photo_url ? (
+                      <img
+                        src={c.photo_url}
+                        alt={c.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          // Fallback to initials if photo fails
+                          ;(e.target as HTMLElement).style.display = 'none'
+                        }}
+                      />
+                    ) : (
+                      <span>{initials}</span>
+                    )}
+                  </div>
+                  {/* Founder Crown badge only — removed for all other contributors as requested */}
+                  {badge && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        bottom: -4,
+                        right: -4,
+                        fontSize: '0.95rem',
+                        lineHeight: 1,
+                        background: 'var(--surface)',
+                        border: '1.5px solid var(--border)',
+                        borderRadius: '50%',
+                        padding: '2px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      title="Founder"
+                    >
+                      {badge}
+                    </span>
+                  )}
                 </div>
 
                 {/* Details */}
