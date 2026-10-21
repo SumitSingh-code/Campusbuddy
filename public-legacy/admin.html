@@ -941,6 +941,11 @@
             </div>
             <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:.85rem;">
               <div>
+                <label class="form-label">Display Order / Rank (1 = Top) *</label>
+                <input type="number" id="contrib-sort-order" class="form-input" min="1" step="1" placeholder="e.g. 1">
+                <span class="form-hint" style="font-size:.72rem;color:var(--adm-text-muted);margin-top:.25rem;display:block;">1 appears at the very top, 2 second, etc. Only Super Admin can change this.</span>
+              </div>
+              <div>
                 <label class="form-label">Full Name *</label>
                 <input type="text" id="contrib-name" class="form-input" placeholder="e.g. Sumit Singh">
               </div>
@@ -1659,26 +1664,40 @@
       const list = document.getElementById('contributors-list');
       if (!list) return;
       list.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+      const isSuper = Auth.isSuperAdmin();
+      const addBtn = document.getElementById('btn-add-contributor');
+      if (addBtn) addBtn.style.display = isSuper ? 'inline-flex' : 'none';
+
       try {
         const { data } = await API.get('/contributors');
         if (!data || data.length === 0) {
-          list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏆</div><h3>No contributors yet</h3><p class="text-muted">Click "+ Add Contributor" to add the first one!</p></div>';
+          list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏆</div><h3>No contributors yet</h3><p class="text-muted">' + (isSuper ? 'Click "+ Add Contributor" to add the first one!' : 'No contributors listed yet.') + '</p></div>';
           return;
         }
-        list.innerHTML = data.map(c => `
+        list.innerHTML = data.map((c, i) => `
           <div style="display:flex;align-items:center;gap:1rem;padding:.85rem;border-bottom:1px solid var(--adm-border);">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:36px;flex-shrink:0;">
+              <span style="font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.8125rem;background:rgba(212,175,55,.15);color:#D4AF37;padding:3px 8px;border-radius:8px;border:1px solid rgba(212,175,55,.3);" title="Display Rank #${c.sort_order ?? (i + 1)}">#${c.sort_order ?? (i + 1)}</span>
+            </div>
             <div style="width:44px;height:44px;border-radius:12px;background:rgba(212,175,55,.15);display:flex;align-items:center;justify-content:center;font-weight:800;color:#D4AF37;font-size:.9rem;flex-shrink:0;overflow:hidden;">
               ${c.photo_url ? `<img src="${c.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">` : c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}
             </div>
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:700;color:var(--adm-text);">${escHtml(c.name)}</div>
-              <div style="font-size:.78rem;color:#D4AF37;">${escHtml(c.role)}</div>
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+                <span style="font-weight:700;color:var(--adm-text);">${escHtml(c.name)}</span>
+                <span style="font-size:.72rem;background:var(--adm-surface2);padding:1px 6px;border-radius:4px;color:var(--adm-text-muted);">Rank #${c.sort_order ?? (i + 1)}</span>
+              </div>
+              <div style="font-size:.78rem;color:#D4AF37;font-weight:600;">${escHtml(c.role)}</div>
               <div style="font-size:.75rem;color:var(--adm-text-muted);margin-top:.15rem;">${escHtml(c.detail || '')}</div>
             </div>
-            <div style="display:flex;gap:.5rem;flex-shrink:0;">
-              <button class="btn btn-ghost btn-sm" onclick="window.editContributor('${c.id}')">Edit</button>
-              <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="window.deleteContributor('${c.id}')">Delete</button>
-            </div>
+            ${isSuper ? `
+              <div style="display:flex;gap:.5rem;flex-shrink:0;">
+                <button class="btn btn-ghost btn-sm" onclick="window.editContributor('${c.id}')">Edit</button>
+                <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="window.deleteContributor('${c.id}')">Delete</button>
+              </div>
+            ` : `
+              <span style="font-size:.75rem;color:var(--adm-text-muted);font-style:italic;">Super Admin only</span>
+            `}
           </div>
         `).join('');
       } catch (e) {
@@ -1687,9 +1706,20 @@
     }
 
     window.openContributorModal = function(id = null) {
+      if (!Auth.isSuperAdmin()) {
+        showToast('Only Super Admin can manage contributors.', 'error');
+        return;
+      }
       _editingContributorId = id;
       document.getElementById('contributor-modal-title').textContent = id ? 'Edit Contributor' : 'Add Contributor';
-      ['contrib-name','contrib-role','contrib-dept','contrib-detail','contrib-photo'].forEach(f => { document.getElementById(f).value = ''; });
+      ['contrib-name','contrib-role','contrib-dept','contrib-detail','contrib-photo','contrib-sort-order'].forEach(f => {
+        const el = document.getElementById(f);
+        if (el) el.value = '';
+      });
+      if (!id) {
+        const orderInput = document.getElementById('contrib-sort-order');
+        if (orderInput) orderInput.value = '1';
+      }
       document.getElementById('contrib-error').style.display = 'none';
       document.getElementById('contributor-modal').style.display = 'flex';
     };
@@ -1700,20 +1730,29 @@
     };
 
     window.editContributor = async function(id) {
+      if (!Auth.isSuperAdmin()) {
+        showToast('Only Super Admin can edit contributors.', 'error');
+        return;
+      }
       openContributorModal(id);
       try {
         const { data } = await API.get(`/contributors/${id}`);
         if (data) {
-          document.getElementById('contrib-name').value   = data.name || '';
-          document.getElementById('contrib-role').value   = data.role || '';
-          document.getElementById('contrib-dept').value   = data.dept || '';
-          document.getElementById('contrib-detail').value = data.detail || '';
-          document.getElementById('contrib-photo').value  = data.photo_url || '';
+          document.getElementById('contrib-name').value       = data.name || '';
+          document.getElementById('contrib-role').value       = data.role || '';
+          document.getElementById('contrib-dept').value       = data.dept || '';
+          document.getElementById('contrib-detail').value     = data.detail || '';
+          document.getElementById('contrib-photo').value      = data.photo_url || '';
+          document.getElementById('contrib-sort-order').value = data.sort_order ?? 1;
         }
       } catch(e) { console.error('editContributor', e); }
     };
 
     window.deleteContributor = async function(id) {
+      if (!Auth.isSuperAdmin()) {
+        showToast('Only Super Admin can delete contributors.', 'error');
+        return;
+      }
       const { showConfirm } = await import('/js/utils.js');
       const ok = await showConfirm('Remove this contributor from the wall?', 'Remove');
       if (!ok) return;
@@ -1725,25 +1764,45 @@
     };
 
     window.saveContributor = async function() {
+      if (!Auth.isSuperAdmin()) {
+        showToast('Only Super Admin can save contributors.', 'error');
+        return;
+      }
       const errEl = document.getElementById('contrib-error');
       errEl.style.display = 'none';
-      const name   = document.getElementById('contrib-name').value.trim();
-      const role   = document.getElementById('contrib-role').value.trim();
-      const dept   = document.getElementById('contrib-dept').value.trim();
-      const detail = document.getElementById('contrib-detail').value.trim();
-      const photo  = document.getElementById('contrib-photo').value.trim();
+      const name      = document.getElementById('contrib-name').value.trim();
+      const role      = document.getElementById('contrib-role').value.trim();
+      const dept      = document.getElementById('contrib-dept').value.trim();
+      const detail    = document.getElementById('contrib-detail').value.trim();
+      const photo     = document.getElementById('contrib-photo').value.trim();
+      const sortInput = document.getElementById('contrib-sort-order').value.trim();
+      const sortOrder = parseInt(sortInput, 10);
+
       if (!name || !role || !detail) {
         errEl.textContent = 'Name, Role and Detail are required.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (isNaN(sortOrder) || sortOrder < 1) {
+        errEl.textContent = 'Display Order / Rank must be a valid number (1 or greater).';
         errEl.style.display = 'block';
         return;
       }
       const saveBtn = document.getElementById('save-contributor');
       saveBtn.disabled = true; saveBtn.textContent = 'Saving...';
       try {
+        const payload = {
+          name,
+          role,
+          dept,
+          detail,
+          photo_url: photo || null,
+          sort_order: sortOrder
+        };
         if (_editingContributorId) {
-          await API.put(`/contributors/${_editingContributorId}`, { name, role, dept, detail, photo_url: photo || null });
+          await API.put(`/contributors/${_editingContributorId}`, payload);
         } else {
-          await API.post('/contributors', { name, role, dept, detail, photo_url: photo || null });
+          await API.post('/contributors', payload);
         }
         closeContributorModal();
         loadContributors();
