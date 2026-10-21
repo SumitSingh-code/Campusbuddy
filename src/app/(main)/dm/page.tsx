@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { timeAgo } from '@/lib/date'
 import { toast } from 'sonner'
+import { isPushSupported, enablePushNotifications } from '@/lib/push-client'
 
 interface Conversation {
   id: string
@@ -49,6 +50,17 @@ export default function DMPage() {
   const [searchResults, setSearchResults] = useState<SearchUser[]>([])
   const [searching, setSearching] = useState(false)
   const [starting, setStarting] = useState<string | null>(null)
+  const [showPushPrompt, setShowPushPrompt] = useState(false)
+
+  useEffect(() => {
+    if (!isPushSupported() || typeof window === 'undefined') return
+    if (Notification.permission === 'default') {
+      const dismissed = localStorage.getItem('unigram_dm_push_prompt_dismissed')
+      if (!dismissed || Date.now() - parseInt(dismissed, 10) > 7 * 24 * 60 * 60 * 1000) {
+        setShowPushPrompt(true)
+      }
+    }
+  }, [])
 
   const searchRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -138,6 +150,72 @@ export default function DMPage() {
           <Plus size={20} />
         </button>
       </div>
+
+      {/* Push notification banner for DMs */}
+      {showPushPrompt && (
+        <div style={{
+          margin: '0.25rem 1rem 0.85rem',
+          padding: '0.65rem 0.85rem',
+          background: 'rgba(212,175,55,0.08)',
+          border: '1px solid rgba(212,175,55,0.22)',
+          borderRadius: 14,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{ fontSize: '1.15rem' }}>🔔</span>
+            <div style={{ fontSize: '0.78rem', color: 'var(--ink)', lineHeight: 1.35 }}>
+              <strong style={{ display: 'block', fontWeight: 700 }}>Enable chat notifications</strong>
+              <span style={{ color: 'var(--ink-muted)' }}>Get notified on your lock screen when friends reply</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <button
+              onClick={async () => {
+                const res = await enablePushNotifications()
+                if (res.granted) {
+                  setShowPushPrompt(false)
+                  toast.success('Chat alerts active! 📲')
+                } else if (res.error) {
+                  toast.error(res.error)
+                }
+              }}
+              style={{
+                background: 'var(--accent)',
+                color: 'var(--bg)',
+                border: 'none',
+                borderRadius: 9,
+                padding: '0.38rem 0.75rem',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Turn on
+            </button>
+            <button
+              onClick={() => {
+                setShowPushPrompt(false)
+                localStorage.setItem('unigram_dm_push_prompt_dismissed', Date.now().toString())
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--ink-muted)',
+                cursor: 'pointer',
+                padding: '4px',
+                fontSize: '0.85rem',
+              }}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Conversation list */}
       {error ? (

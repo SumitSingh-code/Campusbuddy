@@ -443,14 +443,14 @@ router.post('/:id/comments', async (req, res) => {
 
     // Notify post author if not commenting on own post
     if (post && post.user_id && post.user_id !== req.profile.id) {
-      notify(post.user_id, {
+      await notify(post.user_id, {
         type: 'comment',
         title: `${req.profile.full_name || 'Someone'} commented on your post`,
         body: trimmed.slice(0, 120),
         refId: post.id,
         refType: 'post',
         prefKey: 'comments',
-      }).catch(() => {});
+      });
     }
 
     res.status(201).json({ data: comment });

@@ -18,10 +18,10 @@ if (vapidPublicKey && vapidPrivateKey) {
 }
 
 /**
- * Send push notification to a stored subscription.
+ * Send push notification to a stored subscription with high urgency & timeout protection.
  * @param {object} sub - Stored row from push_subscriptions or standard PushSubscription object
  * @param {object} payload - { title, body, url, icon, badge, tag }
- * @returns {Promise<{ success: boolean, expired?: boolean }>}
+ * @returns {Promise<{ success: boolean, expired?: boolean, error?: string }>}
  */
 async function sendWebPush(sub, payload) {
   if (!sub || !sub.endpoint) return { success: false, error: 'Missing endpoint' };
@@ -43,17 +43,25 @@ async function sendWebPush(sub, payload) {
     tag:   payload.tag   || 'unigram-alert',
   });
 
+  const pushPromise = webpush.sendNotification(pushSubscription, payloadString, {
+    TTL: 60 * 60 * 24, // 24 hours
+    urgency: 'high',   // RFC 8030 high urgency: wakes up mobile device radio immediately
+  });
+
+  // Maximum 2.5s timeout per push to prevent any slow network hanging
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Push gateway timed out after 2.5s')), 2500)
+  );
+
   try {
-    await webpush.sendNotification(pushSubscription, payloadString, {
-      TTL: 60 * 60 * 24, // 24 hours
-    });
+    await Promise.race([pushPromise, timeoutPromise]);
     return { success: true };
   } catch (err) {
     // 410 Gone or 404 Not Found means the user unsubscribed or uninstalled PWA
     if (err.statusCode === 410 || err.statusCode === 404) {
       return { success: false, expired: true, endpoint: sub.endpoint };
     }
-    console.warn('[webpush] sendNotification failed:', err.statusCode, err.message);
+    console.warn('[webpush] sendNotification warning:', err.statusCode || err.message);
     return { success: false, error: err.message };
   }
 }

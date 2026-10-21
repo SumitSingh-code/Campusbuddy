@@ -9,7 +9,7 @@ const router  = express.Router();
 const { authGuard }       = require('../middleware/authGuard');
 const { adminGuard }      = require('../middleware/adminGuard');
 const { supabaseAdmin }   = require('../lib/supabase-admin');
-const { notify }          = require('../lib/notify');
+const { notify, notifyBatch } = require('../lib/notify');
 
 router.use(authGuard);
 
@@ -193,32 +193,30 @@ router.post('/', adminGuard, async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    // Send notification for important or exam/academic notice
+    // Send notification for important or exam/academic notice (awaited batch dispatch)
     if (row && (is_important || pinned || exactCategory === 'holiday' || exactCategory === 'exam')) {
-      (async () => {
-        try {
-          const { data: students } = await supabaseAdmin
-            .from('profiles')
-            .select('id')
-            .eq('status', 'active')
-            .limit(100);
+      try {
+        const { data: students } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('status', 'active')
+          .limit(100);
 
-          for (const s of (students || [])) {
-            if (s.id !== req.profile.id) {
-              notify(s.id, {
-                type: 'notice',
-                title: is_important ? `🚨 Important Notice: ${noticeTitle}` : `📢 Notice: ${noticeTitle}`,
-                body: cleanContent.slice(0, 120),
-                refId: row.id,
-                refType: 'notice',
-                prefKey: 'dept_notices'
-              }).catch(() => {});
-            }
-          }
-        } catch (notifErr) {
-          console.warn('[notices] Broadcast notification error:', notifErr.message);
+        const studentIds = (students || []).map(s => s.id).filter(id => id !== req.profile.id);
+        if (studentIds.length > 0) {
+          const noticeTitle = (title || row.title || '').trim();
+          await notifyBatch(studentIds, {
+            type: 'notice',
+            title: is_important ? `🚨 Important Notice: ${noticeTitle}` : `📢 Notice: ${noticeTitle}`,
+            body: cleanContent.slice(0, 120),
+            refId: row.id,
+            refType: 'notice',
+            prefKey: 'dept_notices'
+          });
         }
-      })();
+      } catch (notifErr) {
+        console.warn('[notices] Broadcast notification error:', notifErr.message);
+      }
     }
 
     res.status(201).json({ data: formatNotice(row) });

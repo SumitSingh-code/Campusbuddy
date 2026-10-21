@@ -9,7 +9,7 @@ const router  = express.Router();
 const { authGuard }     = require('../middleware/authGuard');
 const { adminGuard }    = require('../middleware/adminGuard');
 const { supabaseAdmin } = require('../lib/supabase-admin');
-const { notify }        = require('../lib/notify');
+const { notify, notifyBatch } = require('../lib/notify');
 
 router.use(authGuard);
 
@@ -117,33 +117,30 @@ router.post('/', async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    // Send background notification to department students who opted into resources alerts
-    (async () => {
-      try {
-        const { data: optInUsers } = await supabaseAdmin
-          .from('profiles')
-          .select('id, notification_preferences')
-          .eq('status', 'active')
-          .eq('department', safeDept)
-          .neq('id', req.profile.id)
-          .limit(100);
+    // Send notification to department students who opted into resources alerts (awaited batch dispatch)
+    try {
+      const { data: optInUsers } = await supabaseAdmin
+        .from('profiles')
+        .select('id, notification_preferences')
+        .eq('status', 'active')
+        .eq('department', safeDept)
+        .neq('id', req.profile.id)
+        .limit(100);
 
-        for (const u of (optInUsers || [])) {
-          if (u.notification_preferences?.resources === true) {
-            notify(u.id, {
-              type: 'resource',
-              title: `📖 New Notes: ${safeSubject}`,
-              body: `${row.title} shared for ${safeDept}`,
-              refId: row.id,
-              refType: 'notes',
-              prefKey: 'resources'
-            }).catch(() => {});
-          }
-        }
-      } catch (err) {
-        console.warn('[notes] Opt-in notification dispatch error:', err.message);
+      const userIds = (optInUsers || []).map(u => u.id);
+      if (userIds.length > 0) {
+        await notifyBatch(userIds, {
+          type: 'resource',
+          title: `📖 New Notes: ${safeSubject}`,
+          body: `${row.title} shared for ${safeDept}`,
+          refId: row.id,
+          refType: 'notes',
+          prefKey: 'resources'
+        });
       }
-    })();
+    } catch (err) {
+      console.warn('[notes] Opt-in notification dispatch error:', err.message);
+    }
 
     res.status(201).json({
       data: {

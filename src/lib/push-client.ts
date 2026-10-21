@@ -58,12 +58,19 @@ export async function syncPushSubscription(): Promise<SyncResult> {
   }
 
   try {
-    // 1. Ensure Service Worker is ready
-    let reg = await navigator.serviceWorker.getRegistration()
-    if (!reg) {
-      reg = await navigator.serviceWorker.register('/sw.js')
+    // 1. Ensure Service Worker is registered & ready
+    let reg: ServiceWorkerRegistration
+    try {
+      reg = await navigator.serviceWorker.ready
+    } catch {
+      await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      reg = await navigator.serviceWorker.ready
     }
-    await navigator.serviceWorker.ready
+
+    if (!reg) {
+      await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      reg = await navigator.serviceWorker.ready
+    }
 
     // 2. Fetch VAPID Public Key
     const vapidKey = await getVapidPublicKey()
@@ -77,20 +84,21 @@ export async function syncPushSubscription(): Promise<SyncResult> {
     let sub = await reg.pushManager.getSubscription()
     if (sub) {
       const existingKey = sub.options?.applicationServerKey
-      let matches = false
       if (existingKey) {
         const existingArr = new Uint8Array(existingKey)
-        if (existingArr.byteLength === currentKeyBytes.byteLength) {
-          matches = existingArr.every((val, idx) => val === currentKeyBytes[idx])
+        const matches =
+          existingArr.byteLength === currentKeyBytes.byteLength &&
+          existingArr.every((val, idx) => val === currentKeyBytes[idx])
+
+        if (!matches) {
+          console.log('[push-client] VAPID key updated, refreshing push subscription...')
+          try {
+            await sub.unsubscribe()
+          } catch {}
+          sub = null
         }
       }
-      if (!matches) {
-        console.log('[push-client] VAPID key updated, refreshing push subscription...')
-        try {
-          await sub.unsubscribe()
-        } catch {}
-        sub = null
-      }
+      // If browser doesn't expose applicationServerKey on existing sub, keep existing sub!
     }
 
     // 4. Create fresh subscription if needed

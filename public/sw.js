@@ -1,9 +1,9 @@
-// Unigram — Service Worker v4
+// Unigram — Service Worker v5
 // Minimal SW: only here for PWA installability + Web Push notifications.
 // We intentionally do NOT intercept ANY request — no caching, no offline support for MVP.
 // This avoids the sw.js blocking Supabase auth fetches or Next.js page loads.
 
-const CACHE_NAME = 'unigram-sw-v4';
+const CACHE_NAME = 'unigram-sw-v5';
 
 self.addEventListener('install', () => {
   // Activate immediately — skip waiting for old clients to close
@@ -56,14 +56,19 @@ self.addEventListener('push', (event) => {
 // ─── Notification Click Handler (Deep-link into app) ─────────────────────────
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/feed';
+  const rawUrl = event.notification.data?.url || '/feed';
+  const targetUrl = new URL(rawUrl, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If a tab is already open, focus it and navigate
+      // If a window is already open, focus it and navigate to destination
       for (const client of clientList) {
-        if (client.url.includes(targetUrl) && 'focus' in client) {
-          return client.focus();
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) {
+            return client.navigate(targetUrl);
+          }
+          return;
         }
       }
       // Otherwise open a new window

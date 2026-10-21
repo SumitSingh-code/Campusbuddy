@@ -411,14 +411,14 @@ router.post('/:id/comments', async (req, res) => {
 
     // Notify author of anonymous post (keeps author identity 100% secret)
     if (post && post.user_id && post.user_id !== req.profile.id) {
-      notify(post.user_id, {
+      await notify(post.user_id, {
         type: 'comment',
         title: 'Someone commented on your anonymous post',
         body: trimmed.slice(0, 120),
         refId: post.id,
         refType: 'anon_post',
         prefKey: 'anon_replies',
-      }).catch(() => {});
+      });
     }
 
     const isAdmin = ['moderator', 'super_admin'].includes(req.profile.role);

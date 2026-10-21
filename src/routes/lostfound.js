@@ -10,7 +10,7 @@ const { authGuard }         = require('../middleware/authGuard');
 const { adminGuard }        = require('../middleware/adminGuard');
 const { supabaseAdmin }     = require('../lib/supabase-admin');
 const { containsProfanity } = require('../lib/profanity');
-const { notify }            = require('../lib/notify');
+const { notify, notifyBatch } = require('../lib/notify');
 
 router.use(authGuard);
 
@@ -154,37 +154,34 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: error.message || 'Database error' });
     }
 
-    // Send background notification to users who opted into lost_found alerts
-    (async () => {
-      try {
-        const { data: optInUsers } = await supabaseAdmin
-          .from('profiles')
-          .select('id, notification_preferences')
-          .eq('status', 'active')
-          .neq('id', posterId)
-          .limit(100);
+    // Send notification to users who opted into lost_found alerts (awaited batch dispatch)
+    try {
+      const { data: optInUsers } = await supabaseAdmin
+        .from('profiles')
+        .select('id, notification_preferences')
+        .eq('status', 'active')
+        .neq('id', posterId)
+        .limit(100);
 
-        const heading = type === 'lost'
-          ? `🔍 Lost Item Alert: ${cleanTitle}`
-          : `🎉 Found Item Alert: ${cleanTitle}`;
-        const descSnippet = cleanDesc.slice(0, 100);
+      const heading = type === 'lost'
+        ? `🔍 Lost Item Alert: ${cleanTitle}`
+        : `🎉 Found Item Alert: ${cleanTitle}`;
+      const descSnippet = cleanDesc.slice(0, 100);
 
-        for (const u of (optInUsers || [])) {
-          if (u.notification_preferences?.lost_found === true) {
-            notify(u.id, {
-              type: 'lost_found',
-              title: heading,
-              body: descSnippet,
-              refId: row.id,
-              refType: 'lost_found',
-              prefKey: 'lost_found'
-            }).catch(() => {});
-          }
-        }
-      } catch (err) {
-        console.warn('[lostfound] Opt-in notification dispatch error:', err.message);
+      const userIds = (optInUsers || []).map(u => u.id);
+      if (userIds.length > 0) {
+        await notifyBatch(userIds, {
+          type: 'lost_found',
+          title: heading,
+          body: descSnippet,
+          refId: row.id,
+          refType: 'lost_found',
+          prefKey: 'lost_found'
+        });
       }
-    })();
+    } catch (err) {
+      console.warn('[lostfound] Opt-in notification dispatch error:', err.message);
+    }
 
     res.status(201).json({ data: formatLostItem(row) });
   } catch (err) {

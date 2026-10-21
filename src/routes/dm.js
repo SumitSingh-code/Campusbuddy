@@ -381,8 +381,8 @@ router.post('/conversations/:id/messages', async (req, res) => {
     // Update conversation last_message_at
     supabaseAdmin.from('dm_conversations').update({ last_message_at: msg.created_at }).eq('id', req.params.id).then(() => {});
 
-    // Notify recipient (best-effort)
-    notify(recipientId, {
+    // Notify recipient (awaited to ensure push leaves serverless before response)
+    await notify(recipientId, {
       type:    'dm',
       title:   `New message from ${req.profile.full_name}`,
       body:    trimmed.substring(0, 120),
