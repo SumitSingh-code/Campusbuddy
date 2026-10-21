@@ -14,7 +14,7 @@ export function render() {
         <img src="/icons/icon-192.png" alt="Unigram" class="about-logo">
         <h1 class="about-title">Unigram</h1>
         <p class="about-tagline">Your campus, connected.</p>
-        <div class="about-meta">CRSU · Jind, Haryana · 2025</div>
+        <div class="about-meta">CRSU · Jind, Haryana · 2026</div>
       </div>
 
       <div class="about-section">
@@ -51,7 +51,7 @@ export function render() {
         <img src="/icons/icon-192.png" alt="" class="about-footer-logo">
         <div>
           <div style="font-weight:700;color:var(--ink);">Unigram v1.0</div>
-          <div style="font-size:.75rem;color:var(--ink-muted);">© 2025 Unigram. All rights reserved.</div>
+          <div style="font-size:.75rem;color:var(--ink-muted);">© 2026 Unigram. All rights reserved.</div>
           <div style="font-size:.72rem;color:var(--ink-muted);margin-top:.2rem;">Independent student platform · Not affiliated with CRSU</div>
         </div>
       </div>
