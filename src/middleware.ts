@@ -17,7 +17,16 @@ import { NextRequest, NextResponse } from 'next/server'
 //   the guidelines/legal pages — no cookie checks.
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const host = request.headers.get('host') || ''
+
+  // 301 Permanent Redirect for legacy Vercel domains to consolidate search rank on unigramjind.site
+  if (
+    host.includes('campusbuddy-ochre.vercel.app') ||
+    host.includes('unigram-students.vercel.app')
+  ) {
+    const destination = new URL(request.nextUrl.pathname + request.nextUrl.search, 'https://unigramjind.site')
+    return NextResponse.redirect(destination, 301)
+  }
 
   // Pass through everything — auth is handled client-side by useAuth()
   // (Supabase v2 uses localStorage, not cookies, so server can't check session)
