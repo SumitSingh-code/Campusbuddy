@@ -6,6 +6,7 @@ interface LegalNavProps {
 
 export function LegalNav({ currentPath }: LegalNavProps) {
   const links = [
+    { href: '/faq', title: 'Knowledge Base & FAQ', desc: 'Answers, features & install guide' },
     { href: '/about', title: 'App Info & Story', desc: 'About Unigram & vision' },
     { href: '/terms', title: 'Terms & Conditions', desc: 'Rules & platform agreement' },
     { href: '/privacy', title: 'Privacy Policy', desc: 'DPDP Act 2023 compliance' },

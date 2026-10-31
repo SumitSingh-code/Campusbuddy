@@ -98,6 +98,75 @@ export default function RootLayout({
             __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(e){console.warn('SW reg failed',e);});});}`,
           }}
         />
+
+        {/* Global JSON-LD Entity Schema (WebSite, Organization & WebApplication) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'WebSite',
+                  '@id': 'https://unigramjind.site/#website',
+                  url: 'https://unigramjind.site',
+                  name: 'UniGram',
+                  alternateName: [
+                    'UniGram Jind',
+                    'UniGram CRSU',
+                    'CRSU Student Platform',
+                    'CRSU Student App',
+                  ],
+                  description:
+                    'The independent, privacy-first digital campus network and academic utility platform for students of Chaudhary Ranbir Singh University (CRSU), Jind, Haryana.',
+                  publisher: {
+                    '@id': 'https://unigramjind.site/#organization',
+                  },
+                  inLanguage: ['en-IN', 'hi-IN'],
+                },
+                {
+                  '@type': 'Organization',
+                  '@id': 'https://unigramjind.site/#organization',
+                  name: 'UniGram Student Initiative',
+                  url: 'https://unigramjind.site',
+                  logo: 'https://unigramjind.site/icons/icon-512.png',
+                  description:
+                    'Independent, non-commercial student-led software initiative serving Chaudhary Ranbir Singh University (CRSU), Jind. Not affiliated with or endorsed by official university administration.',
+                  areaServed: {
+                    '@type': 'AdministrativeArea',
+                    name: 'Jind, Haryana, India',
+                  },
+                },
+                {
+                  '@type': 'WebApplication',
+                  '@id': 'https://unigramjind.site/#app',
+                  name: 'UniGram',
+                  url: 'https://unigramjind.site',
+                  applicationCategory: 'EducationalApplication, SocialNetworkingApplication',
+                  operatingSystem: 'All (Web, Android, iOS PWA)',
+                  browserRequirements: 'Requires JavaScript. Requires HTML5.',
+                  offers: {
+                    '@type': 'Offer',
+                    price: '0',
+                    priceCurrency: 'INR',
+                  },
+                  featureList: [
+                    '100% Anonymous Campus Feed',
+                    'Verified CRSU Student Messaging',
+                    '5-Year PYQs & Topper Study Notes Archive',
+                    'Department Notices & Circulars',
+                    'Campus Lost and Found Radar',
+                    'Weekly Lecture Timetable Planner',
+                  ],
+                  installUrl: 'https://unigramjind.site',
+                  author: {
+                    '@id': 'https://unigramjind.site/#organization',
+                  },
+                },
+              ],
+            }),
+          }}
+        />
       </head>
       <body className="antialiased">
         {children}
