@@ -505,6 +505,7 @@ export default function AnonPage() {
                       type="button"
                       onClick={() => handleVote(post.id, 'up', post.my_vote)}
                       aria-label="Upvote"
+                      aria-pressed={post.my_vote === 'up'}
                       className={`${styles.voteButton} inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer ${
                         post.my_vote === 'up'
                           ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
@@ -520,6 +521,7 @@ export default function AnonPage() {
                       type="button"
                       onClick={() => handleVote(post.id, 'down', post.my_vote)}
                       aria-label="Downvote"
+                      aria-pressed={post.my_vote === 'down'}
                       className={`${styles.voteButton} inline-flex items-center px-2.5 py-1 rounded-lg text-xs transition active:scale-95 cursor-pointer ${
                         post.my_vote === 'down'
                           ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
@@ -561,14 +563,14 @@ export default function AnonPage() {
 
         {/* Loading-more spinner */}
         {loadingMore && (
-          <div className="py-6 flex justify-center bg-white">
+          <div className={`${styles.statusLine} flex justify-center`}>
             <div className="spinner" />
           </div>
         )}
 
         {/* End of feed */}
         {!hasMore && posts.length > 0 && (
-          <div className="py-8 text-center text-slate-400 text-xs select-none bg-white">
+          <div className={styles.statusLine}>
             You&apos;re all caught up 🎉
           </div>
         )}

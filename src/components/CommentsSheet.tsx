@@ -1,11 +1,28 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Send, Trash2, Ghost } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
+import {
+  X,
+  Send,
+  Trash2,
+  Ghost,
+  MessageCircle,
+  LockKeyhole,
+} from 'lucide-react'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
-import ConfirmDialog from './ConfirmDialog'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from './ui/alert-dialog'
+import styles from './CommentsSheet.module.css'
 
 interface Comment {
   id: string
@@ -19,10 +36,9 @@ interface Comment {
     avatar_url?: string | null
   } | null
 }
-
 interface CommentsSheetProps {
   postId: string
-  currentUserId?: string | undefined
+  currentUserId?: string
   isAdmin?: boolean
   commentEndpoint?: string
   onClose: () => void
@@ -37,71 +53,102 @@ export default function CommentsSheet({
   onClose,
   onCommentCountChange,
 }: CommentsSheetProps) {
+  const anonymous = commentEndpoint === '/anon'
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [retry, setRetry] = useState(0)
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollAfterSubmit = useRef(false)
+  const openerRef = useRef<HTMLElement | null>(
+    typeof document === 'undefined'
+      ? null
+      : (document.activeElement as HTMLElement)
+  )
 
   useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
-
-  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setLoadError('')
     async function load() {
       try {
-        const res = await api.get<{ data: Comment[] }>(`${commentEndpoint}/${postId}/comments`)
-        setComments(res.data || [])
+        const res = await api.get<{ data: Comment[] }>(
+          `${commentEndpoint}/${postId}/comments`
+        )
+        if (active) setComments(res.data || [])
       } catch {
-        toast.error('Failed to load comments')
+        if (active)
+          setLoadError('Replies could not be loaded. Please try again.')
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
     load()
-  }, [postId])
+    return () => {
+      active = false
+    }
+  }, [postId, commentEndpoint, retry])
+
+  useEffect(() => {
+    if (!scrollAfterSubmit.current) return
+    scrollAfterSubmit.current = false
+    bottomRef.current?.scrollIntoView({
+      block: 'nearest',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'instant'
+        : 'smooth',
+    })
+  }, [comments])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!text.trim() || submitting) return
+    if (!text.trim() || submitting || loading || loadError) return
     setSubmitting(true)
+    setSubmitError('')
     try {
-      const res = await api.post<{ data: Comment }>(`${commentEndpoint}/${postId}/comments`, { content: text.trim() })
+      const res = await api.post<{ data: Comment }>(
+        `${commentEndpoint}/${postId}/comments`,
+        { content: text.trim() }
+      )
       const newComments = [...comments, res.data]
+      scrollAfterSubmit.current = true
       setComments(newComments)
       setText('')
       onCommentCountChange?.(newComments.length)
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to post comment')
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : 'Reply could not be sent. Please try again.'
+      )
     } finally {
       setSubmitting(false)
     }
   }
 
-  async function handleDelete(commentId: string) {
+  async function handleDelete() {
+    if (!deleteId || deleting) return
+    setDeleting(true)
     try {
-      await api.delete(`${commentEndpoint}/${postId}/comments/${commentId}`)
-      const newComments = comments.filter(c => c.id !== commentId)
+      await api.delete(`${commentEndpoint}/${postId}/comments/${deleteId}`)
+      const newComments = comments.filter((c) => c.id !== deleteId)
       setComments(newComments)
       onCommentCountChange?.(newComments.length)
-      toast.success('Comment deleted')
-    } catch {
-      toast.error('Failed to delete comment')
-    } finally {
       setDeleteId(null)
+      toast.success('Reply deleted')
+    } catch {
+      toast.error('Reply could not be deleted. Please try again.')
+    } finally {
+      setDeleting(false)
     }
   }
 
-  function getInitials(name?: string) {
-    if (!name) return '?'
-    return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
-  }
-
-  function formatCommentTime(ts?: string) {
-    if (!ts) return ''
+  function formatCommentTime(ts: string) {
     try {
       return formatDistanceToNow(new Date(ts), { addSuffix: true })
     } catch {
@@ -110,147 +157,225 @@ export default function CommentsSheet({
   }
 
   return (
-    <>
-      <div
-        onClick={e => { if (e.target === e.currentTarget) onClose() }}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 50,
-          background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(4px)',
-        }}
-      />
-      <div
-        style={{
-          position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-          width: '100%', maxWidth: 680, zIndex: 51,
-          background: 'var(--surface)',
-          borderRadius: '20px 20px 0 0',
-          display: 'flex', flexDirection: 'column',
-          maxHeight: '85vh',
-          boxShadow: '0 -8px 40px rgba(0,0,0,.4)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0)',
-          animation: 'sheet-in .25s cubic-bezier(.32,0,.12,1)',
-        }}
-      >
-        <style>{`@keyframes sheet-in{from{transform:translateX(-50%) translateY(100%)}to{transform:translateX(-50%) translateY(0)}}`}</style>
-
-        {/* Handle + Header */}
-        <div style={{ padding: '0.75rem 1rem 0.5rem', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 0.75rem' }} />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1rem', color: 'var(--ink)' }}>
-              Comments {comments.length > 0 ? `(${comments.length})` : ''}
-            </h3>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-muted)', cursor: 'pointer', padding: 6, borderRadius: 8 }}>
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Comments list */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1rem' }}>
-          {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}><div className="spinner" /></div>
-          ) : comments.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--ink-muted)', fontSize: '0.875rem' }}>
-              No comments yet. Be the first!
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className={styles.overlay} />
+        <Dialog.Content
+          className={styles.sheet}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            openerRef.current?.focus()
+          }}
+        >
+          <header className={styles.header}>
+            <div className={styles.handle} aria-hidden="true" />
+            <div className={styles.headingRow}>
+              <span className={styles.headingIcon} aria-hidden="true">
+                {anonymous ? <Ghost size={21} /> : <MessageCircle size={21} />}
+              </span>
+              <div className={styles.headingCopy}>
+                <Dialog.Title className={styles.title}>
+                  {anonymous ? 'Anonymous conversation' : 'Comments'}
+                </Dialog.Title>
+                <Dialog.Description className={styles.subtitle}>
+                  {loading
+                    ? 'Loading replies…'
+                    : loadError
+                      ? 'Unable to load replies'
+                      : `${comments.length} ${comments.length === 1 ? 'reply' : 'replies'} · Keep it respectful`}
+                </Dialog.Description>
+              </div>
+              <Dialog.Close
+                className={styles.iconButton}
+                aria-label="Close conversation"
+              >
+                <X size={20} />
+              </Dialog.Close>
             </div>
-          ) : (
-            comments.map(comment => {
-              const isAnonComment = commentEndpoint.includes('anon') || !comment.author || comment.author.id === 'anonymous'
-              const isOwn = Boolean(comment.is_own || (currentUserId && comment.author?.id && comment.author.id === currentUserId))
-              const authorName = isAnonComment
-                ? 'Anonymous'
-                : (comment.author?.full_name || 'User')
-
-              return (
-                <div key={comment.id} style={{ display: 'flex', gap: 10, marginBottom: '1rem' }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: isAnonComment ? 'var(--bg-muted)' : (comment.author?.avatar_url ? 'transparent' : 'var(--bg-muted)'),
-                    color: 'var(--ink-muted)',
-                    fontWeight: 700, fontSize: isAnonComment ? '1.1rem' : '0.75rem',
-                    overflow: 'hidden',
-                  }}>
-                    {isAnonComment ? (
-                      <Ghost size={16} aria-hidden="true" />
-                    ) : comment.author?.avatar_url ? (
-                      <img src={comment.author.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                    ) : (
-                      getInitials(comment.author?.full_name || '')
-                    )}
-                  </div>
-                  <div style={{ flex: 1, background: 'var(--bg-muted)', borderRadius: '0 12px 12px 12px', padding: '0.5rem 0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--ink)' }}>
-                        {authorName}
-                      </span>
-                      {isAnonComment && isOwn && (
-                        <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'var(--accent-light)', color: 'var(--accent-text)' }}>
-                          You
-                        </span>
-                      )}
-                      <span style={{ fontSize: '0.7rem', color: 'var(--ink-subtle)' }}>
-                        {formatCommentTime(comment.created_at)}
-                      </span>
-                      {(isOwn || isAdmin) && (
-                        <button
-                          onClick={() => setDeleteId(comment.id)}
-                          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}
-                          aria-label="Delete comment"
-                        ><Trash2 size={12} /></button>
-                      )}
-                    </div>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--ink)', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                      {comment.content}
-                    </p>
-                  </div>
-                </div>
-              )
-            })
+          </header>
+          {anonymous && (
+            <p className={styles.identityNotice}>
+              <LockKeyhole size={14} aria-hidden="true" />
+              Your name is hidden here. Identity is stored for moderation.
+            </p>
           )}
-          <div ref={bottomRef} />
-        </div>
-
-        {/* Compose comment */}
-        <form onSubmit={handleSubmit} style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
-          <input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Write a comment..."
-            maxLength={500}
-            style={{
-              flex: 1, padding: '0.6rem 0.875rem', borderRadius: 20,
-              border: '1px solid var(--border)', background: 'var(--bg)',
-              color: 'var(--ink)', fontSize: '0.875rem', outline: 'none',
-              fontFamily: 'inherit',
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!text.trim() || submitting}
-            style={{
-              padding: '0.6rem 1rem', borderRadius: 20, border: 'none', cursor: 'pointer',
-              background: text.trim() ? 'var(--accent)' : 'var(--bg-muted)',
-              color: text.trim() ? 'var(--bg)' : 'var(--ink-subtle)',
-              fontWeight: 700, transition: 'all 0.15s',
-              display: 'flex', alignItems: 'center', gap: 5,
+          <section
+            className={styles.messages}
+            aria-label="Replies"
+            aria-busy={loading}
+          >
+            {loading ? (
+              <div className={styles.state} role="status">
+                <div className="spinner" />
+                <p>Loading the conversation…</p>
+              </div>
+            ) : loadError ? (
+              <div className={styles.state} role="alert">
+                <p>{loadError}</p>
+                <button
+                  className={styles.retryButton}
+                  onClick={() => setRetry((value) => value + 1)}
+                >
+                  Try again
+                </button>
+              </div>
+            ) : comments.length === 0 ? (
+              <div className={styles.state}>
+                <span className={styles.emptyIcon} aria-hidden="true">
+                  <MessageCircle size={26} />
+                </span>
+                <h3>Start the conversation</h3>
+                <p>
+                  {anonymous
+                    ? 'Be the first to reply anonymously.'
+                    : 'Share a thought or ask a question.'}
+                </p>
+              </div>
+            ) : (
+              comments.map((comment) => {
+                const isAnonComment =
+                  anonymous ||
+                  !comment.author ||
+                  comment.author.id === 'anonymous'
+                const isOwn = Boolean(
+                  comment.is_own ||
+                  (currentUserId && comment.author?.id === currentUserId)
+                )
+                const authorName = isAnonComment
+                  ? 'Anonymous'
+                  : comment.author?.full_name || 'User'
+                const initials = authorName
+                  .split(' ')
+                  .map((word) => word[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase()
+                return (
+                  <article
+                    key={comment.id}
+                    className={`${styles.message} ${isOwn ? styles.ownMessage : ''}`}
+                  >
+                    <span className={styles.avatar} aria-hidden="true">
+                      {isAnonComment ? (
+                        <Ghost size={17} />
+                      ) : comment.author?.avatar_url ? (
+                        <img src={comment.author.avatar_url} alt="" />
+                      ) : (
+                        initials
+                      )}
+                    </span>
+                    <div className={styles.bubble}>
+                      <div className={styles.messageMeta}>
+                        <strong>{authorName}</strong>
+                        {isOwn && <span className={styles.youBadge}>You</span>}
+                        <time dateTime={comment.created_at}>
+                          {formatCommentTime(comment.created_at)}
+                        </time>
+                        {(isOwn || isAdmin) && (
+                          <button
+                            className={`${styles.iconButton} ${styles.deleteButton}`}
+                            onClick={() => setDeleteId(comment.id)}
+                            aria-label="Delete reply"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                      <p>{comment.content}</p>
+                    </div>
+                  </article>
+                )
+              })
+            )}
+            <div ref={bottomRef} />
+          </section>
+          <form
+            onSubmit={handleSubmit}
+            className={styles.composer}
+            aria-label="Write a reply"
+          >
+            <div className={styles.composerLabel}>
+              <label htmlFor="conversation-reply">
+                {anonymous ? 'Reply anonymously' : 'Write a reply'}
+              </label>
+              <span>{text.length}/500</span>
+            </div>
+            <textarea
+              id="conversation-reply"
+              value={text}
+              onChange={(event) => {
+                setText(event.target.value)
+                setSubmitError('')
+              }}
+              placeholder={
+                anonymous ? 'Add to the conversation…' : 'Write your reply…'
+              }
+              maxLength={500}
+              rows={2}
+              disabled={submitting}
+              aria-describedby={submitError ? 'reply-error' : undefined}
+              aria-invalid={!!submitError}
+            />
+            {submitError && (
+              <p id="reply-error" className={styles.error} role="alert">
+                {submitError}
+              </p>
+            )}
+            <div className={styles.composerFooter}>
+              <span>
+                {anonymous ? (
+                  <>
+                    <Ghost size={14} aria-hidden="true" />
+                    Posting as Anonymous
+                  </>
+                ) : (
+                  'Posting with your profile'
+                )}
+              </span>
+              <button
+                type="submit"
+                className={styles.sendButton}
+                disabled={!text.trim() || submitting || loading || !!loadError}
+              >
+                <Send size={15} aria-hidden="true" />
+                {submitting ? 'Sending…' : 'Send reply'}
+              </button>
+            </div>
+          </form>
+          <AlertDialog
+            open={!!deleteId}
+            onOpenChange={(open) => {
+              if (!open && !deleting) setDeleteId(null)
             }}
           >
-            <Send size={14} />
-          </button>
-        </form>
-      </div>
-
-      {deleteId && (
-        <ConfirmDialog
-          title="Delete comment?"
-          message="This cannot be undone."
-          confirmLabel="Delete"
-          onConfirm={() => handleDelete(deleteId)}
-          onCancel={() => setDeleteId(null)}
-        />
-      )}
-    </>
+            <AlertDialogContent>
+              <AlertDialogTitle>Delete reply?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This cannot be undone.
+              </AlertDialogDescription>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={deleting}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    handleDelete()
+                  }}
+                >
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
