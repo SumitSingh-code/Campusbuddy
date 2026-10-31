@@ -3,8 +3,11 @@ import { ArrowLeft, Shield, Scale, AlertTriangle, FileText, CheckCircle2, Ban, L
 import { LegalNav } from '@/components/legal/LegalNav'
 
 export const metadata = {
-  title: 'Terms & Conditions — Unigram',
-  description: 'Terms of Service and Intermediary User Agreement for the Unigram student platform (CRSU Jind).',
+  title: 'Terms & Conditions — UniGram CRSU',
+  description: 'Terms of Service and Intermediary User Agreement for the UniGram student platform (CRSU Jind, unigramjind.site).',
+  alternates: {
+    canonical: 'https://unigramjind.site/terms',
+  },
 }
 
 export default function TermsPage() {

@@ -13,8 +13,11 @@ function InstagramIcon({ size = 15, style }: { size?: number; style?: React.CSSP
 }
 
 export const metadata = {
-  title: 'Grievance Redressal & Contact — Unigram',
-  description: 'Official Grievance Redressal mechanism for Unigram compliant with Rule 3(2) of the Information Technology Rules, 2021.',
+  title: 'Grievance Redressal & Contact — UniGram CRSU',
+  description: 'Official Grievance Redressal mechanism for UniGram (unigramjind.site) compliant with Rule 3(2) of the Information Technology Rules, 2021.',
+  alternates: {
+    canonical: 'https://unigramjind.site/contact',
+  },
 }
 
 export default function ContactPage() {

@@ -3,8 +3,11 @@ import { ArrowLeft, Shield, CheckCircle2, XCircle, AlertTriangle, Lock, Eye, Fla
 import { LegalNav } from '@/components/legal/LegalNav'
 
 export const metadata = {
-  title: 'Community Guidelines — Unigram',
-  description: 'Community standards, anti-ragging zero tolerance, and student conduct guidelines for Unigram (CRSU Jind).',
+  title: 'Community Guidelines — UniGram CRSU',
+  description: 'Community standards, anti-ragging zero tolerance, and student conduct guidelines for UniGram (CRSU Jind, unigramjind.site).',
+  alternates: {
+    canonical: 'https://unigramjind.site/guidelines',
+  },
 }
 
 export default function GuidelinesPage() {

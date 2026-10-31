@@ -3,8 +3,11 @@ import { ArrowLeft, Shield, Lock, Eye, Database, Trash2, CheckCircle2, AlertCirc
 import { LegalNav } from '@/components/legal/LegalNav'
 
 export const metadata = {
-  title: 'Privacy Policy — Unigram',
-  description: 'Privacy Policy and Data Protection standards for the Unigram student platform (CRSU Jind), compliant with DPDP Act 2023.',
+  title: 'Privacy Policy — UniGram CRSU',
+  description: 'Privacy Policy and Data Protection standards for the UniGram student platform (CRSU Jind, unigramjind.site), compliant with DPDP Act 2023.',
+  alternates: {
+    canonical: 'https://unigramjind.site/privacy',
+  },
 }
 
 export default function PrivacyPage() {
