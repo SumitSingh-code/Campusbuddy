@@ -442,13 +442,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .post-card button[aria-label="Post options"] { width: 40px; height: 40px; display: grid; place-items: center; }
 .post-card button[aria-label="Post options"]:hover { background: var(--bg-muted) !important; color: var(--ink) !important; }
 .post-card button:active { transform: scale(.97); }
-.feed-composer { scroll-margin-top: 72px; }
+.feed-composer {
+  scroll-margin-top: 72px;
+  margin: 16px 12px 20px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--accent-light) 45%, var(--surface));
+  box-shadow: 0 3px 12px var(--accent-ring);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.feed-composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.feed-composer-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.feed-composer-heading label { color: var(--ink); font-size: 14px; font-weight: 700; }
+.feed-composer-heading span { color: var(--ink-muted); font-size: 11px; font-weight: 600; }
+.feed-composer-identity { margin: 8px 0 0 48px; color: var(--ink-muted); font-size: 11px; }
+.feed-composer textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+.feed-composer button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .feed-strip-wrapper { top: calc(56px + env(safe-area-inset-top, 0px)) !important; background: var(--surface) !important; border-bottom: 1px solid var(--border) !important; }
 .feed-pill-btn { min-height: 38px !important; border-radius: 10px !important; font-size: 12px !important; }
 .feed-pill-active { background: var(--accent-light) !important; color: var(--accent-text) !important; }
 .feed-pill-inactive { background: transparent !important; color: var(--ink-muted) !important; }
 .feed-pill-inactive:hover { background: var(--bg-muted) !important; color: var(--ink) !important; }
-.feed-composer textarea { min-height: 52px; }
+.feed-composer textarea { min-height: 76px; }
 .feed-composer button[type="submit"] { min-height: 38px; border-radius: 10px !important; }
 .feed-composer button[type="button"] { width: 40px; height: 40px; justify-content: center; }
 .official-notice-card { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: none !important; }

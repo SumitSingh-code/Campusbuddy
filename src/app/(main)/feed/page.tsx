@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Link from 'next/link'
 import { ImagePlus, X, Send, Bell, Plus, Trash2, FileText, Sparkles, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
@@ -14,6 +13,7 @@ import ReportDialog from '@/components/ReportDialog'
 import EditPostDialog from '@/components/EditPostDialog'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
+import FeedModeToggle from '@/components/FeedModeToggle'
 
 export type FeedFilterType =
   | 'all'
@@ -343,15 +343,7 @@ export default function FeedPage() {
   return (
     <div>
       {/* ── TOP HORIZONTAL FILTER STRIP ("Campus Pulse") ── */}
-      {!isNoticeView && <section className="feed-page-intro">
-        <div><h1>Campus, in the loop.</h1><p>Good things happen when we keep each other posted.</p></div>
-        <span className="feed-campus-mark" aria-hidden="true"><span /></span>
-      </section>}
-      {!isNoticeView && <nav className="feed-pulse-links" aria-label="Explore campus spaces">
-        <Link href="/anon"><span className="pulse-link-mark pulse-anon" />Anonymous conversations</Link>
-        <Link href="/notices"><span className="pulse-link-mark pulse-notices" />Campus notices</Link>
-        <Link href="/notes"><span className="pulse-link-mark pulse-notes" />Study library</Link>
-      </nav>}
+      <FeedModeToggle />
       <div className="feed-strip-wrapper">
         <div className="feed-strip-container">
           {PILLS.map(pill => {
@@ -393,7 +385,11 @@ export default function FeedPage() {
 
       {/* ── COMPOSER BOX (Shown on Feed tabs: 'all' and 'dept') ── */}
       {!isNoticeView && (
-        <form id="composer" className="feed-composer" onSubmit={handleCompose} style={{ borderBottom: '1px solid var(--border)', padding: '1rem', background: 'var(--surface)' }}>
+        <form id="composer" className="feed-composer" onSubmit={handleCompose} aria-label="Create a public post">
+          <div className="feed-composer-heading">
+            <label htmlFor="public-post-message">Share with your campus</label>
+            <span>Public post</span>
+          </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{
               width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
@@ -406,8 +402,10 @@ export default function FeedPage() {
                 : avatarInitials
               }
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <textarea
+                id="public-post-message"
+                aria-describedby="public-post-identity"
                 value={composeText}
                 onChange={e => setComposeText(e.target.value)}
                 placeholder={activeFilter === 'dept' ? `Share something with ${profile?.department || 'your department'}… 💬` : "What's happening on campus? 👋"}
@@ -438,11 +436,13 @@ export default function FeedPage() {
               )}
             </div>
           </div>
+          <p id="public-post-identity" className="feed-composer-identity">Posting as {profile?.full_name || 'your profile'}</p>
           <div style={{ display: 'flex', alignItems: 'center', marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} style={{ display: 'none' }} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
+              aria-label="Attach an image"
               style={{ background: 'none', border: 'none', color: 'var(--ink-muted)', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex' }}
             >
               <ImagePlus size={18} />
@@ -460,7 +460,7 @@ export default function FeedPage() {
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
                 background: canSubmit ? 'var(--accent)' : 'var(--bg-muted)',
-                color: canSubmit ? 'var(--bg)' : 'var(--ink-subtle)',
+                color: canSubmit ? '#1b2340' : 'var(--ink-subtle)',
                 fontWeight: 700, fontSize: '0.875rem', transition: 'all 0.15s',
               }}
             >

@@ -34,12 +34,16 @@
 
 .composer {
   margin-top: 0;
-  padding: 10px;
-  border: 1px solid #e5ebf2;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--border));
   border-radius: 17px;
-  background: #fff;
-  box-shadow: 0 3px 12px rgb(27 47 74 / 4%);
+  background: color-mix(in srgb, var(--accent-light) 45%, var(--surface));
+  box-shadow: 0 3px 12px var(--accent-ring);
+  scroll-margin-top: 72px;
+  transition: border-color .18s ease, box-shadow .18s ease;
 }
+.composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.composer :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
 .composerTop { gap: 10px; }
 .composerAvatar, .emptyAvatar, .avatar {
   display: grid;
@@ -54,10 +58,10 @@
   box-shadow: none;
 }
 .textarea {
-  min-height: 43px;
+  min-height: 76px;
   padding: 1px 0;
-  color: #26364a;
-  font-size: 13px;
+  color: var(--ink);
+  font-size: 14px;
   line-height: 1.5;
 }
 .textarea::placeholder { color: #8a99ad; opacity: 1; }
@@ -83,8 +87,8 @@
   color: #53657e;
   font-size: 11px;
 }
-.submitButton:not(:disabled) { background: var(--anon-orange); color: #fff; }
-.submitButton:not(:disabled):hover { background: #dc7908; color: #fff; }
+.submitButton:not(:disabled) { background: var(--accent); color: #1b2340; }
+.submitButton:not(:disabled):hover { background: var(--accent-hover); color: #1b2340; }
 .submitButton:disabled { background: #f0f3f7; color: #98a5b5; opacity: 1; }
 
 .moderation {

@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import styles from './anon-feed.module.css'
+import FeedModeToggle from '@/components/FeedModeToggle'
 
 interface AnonPost {
   id: string
@@ -297,6 +298,7 @@ export default function AnonPage() {
         └─────────────────────────────────────────────────────────────┘
       */}
       <div className={styles.page}>
+        <FeedModeToggle anonymous />
 
         {/* ══ SUBHEADER + COMPOSER (Stitch: section.bg-white px-4 pt-3 pb-3) ══ */}
         <section className={`${styles.header} bg-white px-4 pt-3 pb-3 border-b border-slate-100`}>
@@ -308,9 +310,9 @@ export default function AnonPage() {
               <div className={styles.titleIcon}>
                 <GhostIcon className="w-5 h-5" />
               </div>
-              <h1 className={`${styles.pageTitle} text-base font-bold text-slate-900 tracking-tight`}>
-                Anonymous Feed
-              </h1>
+              <label htmlFor="anonymous-post-message" className={`${styles.pageTitle} text-base font-bold text-slate-900 tracking-tight`}>
+                Share anonymously
+              </label>
             </div>
             {/* Posts counter pill — Stitch: px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/70 text-[11px] font-medium text-slate-500 */}
             <div className={`${styles.counter} px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/70 text-[11px] font-medium text-slate-500 select-none`} aria-label={postsToday === null ? 'Daily limit: 3 posts' : `${postsToday} of 3 posts today`}>
@@ -320,6 +322,8 @@ export default function AnonPage() {
 
           {/* Composer box — Stitch: mt-1 bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-3 */}
           <form
+            id="composer"
+            aria-label="Create an anonymous post"
             onSubmit={handleCompose}
             className={`${styles.composer} mt-1 bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-3`}
           >
@@ -331,6 +335,8 @@ export default function AnonPage() {
               {/* Textarea */}
               <div className="flex-1 min-w-0">
                 <textarea
+                  id="anonymous-post-message"
+                  aria-describedby="anonymous-post-moderation"
                   value={composeText}
                   onChange={e => setComposeText(e.target.value)}
                   placeholder={canPost ? 'Share something anonymously...' : 'Daily limit reached (3/3 posts)'}
@@ -345,14 +351,12 @@ export default function AnonPage() {
             {/* Actions bar — Stitch: mt-2.5 pt-2 border-t border-slate-100 flex justify-between items-center */}
             <div className={`${styles.composerFooter} mt-2.5 pt-2 border-t border-slate-100 flex justify-between items-center`}>
               {/* Masked Identity label — Stitch: button.inline-flex.items-center.space-x-1.5.text-xs.text-slate-400 */}
-              <button
-                type="button"
+              <span
                 className={`${styles.maskedIdentity} inline-flex items-center text-xs text-slate-400 hover:text-slate-600 transition cursor-default`}
-                tabIndex={-1}
               >
                 <MaskIcon className="w-4 h-4" />
                 <span>Masked Identity</span>
-              </button>
+              </span>
 
               {/* Post button — Stitch: inline-flex items-center space-x-1.5 px-4 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-500 rounded-full text-xs font-semibold transition-all shadow-sm active:scale-95 */}
               <button
@@ -382,7 +386,7 @@ export default function AnonPage() {
         <section className={`${styles.moderation} bg-amber-50/70 border-y border-amber-100/90 px-4 py-2.5`}>
           <div className={`${styles.moderationText} flex items-center space-x-2 text-amber-900/80 text-[11px] leading-relaxed`}>
             <LockKeyhole className={styles.lockIcon} aria-hidden="true" />
-            <p>Posts appear anonymous but your identity is stored for moderation. Violations can be traced.</p>
+            <p id="anonymous-post-moderation">Posts appear anonymous but your identity is stored for moderation. Violations can be traced.</p>
           </div>
         </section>
         {/* ══ END MODERATION NOTICE ══ */}
