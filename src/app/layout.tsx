@@ -3,9 +3,55 @@ import { Toaster } from 'sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Unigram',
-  description: 'Unigram — your campus social hub. Feed, DMs, PYQs, notices, timetable, notes & more.',
+  metadataBase: new URL('https://unigramjind.site'),
+  title: {
+    default: 'UniGram — CRSU Campus Social Hub & Student Portal',
+    template: '%s | UniGram CRSU',
+  },
+  description:
+    'UniGram is the official campus social network and academic portal for Chaudhary Ranbir Singh University (CRSU), Jind. Anonymous feed, verified student DMs, PYQs, topper notes, lost & found, and notices.',
+  keywords: [
+    'CRSU',
+    'CRSU Jind',
+    'Chaudhary Ranbir Singh University',
+    'UniGram',
+    'UniGram Jind',
+    'CRSU PYQ',
+    'CRSU Question Papers',
+    'CRSU Notes',
+    'CRSU Campus',
+    'CRSU Student Portal',
+  ],
+  authors: [{ name: 'UniGram Team' }],
+  creator: 'UniGram',
+  publisher: 'UniGram',
   manifest: '/manifest.json',
+  alternates: {
+    canonical: 'https://unigramjind.site',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_IN',
+    url: 'https://unigramjind.site',
+    title: 'UniGram — CRSU Campus Social Hub & Student Portal',
+    description:
+      'The all-in-one digital campus hub for Chaudhary Ranbir Singh University (CRSU), Jind. 100% Anonymous Feed, PYQs, Notes, Safe DMs & Lost & Found.',
+    siteName: 'UniGram',
+    images: [
+      {
+        url: '/icons/icon-512.png',
+        width: 512,
+        height: 512,
+        alt: 'UniGram CRSU',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'UniGram — CRSU Campus Hub',
+    description: 'Chaudhary Ranbir Singh University (CRSU) Jind student portal and social network.',
+    images: ['/icons/icon-512.png'],
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
