@@ -441,11 +441,11 @@ export default function TimetablePage() {
           <div className="timetable-empty-icon">
             <CalendarDays size={36} />
           </div>
-          <h3 className="timetable-empty-title">No Timetable Published Yet</h3>
+          <h3 className="timetable-empty-title">Uploading Soon 📅</h3>
           <p className="timetable-empty-desc">
             {isAdmin
               ? `There is no timetable uploaded for ${effectiveDept} (${selectedYearTab}).`
-              : `The official timetable for ${effectiveDept} has not been published yet by the department office. Please check back later.`}
+              : `Timetable for ${effectiveDept} (${selectedYearTab}) is being uploaded soon. Please check back shortly.`}
           </p>
           {isAdmin && (
             <button className="timetable-empty-action" onClick={handleOpenAdd}>

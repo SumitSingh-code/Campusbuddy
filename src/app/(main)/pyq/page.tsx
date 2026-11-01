@@ -366,14 +366,16 @@ export default function PYQPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="pyq-empty">
-          <FileText size={42} strokeWidth={1.2} />
-          <h3 className="pyq-empty-title">No Question Papers Found</h3>
+          <FileText size={42} strokeWidth={1.5} />
+          <h3 className="pyq-empty-title">
+            {searchQuery ? 'No Question Papers Found' : 'Uploading Soon 📄'}
+          </h3>
           <p className="pyq-empty-desc">
             {searchQuery
               ? `No PYQs matched "${searchQuery}". Try searching a different keyword.`
               : filterSem !== 'All'
-              ? `No PYQs uploaded yet for Semester ${filterSem}.`
-              : `No question papers published for ${studentDept || 'this department'} yet.`}
+              ? `Previous year question papers for ${studentDept || 'your stream'} (Semester ${filterSem}) are being uploaded soon.`
+              : `Previous year question papers for ${studentDept || 'your stream'} are being uploaded soon. Check back shortly!`}
           </p>
           <div className="pyq-empty-actions">
             {(searchQuery || filterSem !== 'All') && (

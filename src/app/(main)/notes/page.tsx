@@ -149,9 +149,16 @@ export default function NotesPage() {
         </div>
       ) : notes.length === 0 ? (
         <div className="notes-empty">
-          <BookOpen size={36} strokeWidth={1.2} />
-          <p>No notes found</p>
-          <button className="notes-upload-btn" onClick={() => setUploadOpen(true)}>Share first notes</button>
+          <BookOpen size={36} strokeWidth={1.5} />
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Uploading Soon 📚</h3>
+          <p style={{ fontSize: '0.84rem', color: 'var(--ink-muted)', maxWidth: 360, margin: '0 auto', lineHeight: 1.5 }}>
+            {filterDept !== 'All'
+              ? `Study notes for ${filterDept}${filterSem !== 'All' ? ` (Semester ${filterSem})` : ''} are being uploaded soon.`
+              : 'Study notes for your stream are being uploaded soon. Check back shortly!'}
+          </p>
+          <button className="notes-upload-btn" onClick={() => setUploadOpen(true)} style={{ marginTop: '0.5rem' }}>
+            Have notes? Upload &amp; Share
+          </button>
         </div>
       ) : (
         <div className="notes-list">
