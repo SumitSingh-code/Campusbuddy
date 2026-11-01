@@ -224,9 +224,9 @@ function SignupContent() {
                 <input type="text" value={rollNumber} onChange={e => setRollNumber(e.target.value)} placeholder="e.g. 22MCA001" required style={inp} />
               </div>
               <div>
-                <label style={lbl}>Department</label>
+                <label style={lbl}>Stream / Department</label>
                 <select value={department} onChange={e => setDepartment(e.target.value)} required style={{ ...inp, appearance: 'none' as const }}>
-                  <option value="">Select department</option>
+                  <option value="">Select Stream / Department</option>
                   {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>

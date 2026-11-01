@@ -1,22 +1,36 @@
 /**
  * Central University Constants
- * Single source of truth for Chaudhary Ranbir Singh University (CRSU) departments.
- * Includes all active registered departments and university faculties without duplication.
+ * Single source of truth for Chaudhary Ranbir Singh University (CRSU) streams and departments.
+ * Includes all active registered streams and university faculties without duplication.
  */
 
 export const DEPARTMENTS = [
+  // Primary Student Streams (Top Priority)
+  'B.Tech',
+  'BCA',
+  'MCA',
+  'B.Com',
+  'BA',
+  'BBA',
+  'LLB',
+  'Hotel Management',
+  'Mass Communication',
+
+  // Postgraduate & Specialized Programs
+  'MBA',
+  'M.Sc',
+  'MA',
+
+  // University Engineering & Science Departments
   'Computer Science & Engineering',
-  'Computer science and applications',
-  'DCSA (B.tech AI & ML)',
   'Information Technology',
   'Electronics & Communication Engineering',
   'Electrical Engineering',
   'Mechanical Engineering',
   'Civil Engineering',
-  'Commerce',
-  'Management',
+
+  // University Academic Faculties
   'Economics',
-  'Law',
   'Mathematics',
   'Physics',
   'Chemistry',
