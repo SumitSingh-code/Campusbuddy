@@ -19,14 +19,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch handler is required for the PWA "Add to Home Screen" install prompt.
-// We return early WITHOUT calling event.respondWith() — this means the browser
-// handles every request natively. The SW acts as a pure pass-through.
-// DO NOT add event.respondWith() here — it was blocking Supabase auth requests.
-self.addEventListener('fetch', () => {
-  // Intentionally empty — browser handles all requests natively.
-});
-
 // ─── Web Push Notifications Handler ──────────────────────────────────────────
 self.addEventListener('push', (event) => {
   let data = {};

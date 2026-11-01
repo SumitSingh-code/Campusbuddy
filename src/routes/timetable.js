@@ -91,6 +91,33 @@ function formatTimetableRow(row) {
   };
 }
 
+// ─── In-memory cache for department list (avoids querying profiles on every request) ─
+let _cachedDepts = null;
+let _lastDeptFetch = 0;
+const DEPT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function getRegisteredDepartments() {
+  const now = Date.now();
+  if (_cachedDepts && (now - _lastDeptFetch < DEPT_CACHE_TTL_MS)) {
+    return _cachedDepts;
+  }
+
+  try {
+    const { data: profileDepts } = await supabaseAdmin
+      .from('profiles')
+      .select('department')
+      .not('department', 'is', null);
+
+    const registeredDepts = Array.from(new Set((profileDepts || []).map(p => p.department).filter(Boolean)));
+    _cachedDepts = Array.from(new Set([...registeredDepts, ...OFFICIAL_DEPARTMENTS]));
+    _lastDeptFetch = now;
+    return _cachedDepts;
+  } catch (err) {
+    console.error('[timetable] getRegisteredDepartments error:', err);
+    return OFFICIAL_DEPARTMENTS;
+  }
+}
+
 // ─── GET / & GET /mine — Fetch department timetables ────────────────────────
 async function getTimetablesHandler(req, res) {
   try {
@@ -98,14 +125,8 @@ async function getTimetablesHandler(req, res) {
     const isAdmin = ['moderator', 'super_admin'].includes(role);
     const userDept = req.profile?.department || '';
 
-    // Fetch all registered departments from profiles table so any student's department is guaranteed to be present
-    const { data: profileDepts } = await supabaseAdmin
-      .from('profiles')
-      .select('department')
-      .not('department', 'is', null);
-
-    const registeredDepts = Array.from(new Set((profileDepts || []).map(p => p.department).filter(Boolean)));
-    const allDepartments = Array.from(new Set([...registeredDepts, ...OFFICIAL_DEPARTMENTS]));
+    // Fetch registered departments with 5-minute memory caching
+    const allDepartments = await getRegisteredDepartments();
 
     let query = supabaseAdmin
       .from('timetables')
