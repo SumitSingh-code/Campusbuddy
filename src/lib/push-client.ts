@@ -105,7 +105,7 @@ export async function syncPushSubscription(): Promise<SyncResult> {
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: currentKeyBytes,
+        applicationServerKey: currentKeyBytes as unknown as BufferSource,
       })
     }
 
