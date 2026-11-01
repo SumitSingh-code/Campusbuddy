@@ -10,6 +10,7 @@ export interface GoldenBadgeRecipient {
 }
 
 export const GOLDEN_BADGE_RECIPIENTS: GoldenBadgeRecipient[] = [
+  { rank: 0,  id: '2154f319-4fa7-47e0-8bae-968baef0a165', roll_number: '242068',     full_name: 'Krish',             department: 'BCA' },
   { rank: 1,  id: '6f46d17e-244c-4a66-97b3-6df1645cd78c', roll_number: '242072',     full_name: 'somay Kumar',       department: 'BCA' },
   { rank: 2,  id: 'ab9edf42-9333-4540-b059-90a83ee58ede', roll_number: '242052',     full_name: 'Sonam Kaushik',     department: 'Computer science and applications' },
   { rank: 3,  id: 'b6784ff5-c71d-41fe-acbd-ce5de364ec70', roll_number: '240112',     full_name: 'Tushar',            department: 'DCSA (B.tech AI & ML)' },
