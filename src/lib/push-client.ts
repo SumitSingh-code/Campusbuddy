@@ -119,6 +119,9 @@ export async function syncPushSubscription(): Promise<SyncResult> {
     return { success: true, subscription: sub.toJSON() }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Push registration failed'
+    if (msg.includes('token') || msg.includes('401') || msg.includes('UNAUTHORIZED') || msg.includes('expired')) {
+      return { success: false, reason: 'failed', error: 'Session expired or not authenticated' }
+    }
     console.error('[push-client] syncPushSubscription error:', err)
     return { success: false, reason: 'failed', error: msg }
   }

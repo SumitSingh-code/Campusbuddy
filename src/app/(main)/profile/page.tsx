@@ -72,7 +72,9 @@ export default function ProfilePage() {
           setCoverUrl(configRes.data.cover_url || configRes.data.profile_cover_url)
         }
       } catch (e: unknown) {
-        if (!cancelled) toast.error((e as Error).message || 'Failed to load profile')
+        const msg = (e as Error).message || 'Failed to load profile'
+        if (msg.includes('token') || msg.includes('expired') || msg.includes('Unauthorized')) return
+        if (!cancelled) toast.error(msg)
       } finally {
         if (!cancelled) setLoading(false)
       }

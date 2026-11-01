@@ -112,6 +112,7 @@ export default function FeedPage() {
       setHasMore(res.has_more)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load feed'
+      if (msg.includes('token') || msg.includes('expired') || msg.includes('Unauthorized')) return
       if (initial) setError(msg)
       else toast.error(msg)
     } finally {

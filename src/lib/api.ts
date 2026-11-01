@@ -1,28 +1,120 @@
 import { supabase } from './supabase'
 
-// ─── Token Helper ─────────────────────────────────────────────────
-async function getToken(forceRefresh = false): Promise<string | null> {
-  let { data: { session } } = await supabase.auth.getSession()
+// ─── Concurrency Mutex & Expiry Debounce ──────────────────────────
+let activeRefreshPromise: Promise<string | null> | null = null
+let isHandlingExpiry = false
 
-  const nowSec = Math.floor(Date.now() / 1000)
-  const isExpired = session?.expires_at ? (session.expires_at <= nowSec) : false
-  const isExpiringSoon = session?.expires_at ? (session.expires_at - nowSec < 60) : false
+/**
+ * Cleanly resets the local session and redirects the user if on a protected route.
+ * Debounced so multiple concurrent 401s do not trigger duplicate redirects.
+ */
+export async function handleSessionExpired() {
+  if (isHandlingExpiry) return
+  isHandlingExpiry = true
 
-  if (forceRefresh || !session?.access_token || isExpiringSoon || isExpired) {
+  try {
+    // 1. Clear local Supabase auth session (scope: 'local' does not kill other devices)
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch {
+      /* ignore */
+    }
+
+    // 2. Clear storage keys
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('cw_auth_token')
+        localStorage.removeItem('cw_profile')
+      } catch {
+        /* ignore */
+      }
+
+      // 3. Dispatch event so AuthContext immediately synchronizes React state
+      window.dispatchEvent(new CustomEvent('unigram:session-expired'))
+
+      // 4. Redirect only if currently on a protected route
+      const pathname = window.location.pathname
+      const publicPrefixes = [
+        '/login',
+        '/signup',
+        '/forgot-password',
+        '/terms',
+        '/privacy',
+        '/faq',
+        '/guidelines',
+        '/contact',
+      ]
+      const isPublic = publicPrefixes.some(
+        p => pathname === p || pathname.startsWith(p + '/')
+      )
+
+      if (!isPublic) {
+        const redirectUrl = encodeURIComponent(pathname + window.location.search)
+        window.location.href = `/login?reason=session_expired&redirect=${redirectUrl}`
+      }
+    }
+  } finally {
+    setTimeout(() => {
+      isHandlingExpiry = false
+    }, 2500)
+  }
+}
+
+// ─── Single-Flight Token Refresh Helper ────────────────────────────
+async function executeTokenRefresh(): Promise<string | null> {
+  if (activeRefreshPromise) return activeRefreshPromise
+
+  activeRefreshPromise = (async () => {
     try {
       const { data, error } = await supabase.auth.refreshSession()
-      if (!error && data?.session?.access_token) {
-        session = data.session
-      } else if (isExpired) {
-        session = null
+      if (error || !data?.session?.access_token) {
+        console.warn('[API] Refresh token rejected or expired on server:', error?.message)
+        return null
       }
+      return data.session.access_token
     } catch (e) {
       console.warn('[API] Token refresh attempt failed:', e)
-      if (isExpired) session = null
+      return null
+    } finally {
+      activeRefreshPromise = null
     }
+  })()
+
+  return activeRefreshPromise
+}
+
+// ─── Token Helper ─────────────────────────────────────────────────
+async function getToken(forceRefresh = false): Promise<string | null> {
+  if (forceRefresh) {
+    return executeTokenRefresh()
   }
 
-  return session?.access_token || null
+  // If a refresh is already in-flight from another concurrent call, await it!
+  if (activeRefreshPromise) {
+    return activeRefreshPromise
+  }
+
+  let session = null
+  try {
+    const res = await supabase.auth.getSession()
+    session = res.data?.session
+  } catch (e) {
+    console.warn('[API] Error retrieving session:', e)
+  }
+
+  if (!session?.access_token) {
+    return null
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000)
+  const isExpired = session.expires_at ? session.expires_at <= nowSec : false
+  const isExpiringSoon = session.expires_at ? session.expires_at - nowSec < 60 : false
+
+  if (isExpired || isExpiringSoon) {
+    return executeTokenRefresh()
+  }
+
+  return session.access_token
 }
 
 // ─── Request Helper ──────────────────────────────────────────────
@@ -56,6 +148,9 @@ async function request<T = unknown>(
     if (freshToken && freshToken !== token) {
       return request<T>(method, path, body, { retried: true })
     }
+
+    // Refresh failed or token was permanently rejected by server -> clean recovery
+    handleSessionExpired()
   }
 
   let data: Record<string, unknown>

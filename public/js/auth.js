@@ -38,6 +38,7 @@ export const Auth = {
         _user    = null;
         _profile = null;
         localStorage.removeItem('cw_profile');
+        localStorage.removeItem('cw_auth_token');
         _notify(event);
       } else if (event === 'PASSWORD_RECOVERY') {
         _notify('PASSWORD_RECOVERY');
@@ -134,10 +135,11 @@ export const Auth = {
 
   // ── Sign out ───────────────────────────────────────────────────────────────
   async signOut() {
-    await supabase.auth.signOut();
+    try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
     _user    = null;
     _profile = null;
     localStorage.removeItem('cw_profile');
+    localStorage.removeItem('cw_auth_token');
     window.location.href = '/login';
   },
 
@@ -189,6 +191,8 @@ async function _fetchProfile() {
       _user = null;
       _profile = null;
       localStorage.removeItem('cw_profile');
+      localStorage.removeItem('cw_auth_token');
+      try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
       return null;
     }
 

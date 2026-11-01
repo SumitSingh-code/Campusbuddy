@@ -3,32 +3,74 @@
 import supabase from './supabase.js';
 import Config from './config.js';
 
+let activeRefreshPromise = null;
+let isHandlingExpiry = false;
+
+export async function handleSessionExpired() {
+  if (isHandlingExpiry) return;
+  isHandlingExpiry = true;
+
+  try {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (_) {}
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('cw_auth_token');
+        localStorage.removeItem('cw_profile');
+      } catch (_) {}
+
+      const pathname = window.location.pathname;
+      const isPublic = ['/login', '/signup', '/auth.html', '/forgot-password'].some(
+        p => pathname === p || pathname.startsWith(p)
+      );
+
+      if (!isPublic) {
+        window.location.href = `/login?reason=session_expired&redirect=${encodeURIComponent(pathname + window.location.search)}`;
+      }
+    }
+  } finally {
+    setTimeout(() => { isHandlingExpiry = false; }, 2500);
+  }
+}
+
 // Get valid access token, auto-refreshing if expired or about to expire
 async function getToken(forceRefresh = false) {
+  if (forceRefresh && activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
   let { data: { session } } = await supabase.auth.getSession();
 
   const nowSec = Math.floor(Date.now() / 1000);
   const isExpired = session?.expires_at ? (session.expires_at <= nowSec) : false;
   const isExpiringSoon = session?.expires_at ? (session.expires_at - nowSec < 60) : false;
 
-  if (forceRefresh || !session?.access_token || isExpiringSoon || isExpired) {
+  if (!forceRefresh && !isExpired && !isExpiringSoon && session?.access_token) {
+    return session.access_token;
+  }
+
+  activeRefreshPromise = (async () => {
     try {
       const { data, error } = await supabase.auth.refreshSession();
       if (!error && data?.session?.access_token) {
-        session = data.session;
-      } else {
-        // If refresh failed and token was expired, clear dead session reference
-        if (isExpired) {
-          session = null;
-        }
+        return data.session.access_token;
       }
+      return null;
     } catch (e) {
       console.warn('[API] Token refresh attempt failed:', e);
-      if (isExpired) session = null;
+      return null;
+    } finally {
+      activeRefreshPromise = null;
     }
-  }
+  })();
 
-  return session?.access_token || null;
+  return activeRefreshPromise;
 }
 
 async function request(method, path, body = null, opts = {}) {
@@ -55,6 +97,8 @@ async function request(method, path, body = null, opts = {}) {
     if (freshToken && freshToken !== token) {
       return request(method, path, body, { ...opts, token: freshToken, _retried: true });
     }
+    // Refresh failed or token was permanently rejected on server -> clean recovery
+    handleSessionExpired();
   }
 
   let data;

@@ -159,14 +159,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function init() {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error } = await supabase.auth.getSession()
         if (!mounted) return
-        if (session?.user) {
-          setUser(session.user)
-          await fetchProfile(session.user)
-        } else {
+
+        if (error || !session?.user) {
+          setUser(null)
+          setProfile(null)
           setProfileChecked(true)
+          return
         }
+
+        // Verify if session token has already expired locally
+        const nowSec = Math.floor(Date.now() / 1000)
+        if (session.expires_at && session.expires_at <= nowSec) {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          if (!mounted) return
+          if (refreshError || !refreshData?.session?.user) {
+            console.warn('[Auth] Session expired and cannot be refreshed on init:', refreshError?.message)
+            setUser(null)
+            setProfile(null)
+            localStorage.removeItem('cw_profile')
+            localStorage.removeItem('cw_auth_token')
+            setProfileChecked(true)
+            return
+          }
+          setUser(refreshData.session.user)
+          await fetchProfile(refreshData.session.user)
+          return
+        }
+
+        setUser(session.user)
+        await fetchProfile(session.user)
       } catch (err) {
         console.error('[Auth] Init error:', err)
         if (mounted) setProfileChecked(true)
@@ -190,15 +213,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfileChecked(false)
           setIsProfileLoading(false)
           localStorage.removeItem('cw_profile')
+          localStorage.removeItem('cw_auth_token')
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           setUser(session.user)
         }
       }
     )
 
+    // Listen for custom session-expired event dispatched by api.ts
+    const onSessionExpired = () => {
+      if (!mounted) return
+      setUser(null)
+      setProfile(null)
+      setProfileChecked(true)
+      setIsProfileLoading(false)
+      localStorage.removeItem('cw_profile')
+      localStorage.removeItem('cw_auth_token')
+    }
+    window.addEventListener('unigram:session-expired', onSessionExpired)
+
+    // Listen for cross-tab logouts
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'cw_auth_token' && !e.newValue) {
+        if (!mounted) return
+        setUser(null)
+        setProfile(null)
+        setProfileChecked(true)
+      }
+    }
+    window.addEventListener('storage', onStorage)
+
     return () => {
       mounted = false
       subscription.unsubscribe()
+      window.removeEventListener('unigram:session-expired', onSessionExpired)
+      window.removeEventListener('storage', onStorage)
     }
   }, [fetchProfile])
 
@@ -235,10 +284,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api.post('/auth/signup', { ...profileData, email, auth_provider: 'email' })
     } catch (profileErr) {
-      try { await supabase.auth.signOut() } catch { /* ignore */ }
+      try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* ignore */ }
       setUser(null)
       setProfile(null)
       localStorage.removeItem('cw_profile')
+      localStorage.removeItem('cw_auth_token')
       throw profileErr
     }
     await fetchProfile(data.user)
@@ -266,10 +316,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, fetchProfile])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch {
+      /* ignore */
+    }
     setUser(null)
     setProfile(null)
+    setProfileChecked(false)
+    setIsProfileLoading(false)
     localStorage.removeItem('cw_profile')
+    localStorage.removeItem('cw_auth_token')
   }, [])
 
   const refreshProfile = useCallback(async () => {

@@ -8,10 +8,11 @@ import { useAuth } from '@/lib/auth-context'
 import { AuthHero } from '@/components/auth/AuthHero'
 
 function LoginContent() {
-  const { signInWithEmail, signInWithGoogle, isLoggedIn, isLoading, isProfileLoading, profile, needsProfile } = useAuth()
+  const { signInWithEmail, signInWithGoogle, signOut, isLoggedIn, isLoading, isProfileLoading, profile, needsProfile } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTarget = searchParams.get('redirect')
+  const reason = searchParams.get('reason')
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -19,7 +20,17 @@ function LoginContent() {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
 
+  // If arriving due to an expired/revoked session, purge dead local credentials
   useEffect(() => {
+    if (reason === 'session_expired') {
+      signOut().catch(() => {})
+    }
+  }, [reason, signOut])
+
+  useEffect(() => {
+    // If arriving because session expired, do not auto-redirect back!
+    if (reason === 'session_expired') return
+
     if (isLoading || isProfileLoading) return
     if (!isLoggedIn) return
     if (needsProfile) { router.replace('/signup?step=profile'); return }
@@ -28,13 +39,13 @@ function LoginContent() {
       router.replace('/pending?status=' + profile.status); return
     }
     if (profile) {
-      if (redirectTarget && redirectTarget.startsWith('/')) {
+      if (redirectTarget && redirectTarget.startsWith('/') && !redirectTarget.startsWith('/login')) {
         router.replace(redirectTarget)
       } else {
         router.replace('/feed')
       }
     }
-  }, [isLoading, isProfileLoading, isLoggedIn, profile, needsProfile, router, redirectTarget])
+  }, [isLoading, isProfileLoading, isLoggedIn, profile, needsProfile, router, redirectTarget, reason])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -86,6 +97,28 @@ function LoginContent() {
               Sign in to your Unigram account
             </p>
           </div>
+
+          {/* Session Expired / Switch Device Banner */}
+          {reason === 'session_expired' && (
+            <div
+              style={{
+                padding: '0.75rem 0.875rem',
+                borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.22)',
+                color: '#dc2626',
+                fontSize: '0.82rem',
+                lineHeight: 1.45,
+                marginBottom: '1.1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+              }}
+            >
+              <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⏱️</span>
+              <span>Your session expired or your account was active on another device. Please sign in to continue.</span>
+            </div>
+          )}
 
           {/* Google */}
           <button
