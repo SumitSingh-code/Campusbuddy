@@ -8,6 +8,8 @@ import { api } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { timeAgo } from '@/lib/date'
 import { toast } from 'sonner'
+import { GoldenTick } from '@/components/ui/GoldenTick'
+import { isGoldenVerified } from '@/lib/badges'
 
 interface Message {
   id: string
@@ -192,7 +194,12 @@ export default function DMThreadPage() {
               }
             </div>
             <div>
-              <div className="thread-user-name">{other.full_name}</div>
+              <div className="thread-user-name" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span>{other.full_name}</span>
+                {isGoldenVerified(other) && (
+                  <GoldenTick size={15} title="Haryana Day Early Bird Pioneer · Golden Badge" />
+                )}
+              </div>
               {other.department && <div className="thread-user-dept">{other.department}</div>}
             </div>
           </div>

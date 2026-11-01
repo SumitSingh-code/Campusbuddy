@@ -14,6 +14,8 @@ import ReportDialog from '@/components/ReportDialog'
 import EditPostDialog from '@/components/EditPostDialog'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
+import { GoldenTick } from '@/components/ui/GoldenTick'
+import { isGoldenVerified } from '@/lib/badges'
 
 interface ProfileData {
   id: string
@@ -258,10 +260,18 @@ export default function ProfilePage() {
 
         <div className="prof-name-row">
           <h1 className="prof-name">{profile?.full_name}</h1>
+          {isGoldenVerified(profile || authProfile) && (
+            <GoldenTick size={20} title="Haryana Day Early Bird Pioneer · Golden Badge" />
+          )}
           {profile?.role && getRoleBadge(profile.role) && (
             <span className="prof-role-badge">{getRoleBadge(profile.role)}</span>
           )}
         </div>
+        {isGoldenVerified(profile || authProfile) && (
+          <div style={{ marginTop: '0.35rem', marginBottom: '0.25rem' }}>
+            <GoldenTick showLabel label="Early Bird Pioneer 🌟" size={14} />
+          </div>
+        )}
         <div className="prof-roll">{profile?.roll_number} · {profile?.department}</div>
         {profile?.bio && <p className="prof-bio">{profile.bio}</p>}
         {profile?.phone_number && (

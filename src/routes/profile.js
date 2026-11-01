@@ -23,7 +23,7 @@ router.get('/me', async (req, res) => {
         id, full_name, roll_number, department, phone_number, email,
         bio, avatar_url, karma, posts_count, notes_uploaded,
         auth_provider, status, role, must_change_password,
-        created_at, updated_at
+        notification_preferences, created_at, updated_at
       `)
       .eq('id', req.profile.id)
       .single();
@@ -209,7 +209,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, department, bio, avatar_url, karma, posts_count, notes_uploaded, created_at')
+      .select('id, full_name, roll_number, department, bio, avatar_url, karma, posts_count, notes_uploaded, notification_preferences, created_at')
       .eq('id', req.params.id)
       .eq('status', 'active')
       .single();

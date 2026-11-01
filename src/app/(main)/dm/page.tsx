@@ -8,6 +8,8 @@ import { api } from '@/lib/api'
 import { timeAgo } from '@/lib/date'
 import { toast } from 'sonner'
 import { isPushSupported, enablePushNotifications } from '@/lib/push-client'
+import { GoldenTick } from '@/components/ui/GoldenTick'
+import { isGoldenVerified } from '@/lib/badges'
 
 interface Conversation {
   id: string
@@ -262,6 +264,9 @@ export default function DMPage() {
                   <div className="dm-row-top">
                     <div className="dm-row-name-wrap">
                       <span className="dm-row-name">{other.full_name}</span>
+                      {isGoldenVerified(other) && (
+                        <GoldenTick size={14} title="Haryana Day Early Bird Pioneer · Golden Badge" />
+                      )}
                       {other.department && (
                         <span className="dm-row-dept-badge" title={other.department}>
                           {other.department}

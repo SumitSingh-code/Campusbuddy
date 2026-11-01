@@ -4,6 +4,8 @@ import { formatDistanceToNow } from 'date-fns'
 import { MoreHorizontal, ThumbsUp, ThumbsDown, MessageCircle, Flag, Pencil, Trash2, Link2, Ghost } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu'
 import { toast } from 'sonner'
+import { GoldenTick } from './ui/GoldenTick'
+import { isGoldenVerified } from '@/lib/badges'
 
 export interface Post {
   id: string
@@ -134,8 +136,11 @@ export default function PostCard({
             {isAnon && !isOwn ? (
               <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)' }}>Anonymous</span>
             ) : (
-              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)' }}>
-                {author?.full_name || 'Unknown'}
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <span>{author?.full_name || 'Unknown'}</span>
+                {!isAnon && author && isGoldenVerified(author) && (
+                  <GoldenTick size={16} title="Haryana Day Early Bird Pioneer · Golden Badge" />
+                )}
               </span>
             )}
             {isOwn && isAnon && (

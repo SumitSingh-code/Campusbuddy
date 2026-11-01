@@ -14,6 +14,8 @@ import EditPostDialog from '@/components/EditPostDialog'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
 import FeedModeToggle from '@/components/FeedModeToggle'
+import { GoldenTick } from '@/components/ui/GoldenTick'
+import { isGoldenVerified } from '@/lib/badges'
 
 export type FeedFilterType =
   | 'all'
@@ -437,7 +439,12 @@ export default function FeedPage() {
               )}
             </div>
           </div>
-          <p id="public-post-identity" className="feed-composer-identity">Posting as {profile?.full_name || 'your profile'}</p>
+          <p id="public-post-identity" className="feed-composer-identity" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span>Posting as {profile?.full_name || 'your profile'}</span>
+            {isGoldenVerified(profile) && (
+              <GoldenTick size={14} title="Haryana Day Early Bird Pioneer · Golden Badge" />
+            )}
+          </p>
           <div style={{ display: 'flex', alignItems: 'center', marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} style={{ display: 'none' }} />
             <button

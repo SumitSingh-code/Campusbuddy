@@ -23,6 +23,8 @@ import {
   AlertDialogAction,
 } from './ui/alert-dialog'
 import styles from './CommentsSheet.module.css'
+import { GoldenTick } from './ui/GoldenTick'
+import { isGoldenVerified } from '@/lib/badges'
 
 interface Comment {
   id: string
@@ -271,7 +273,12 @@ export default function CommentsSheet({
                     </span>
                     <div className={styles.bubble}>
                       <div className={styles.messageMeta}>
-                        <strong>{authorName}</strong>
+                        <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span>{authorName}</span>
+                          {!isAnonComment && comment.author && isGoldenVerified(comment.author) && (
+                            <GoldenTick size={14} title="Haryana Day Early Bird Pioneer · Golden Badge" />
+                          )}
+                        </strong>
                         {isOwn && <span className={styles.youBadge}>You</span>}
                         <time dateTime={comment.created_at}>
                           {formatCommentTime(comment.created_at)}

@@ -9,6 +9,8 @@ import PostCard, { type Post } from '@/components/PostCard'
 import CommentsSheet from '@/components/CommentsSheet'
 import ReportDialog from '@/components/ReportDialog'
 import { toast } from 'sonner'
+import { GoldenTick } from '@/components/ui/GoldenTick'
+import { isGoldenVerified } from '@/lib/badges'
 
 interface OtherProfile {
   id: string
@@ -143,10 +145,18 @@ export default function UserProfilePage() {
         </div>
         <div className="up-name-row">
           <h1 className="up-name">{profile?.full_name}</h1>
+          {isGoldenVerified(profile) && (
+            <GoldenTick size={20} title="Haryana Day Early Bird Pioneer · Golden Badge" />
+          )}
           {profile?.role && getRoleBadge(profile.role) && (
             <span className="up-role-badge">{getRoleBadge(profile.role)}</span>
           )}
         </div>
+        {isGoldenVerified(profile) && (
+          <div style={{ marginTop: '0.35rem', marginBottom: '0.25rem' }}>
+            <GoldenTick showLabel label="Early Bird Pioneer 🌟" size={14} />
+          </div>
+        )}
         <div className="up-roll">{profile?.roll_number} · {profile?.department}</div>
         {profile?.bio && <p className="up-bio">{profile.bio}</p>}
 
