@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Send, Loader2, Reply, X, CheckCheck } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, Reply, X, CheckCheck, MoreVertical, Ban, ShieldCheck, ShieldAlert, UserRound } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -90,6 +90,18 @@ export default function DMThreadPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [activeMsgId, setActiveMsgId] = useState<string | null>(null)
 
+  const [blockState, setBlockState] = useState<{
+    isBlocked: boolean
+    blockedByMe: boolean
+    blockedByOther: boolean
+  }>({ isBlocked: false, blockedByMe: false, blockedByOther: false })
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [blockModalOpen, setBlockModalOpen] = useState(false)
+  const [unblockModalOpen, setUnblockModalOpen] = useState(false)
+  const [blocking, setBlocking] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
   const currentUserIdRef = useRef<string | null>(null)
   currentUserIdRef.current = user?.id || profile?.id || null
 
@@ -175,10 +187,20 @@ export default function DMThreadPage() {
         const res = await api.get<{
           data?: Message[]
           other_user?: ConvInfo['other_user']
+          is_blocked?: boolean
+          blocked_by_me?: boolean
+          blocked_by_other?: boolean
         }>(`/dm/conversations/${conversationId}`)
         if (cancelled) return
         if (res.other_user) {
           setConvInfo({ id: conversationId, other_user: res.other_user as ConvInfo['other_user'] })
+        }
+        if (typeof res.is_blocked === 'boolean') {
+          setBlockState({
+            isBlocked: Boolean(res.is_blocked),
+            blockedByMe: Boolean(res.blocked_by_me),
+            blockedByOther: Boolean(res.blocked_by_other),
+          })
         }
         const msgs = ((res.data as Message[]) || []).map(m => {
           const parsed = parseRawContent(m.content)
@@ -200,6 +222,18 @@ export default function DMThreadPage() {
     load()
     return () => { cancelled = true }
   }, [conversationId])
+
+  // Close options dropdown on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const onPointerDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    window.addEventListener('mousedown', onPointerDown)
+    return () => window.removeEventListener('mousedown', onPointerDown)
+  }, [menuOpen])
 
   // Scroll to bottom on initial load
   useEffect(() => {
@@ -346,7 +380,51 @@ export default function DMThreadPage() {
     }
   }
 
+  async function handleBlockUser() {
+    if (!other?.id || blocking) return
+    setBlocking(true)
+    try {
+      await api.post(`/dm/block/${other.id}`, {})
+      setBlockState({
+        isBlocked: true,
+        blockedByMe: true,
+        blockedByOther: false,
+      })
+      setBlockModalOpen(false)
+      setMenuOpen(false)
+      toast.success(`${other.full_name} has been blocked.`)
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to block user')
+    } finally {
+      setBlocking(false)
+    }
+  }
+
+  async function handleUnblockUser() {
+    if (!other?.id || blocking) return
+    setBlocking(true)
+    try {
+      await api.post(`/dm/unblock/${other.id}`, {})
+      setBlockState({
+        isBlocked: false,
+        blockedByMe: false,
+        blockedByOther: false,
+      })
+      setUnblockModalOpen(false)
+      setMenuOpen(false)
+      toast.success(`${other.full_name} has been unblocked.`)
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to unblock user')
+    } finally {
+      setBlocking(false)
+    }
+  }
+
   async function sendMessage() {
+    if (blockState.isBlocked) {
+      toast.error(blockState.blockedByMe ? 'You have blocked this user. Unblock to send a message.' : 'Cannot message this user.')
+      return
+    }
     const text = contentRef.current.trim()
     if (!text) return
     const tempContent = text
@@ -497,27 +575,79 @@ export default function DMThreadPage() {
         </button>
 
         {other ? (
-          <Link href={`/profile/${other.id}`} className="ig-user-profile-btn" aria-label={`View ${other.full_name}'s profile`}>
-            <div className="ig-header-avatar">
-              {other.avatar_url ? (
-                <img src={other.avatar_url} alt={other.full_name} className="ig-avatar-img" />
-              ) : (
-                <span className="ig-avatar-fallback">{getInitials(other.full_name)}</span>
-              )}
-            </div>
-
-            <div className="ig-header-meta">
-              <div className="ig-header-name">
-                <span className="truncate">{other.full_name}</span>
-                {isGoldenVerified(other) && (
-                  <GoldenTick size={15} title="Haryana Day Pioneer · Golden Tick" />
+          <>
+            <Link href={`/profile/${other.id}`} className="ig-user-profile-btn" aria-label={`View ${other.full_name}'s profile`}>
+              <div className="ig-header-avatar">
+                {other.avatar_url ? (
+                  <img src={other.avatar_url} alt={other.full_name} className="ig-avatar-img" />
+                ) : (
+                  <span className="ig-avatar-fallback">{getInitials(other.full_name)}</span>
                 )}
               </div>
-              <div className="ig-header-subtitle">
-                {other.department ? other.department : 'CRSU Student'}
+
+              <div className="ig-header-meta">
+                <div className="ig-header-name">
+                  <span className="truncate">{other.full_name}</span>
+                  {isGoldenVerified(other) && (
+                    <GoldenTick size={15} title="Haryana Day Pioneer · Golden Tick" />
+                  )}
+                </div>
+                <div className="ig-header-subtitle">
+                  {other.department ? other.department : 'CRSU Student'}
+                </div>
               </div>
+            </Link>
+
+            <div className="ig-header-actions" ref={menuRef}>
+              <button
+                type="button"
+                className="ig-options-btn"
+                onClick={() => setMenuOpen(prev => !prev)}
+                aria-label="Chat options"
+              >
+                <MoreVertical size={20} />
+              </button>
+
+              {menuOpen && (
+                <div className="ig-options-menu">
+                  <Link
+                    href={`/profile/${other.id}`}
+                    className="ig-options-item"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <UserRound size={16} />
+                    <span>View Profile</span>
+                  </Link>
+
+                  {blockState.blockedByMe ? (
+                    <button
+                      type="button"
+                      className="ig-options-item ig-options-item--success"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        setUnblockModalOpen(true)
+                      }}
+                    >
+                      <ShieldCheck size={16} />
+                      <span>Unblock User</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ig-options-item ig-options-item--danger"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        setBlockModalOpen(true)
+                      }}
+                    >
+                      <Ban size={16} />
+                      <span>Block User</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          </Link>
+          </>
         ) : (
           <div className="ig-header-skeleton">
             <div className="ig-sk-avatar" />
@@ -665,50 +795,148 @@ export default function DMThreadPage() {
 
       {/* Docked Reply Bar & Capsule Composer */}
       <footer className="ig-composer-footer">
-        {replyingTo && (
-          <div className="ig-docked-reply">
-            <div className="ig-docked-reply-accent" />
-            <div className="ig-docked-reply-info">
-              <div className="ig-docked-reply-title">
-                <Reply size={11} />
-                <span>
-                  Replying to <strong>{replyingTo.sender_id === myId ? 'yourself' : (other?.full_name || 'them')}</strong>
-                </span>
-              </div>
-              <div className="ig-docked-reply-preview">
-                {replyingTo.content.slice(0, 90)}
+        {blockState.isBlocked ? (
+          <div className="ig-blocked-banner">
+            <div className="ig-blocked-banner-content">
+              <ShieldAlert size={19} className="ig-blocked-icon" />
+              <div className="ig-blocked-meta">
+                {blockState.blockedByMe ? (
+                  <>
+                    <strong>You blocked {other?.full_name || 'this user'}.</strong>
+                    <span>You won&apos;t receive their messages or notifications.</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>Messaging unavailable.</strong>
+                    <span>You cannot send messages to this account.</span>
+                  </>
+                )}
               </div>
             </div>
-            <button
-              className="ig-docked-reply-close"
-              onClick={() => setReplyingTo(null)}
-              aria-label="Cancel reply"
-            >
-              <X size={15} />
-            </button>
+            {blockState.blockedByMe && (
+              <button
+                type="button"
+                className="ig-unblock-pill-btn"
+                onClick={() => setUnblockModalOpen(true)}
+              >
+                Unblock
+              </button>
+            )}
           </div>
-        )}
+        ) : (
+          <>
+            {replyingTo && (
+              <div className="ig-docked-reply">
+                <div className="ig-docked-reply-accent" />
+                <div className="ig-docked-reply-info">
+                  <div className="ig-docked-reply-title">
+                    <Reply size={11} />
+                    <span>
+                      Replying to <strong>{replyingTo.sender_id === myId ? 'yourself' : (other?.full_name || 'them')}</strong>
+                    </span>
+                  </div>
+                  <div className="ig-docked-reply-preview">
+                    {replyingTo.content.slice(0, 90)}
+                  </div>
+                </div>
+                <button
+                  className="ig-docked-reply-close"
+                  onClick={() => setReplyingTo(null)}
+                  aria-label="Cancel reply"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            )}
 
-        <div className={`ig-capsule-box ${replyingTo ? 'has-reply-dock' : ''}`}>
-          <textarea
-            ref={textareaRef}
-            className="ig-capsule-textarea"
-            placeholder={replyingTo ? "Write a reply…" : "Message…"}
-            value={content}
-            onChange={autoResize}
-            onKeyDown={onKeyDown}
-            rows={1}
-          />
-          <button
-            className={`ig-capsule-send-btn ${content.trim() ? 'can-send' : ''}`}
-            onClick={sendMessage}
-            disabled={!content.trim()}
-            aria-label="Send message"
-          >
-            <Send size={15} />
-          </button>
-        </div>
+            <div className={`ig-capsule-box ${replyingTo ? 'has-reply-dock' : ''}`}>
+              <textarea
+                ref={textareaRef}
+                className="ig-capsule-textarea"
+                placeholder={replyingTo ? "Write a reply…" : "Message…"}
+                value={content}
+                onChange={autoResize}
+                onKeyDown={onKeyDown}
+                rows={1}
+              />
+              <button
+                className={`ig-capsule-send-btn ${content.trim() ? 'can-send' : ''}`}
+                onClick={sendMessage}
+                disabled={!content.trim()}
+                aria-label="Send message"
+              >
+                <Send size={15} />
+              </button>
+            </div>
+          </>
+        )}
       </footer>
+
+      {/* Block Confirmation Modal */}
+      {blockModalOpen && other && (
+        <div className="ig-modal-backdrop" onClick={() => !blocking && setBlockModalOpen(false)}>
+          <div className="ig-modal-dialog" onClick={e => e.stopPropagation()}>
+            <div className="ig-modal-icon-wrap ig-modal-icon-wrap--danger">
+              <Ban size={28} />
+            </div>
+            <h3 className="ig-modal-title">Block {other.full_name}?</h3>
+            <p className="ig-modal-desc">
+              They will not be able to message you or see your online activity on Unigram. You can unblock them at any time.
+            </p>
+            <div className="ig-modal-actions">
+              <button
+                type="button"
+                className="ig-modal-btn ig-modal-btn--cancel"
+                disabled={blocking}
+                onClick={() => setBlockModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ig-modal-btn ig-modal-btn--danger"
+                disabled={blocking}
+                onClick={handleBlockUser}
+              >
+                {blocking ? 'Blocking…' : 'Block User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unblock Confirmation Modal */}
+      {unblockModalOpen && other && (
+        <div className="ig-modal-backdrop" onClick={() => !blocking && setUnblockModalOpen(false)}>
+          <div className="ig-modal-dialog" onClick={e => e.stopPropagation()}>
+            <div className="ig-modal-icon-wrap ig-modal-icon-wrap--accent">
+              <ShieldCheck size={28} />
+            </div>
+            <h3 className="ig-modal-title">Unblock {other.full_name}?</h3>
+            <p className="ig-modal-desc">
+              They will be able to send you messages and see your profile again on Unigram.
+            </p>
+            <div className="ig-modal-actions">
+              <button
+                type="button"
+                className="ig-modal-btn ig-modal-btn--cancel"
+                disabled={blocking}
+                onClick={() => setUnblockModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ig-modal-btn ig-modal-btn--primary"
+                disabled={blocking}
+                onClick={handleUnblockUser}
+              >
+                {blocking ? 'Unblocking…' : 'Unblock'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{igThreadStyles}</style>
     </div>
@@ -1307,4 +1535,246 @@ const igThreadStyles = `
 .ig-capsule-send-btn:not(:disabled):active {
   transform: scale(0.92);
 }
+
+/* ─── Header Options & Block Menu ──────────────────────────────────── */
+.ig-header-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.ig-options-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.ig-options-btn:hover {
+  background: var(--bg-muted);
+}
+.ig-options-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.14), 0 8px 10px -6px rgba(0,0,0,0.08);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: igDropdownIn .16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes igDropdownIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ig-options-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 550;
+  color: var(--ink);
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s ease, color .12s ease;
+}
+.ig-options-item:hover {
+  background: var(--bg-muted);
+}
+.ig-options-item--danger {
+  color: #EF4444;
+}
+.ig-options-item--danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+.ig-options-item--success {
+  color: #10B981;
+}
+.ig-options-item--success:hover {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+/* ─── Blocked Composer Banner ──────────────────────────────────────── */
+.ig-blocked-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface2, rgba(0,0,0,0.03));
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  min-height: 50px;
+}
+.ig-blocked-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.ig-blocked-icon {
+  color: #EF4444;
+  flex-shrink: 0;
+}
+.ig-blocked-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ig-blocked-meta strong {
+  font-size: 0.84rem;
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.ig-blocked-meta span {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  line-height: 1.25;
+}
+.ig-unblock-pill-btn {
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #382606;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity .15s ease, transform .12s ease;
+}
+.ig-unblock-pill-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+/* ─── Modal Dialogs (Block / Unblock) ──────────────────────────────── */
+.ig-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: igBackdropIn .18s ease-out;
+}
+@keyframes igBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.ig-modal-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  max-width: 380px;
+  width: 100%;
+  padding: 24px;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.25);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: igModalPop .2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes igModalPop {
+  from { opacity: 0; transform: scale(0.93) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.ig-modal-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.ig-modal-icon-wrap--danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+}
+.ig-modal-icon-wrap--accent {
+  background: var(--accent-light, rgba(212, 175, 55, 0.15));
+  color: var(--accent-text, #92600F);
+}
+.ig-modal-title {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: var(--ink);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.ig-modal-desc {
+  font-size: 0.84rem;
+  color: var(--ink-muted);
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+.ig-modal-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.ig-modal-btn {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 13px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s ease, transform .12s ease;
+}
+.ig-modal-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ig-modal-btn--cancel {
+  border: 1px solid var(--border);
+  background: var(--surface2, rgba(0,0,0,0.05));
+  color: var(--ink);
+}
+.ig-modal-btn--cancel:hover:not(:disabled) {
+  background: var(--border);
+}
+.ig-modal-btn--danger {
+  border: none;
+  background: #EF4444;
+  color: #FFFFFF;
+}
+.ig-modal-btn--danger:hover:not(:disabled) {
+  opacity: 0.92;
+}
+.ig-modal-btn--primary {
+  border: none;
+  background: var(--accent);
+  color: #382606;
+}
+.ig-modal-btn--primary:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
 `

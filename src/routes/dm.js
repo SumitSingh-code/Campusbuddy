@@ -51,24 +51,89 @@ function parseMessageContent(rawContent) {
   return { text: rawContent, replyTo: null };
 }
 
-/**
- * Returns true if either user has blocked the other.
- * NOTE: 'blocks' table is not yet in schema.sql — returns false (fail-open)
- * until the table is created; will auto-enforce once it exists.
- */
-async function isBlocked(uid1, uid2) {
+// ─── Block & Safety Helpers (Backed by app_config user_blocks) ───────────────
+let _blocksCache = null;
+let _blocksCacheTime = 0;
+
+async function getAllBlocks() {
+  const now = Date.now();
+  if (_blocksCache && now - _blocksCacheTime < 8000) {
+    return _blocksCache;
+  }
   try {
     const { data, error } = await supabaseAdmin
-      .from('blocks')
-      .select('id')
-      .or(`and(blocker_id.eq.${uid1},blocked_id.eq.${uid2}),and(blocker_id.eq.${uid2},blocked_id.eq.${uid1})`)
-      .limit(1)
+      .from('app_config')
+      .select('value')
+      .eq('key', 'user_blocks')
       .maybeSingle();
-    if (error) return false;
-    return !!data;
-  } catch {
-    return false;
+
+    if (error || !data?.value) {
+      _blocksCache = [];
+    } else {
+      _blocksCache = Array.isArray(data.value) ? data.value : JSON.parse(data.value || '[]');
+    }
+  } catch (e) {
+    _blocksCache = [];
   }
+  _blocksCacheTime = now;
+  return _blocksCache;
+}
+
+async function saveAllBlocks(blocks) {
+  _blocksCache = blocks;
+  _blocksCacheTime = Date.now();
+  try {
+    await supabaseAdmin
+      .from('app_config')
+      .upsert({
+        key: 'user_blocks',
+        value: JSON.stringify(blocks),
+        updated_at: new Date().toISOString(),
+      });
+  } catch (err) {
+    console.error('[dm saveAllBlocks error]', err);
+  }
+}
+
+async function getBlockStatus(uid1, uid2) {
+  if (!uid1 || !uid2) return { isBlocked: false, blockedByMe: false, blockedByOther: false };
+  const blocks = await getAllBlocks();
+  const blockedByMe = blocks.some(b => b.blocker_id === uid1 && b.blocked_id === uid2);
+  const blockedByOther = blocks.some(b => b.blocker_id === uid2 && b.blocked_id === uid1);
+  return {
+    isBlocked: blockedByMe || blockedByOther,
+    blockedByMe,
+    blockedByOther,
+  };
+}
+
+async function isBlocked(uid1, uid2) {
+  const status = await getBlockStatus(uid1, uid2);
+  return status.isBlocked;
+}
+
+async function blockUser(blockerId, blockedId) {
+  if (!blockerId || !blockedId) throw new Error('Invalid user IDs');
+  if (blockerId === blockedId) throw new Error('Cannot block yourself');
+  const blocks = await getAllBlocks();
+  const exists = blocks.some(b => b.blocker_id === blockerId && b.blocked_id === blockedId);
+  if (!exists) {
+    blocks.push({
+      blocker_id: blockerId,
+      blocked_id: blockedId,
+      created_at: new Date().toISOString(),
+    });
+    await saveAllBlocks(blocks);
+  }
+  return true;
+}
+
+async function unblockUser(blockerId, blockedId) {
+  if (!blockerId || !blockedId) return false;
+  const blocks = await getAllBlocks();
+  const filtered = blocks.filter(b => !(b.blocker_id === blockerId && b.blocked_id === blockedId));
+  await saveAllBlocks(filtered);
+  return true;
 }
 
 /** The other participant's UUID in a conversation */
@@ -359,13 +424,24 @@ router.get('/conversations/:id', async (req, res) => {
 
     // Fetch other user's profile for thread header
     const otherId = otherParticipant(conv, uid);
-    const { data: otherProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, department, avatar_url, status')
-      .eq('id', otherId)
-      .single();
+    const [{ data: otherProfile }, blockStatus] = await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, department, avatar_url, status')
+        .eq('id', otherId)
+        .single(),
+      getBlockStatus(uid, otherId),
+    ]);
 
-    res.json({ data, next_cursor, has_more, other_user: otherProfile || null });
+    res.json({
+      data,
+      next_cursor,
+      has_more,
+      other_user: otherProfile || null,
+      is_blocked: blockStatus.isBlocked,
+      blocked_by_me: blockStatus.blockedByMe,
+      blocked_by_other: blockStatus.blockedByOther,
+    });
   } catch (err) {
     console.error('[dm GET /conversations/:id]', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -507,6 +583,65 @@ router.delete('/conversations/:id/messages/:mid', async (req, res) => {
   } catch (err) {
     console.error('[dm DELETE message]', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /block/:userId — Check block status ──────────────────────────────────
+
+router.get('/block/:userId', async (req, res) => {
+  try {
+    const uid = req.profile.id;
+    const targetId = req.params.userId;
+    const status = await getBlockStatus(uid, targetId);
+    res.json({ data: status });
+  } catch (err) {
+    console.error('[dm GET /block/:userId]', err);
+    res.status(500).json({ error: 'Failed to get block status' });
+  }
+});
+
+// ─── POST /block/:userId — Block a user ───────────────────────────────────────
+
+router.post('/block/:userId', async (req, res) => {
+  try {
+    const uid = req.profile.id;
+    const targetId = req.params.userId;
+    if (uid === targetId) {
+      return res.status(400).json({ error: 'Cannot block yourself' });
+    }
+    await blockUser(uid, targetId);
+    res.json({ success: true, data: { blocked: true, user_id: targetId } });
+  } catch (err) {
+    console.error('[dm POST /block/:userId]', err);
+    res.status(500).json({ error: (err && err.message) || 'Failed to block user' });
+  }
+});
+
+// ─── POST /unblock/:userId — Unblock a user ───────────────────────────────────
+
+router.post('/unblock/:userId', async (req, res) => {
+  try {
+    const uid = req.profile.id;
+    const targetId = req.params.userId;
+    await unblockUser(uid, targetId);
+    res.json({ success: true, data: { blocked: false, user_id: targetId } });
+  } catch (err) {
+    console.error('[dm POST /unblock/:userId]', err);
+    res.status(500).json({ error: 'Failed to unblock user' });
+  }
+});
+
+// ─── DELETE /block/:userId — RESTful unblock alias ───────────────────────────
+
+router.delete('/block/:userId', async (req, res) => {
+  try {
+    const uid = req.profile.id;
+    const targetId = req.params.userId;
+    await unblockUser(uid, targetId);
+    res.json({ success: true, data: { blocked: false, user_id: targetId } });
+  } catch (err) {
+    console.error('[dm DELETE /block/:userId]', err);
+    res.status(500).json({ error: 'Failed to unblock user' });
   }
 });
 
