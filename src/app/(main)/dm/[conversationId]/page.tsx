@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Loader2 } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, Reply, X, Check, CheckCheck } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -11,6 +11,12 @@ import { toast } from 'sonner'
 import { GoldenTick } from '@/components/ui/GoldenTick'
 import { isGoldenVerified } from '@/lib/badges'
 
+interface ReplyMeta {
+  id: string
+  name: string
+  text: string
+}
+
 interface Message {
   id: string
   conversation_id: string
@@ -18,6 +24,9 @@ interface Message {
   content: string
   created_at: string
   is_deleted?: boolean
+  read_at?: string | null
+  is_read?: boolean
+  reply_to?: ReplyMeta | null
 }
 
 interface ConvInfo {
@@ -27,6 +36,43 @@ interface ConvInfo {
     full_name: string
     avatar_url?: string
     department?: string
+  }
+}
+
+function parseRawContent(raw: string): { text: string; replyTo: ReplyMeta | null } {
+  if (typeof raw === 'string' && raw.startsWith('{"_reply":')) {
+    try {
+      const p = JSON.parse(raw)
+      if (p && p._reply && typeof p.text === 'string') {
+        return { text: p.text, replyTo: p._reply }
+      }
+    } catch (_) {}
+  }
+  return { text: raw, replyTo: null }
+}
+
+function formatSeenTime(dateStr: string) {
+  try {
+    const d = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    if (diffMins < 2) return 'just now'
+
+    const timeStr = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
+    const isToday = d.toDateString() === now.toDateString()
+    if (isToday) return `at ${timeStr}`
+
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    if (d.toDateString() === yesterday.toDateString()) {
+      return `yesterday, ${timeStr}`
+    }
+
+    const dateFormatted = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    return `${dateFormatted}, ${timeStr}`
+  } catch {
+    return 'recently'
   }
 }
 
@@ -40,6 +86,7 @@ export default function DMThreadPage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [content, setContent] = useState('')
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -49,20 +96,35 @@ export default function DMThreadPage() {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' })
   }, [])
 
+  function scrollToMessage(msgId: string) {
+    const el = document.getElementById(`msg-${msgId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('thread-msg-highlight')
+      setTimeout(() => el.classList.remove('thread-msg-highlight'), 1800)
+    }
+  }
+
   // Load conversation + messages
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        // Backend GET /dm/conversations/:id returns messages + other_user in one call
         const res = await api.get(`/dm/conversations/${conversationId}`)
         if (cancelled) return
-        // Reconstruct convInfo from the other_user field
         if (res.other_user) {
           setConvInfo({ id: conversationId, other_user: res.other_user as ConvInfo['other_user'] })
         }
-        setMessages((res.data as Message[]) || [])
-        // Mark read (best-effort, already done server-side but call anyway)
+        const msgs = ((res.data as Message[]) || []).map(m => {
+          const parsed = parseRawContent(m.content)
+          return {
+            ...m,
+            content: parsed.text,
+            reply_to: m.reply_to || parsed.replyTo,
+          }
+        })
+        setMessages(msgs)
+        // Mark read
         api.patch(`/dm/conversations/${conversationId}/read`, {}).catch(() => {})
       } catch (e: unknown) {
         if (!cancelled) toast.error((e as Error).message || 'Failed to load conversation')
@@ -74,12 +136,12 @@ export default function DMThreadPage() {
     return () => { cancelled = true }
   }, [conversationId])
 
-  // Scroll to bottom on load
+  // Scroll to bottom on initial load
   useEffect(() => {
     if (!loading) setTimeout(() => scrollToBottom(false), 50)
   }, [loading, scrollToBottom])
 
-  // Realtime subscription
+  // Realtime subscription for incoming messages & read receipts
   useEffect(() => {
     if (!conversationId || !user) return
 
@@ -94,8 +156,15 @@ export default function DMThreadPage() {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const newMsg = payload.new as Message
-          if (!newMsg || !newMsg.id) return
+          const raw = payload.new as Message
+          if (!raw || !raw.id) return
+
+          const parsed = parseRawContent(raw.content)
+          const newMsg: Message = {
+            ...raw,
+            content: parsed.text,
+            reply_to: parsed.replyTo,
+          }
 
           setMessages(prev => {
             // 1. If this exact message ID is already in the list, ignore
@@ -136,7 +205,14 @@ export default function DMThreadPage() {
         (payload) => {
           const updated = payload.new as Message
           if (!updated || !updated.id) return
-          setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m))
+
+          const parsed = parseRawContent(updated.content)
+          setMessages(prev => prev.map(m => m.id === updated.id ? {
+            ...m,
+            ...updated,
+            content: parsed.text,
+            reply_to: m.reply_to || parsed.replyTo,
+          } : m))
         }
       )
       .subscribe()
@@ -144,6 +220,11 @@ export default function DMThreadPage() {
     channelRef.current = channel
     return () => { supabase.removeChannel(channel) }
   }, [conversationId, user, scrollToBottom])
+
+  function handleReply(msg: Message) {
+    setReplyingTo(msg)
+    textareaRef.current?.focus()
+  }
 
   async function sendMessage() {
     const text = content.trim()
@@ -153,6 +234,12 @@ export default function DMThreadPage() {
     setContent('')
     textareaRef.current?.focus()
 
+    const replyMeta: ReplyMeta | null = replyingTo ? {
+      id: replyingTo.id,
+      name: replyingTo.sender_id === user!.id ? 'You' : (other?.full_name || 'Them'),
+      text: replyingTo.content.slice(0, 100),
+    } : null
+
     // Optimistic message
     const tempId = `temp-${Date.now()}`
     const optimistic: Message = {
@@ -160,13 +247,19 @@ export default function DMThreadPage() {
       conversation_id: conversationId,
       sender_id: user!.id,
       content: tempContent,
+      reply_to: replyMeta,
       created_at: new Date().toISOString(),
+      read_at: null,
     }
     setMessages(prev => [...prev, optimistic])
+    setReplyingTo(null)
     setTimeout(() => scrollToBottom(true), 50)
 
     try {
-      const res = await api.post<{ data: Message }>(`/dm/conversations/${conversationId}/messages`, { content: tempContent })
+      const res = await api.post<{ data: Message }>(`/dm/conversations/${conversationId}/messages`, {
+        content: tempContent,
+        reply_to: replyMeta,
+      })
       const realMsg = (res as { data?: Message })?.data || (res as unknown as Message)
 
       setMessages(prev => {
@@ -195,6 +288,11 @@ export default function DMThreadPage() {
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Escape' && replyingTo) {
+      e.preventDefault()
+      setReplyingTo(null)
+      return
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
@@ -225,12 +323,14 @@ export default function DMThreadPage() {
   }
 
   const other = convInfo?.other_user
+  // Last message sent by the current user to display Seen status
+  const lastOwnMsg = [...messages].reverse().find(m => m.sender_id === user?.id)
 
   return (
     <div className="thread-wrap">
       {/* Top bar */}
       <div className="thread-topbar">
-        <button className="thread-back" onClick={() => router.push('/dm')}>
+        <button className="thread-back" onClick={() => router.push('/dm')} aria-label="Back to chats">
           <ArrowLeft size={20} />
         </button>
         {other ? (
@@ -275,8 +375,14 @@ export default function DMThreadPage() {
                 const isOwn = msg.sender_id === user?.id
                 const prevMsg = group.messages[i - 1]
                 const showAvatar = !isOwn && (!prevMsg || prevMsg.sender_id !== msg.sender_id)
+                const isLastOwn = msg.id === lastOwnMsg?.id
+
                 return (
-                  <div key={msg.id} className={`thread-msg-row${isOwn ? ' thread-msg-row--own' : ''}`}>
+                  <div
+                    key={msg.id}
+                    id={`msg-${msg.id}`}
+                    className={`thread-msg-row${isOwn ? ' thread-msg-row--own' : ''}`}
+                  >
                     {!isOwn && (
                       <div className="thread-msg-avatar">
                         {showAvatar && other?.avatar_url
@@ -287,15 +393,67 @@ export default function DMThreadPage() {
                         }
                       </div>
                     )}
+
                     <div className="thread-bubble-wrap">
                       <div className={`thread-bubble${isOwn ? ' thread-bubble--own' : ''}`}>
-                        {msg.is_deleted ? <em className="thread-deleted">This message was deleted</em> : msg.content}
+                        {/* Quoted message if this message is a reply */}
+                        {msg.reply_to && (
+                          <div
+                            className={`thread-bubble-quote${isOwn ? ' thread-bubble-quote--own' : ''}`}
+                            onClick={() => scrollToMessage(msg.reply_to!.id)}
+                            title="Click to jump to quoted message"
+                          >
+                            <div className="thread-quote-author">
+                              <Reply size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />
+                              {msg.reply_to.name}
+                            </div>
+                            <div className="thread-quote-snippet">
+                              {msg.reply_to.text}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="thread-bubble-content">
+                          {msg.is_deleted ? <em className="thread-deleted">This message was deleted</em> : msg.content}
+                        </div>
                       </div>
+
+                      {/* Time timestamp */}
                       <div className={`thread-msg-time${isOwn ? ' thread-msg-time--own' : ''}`}>
-                        {timeAgo(msg.created_at)}
+                        <span>{timeAgo(msg.created_at)}</span>
                         {msg.id.startsWith('temp-') && <span> · Sending…</span>}
                       </div>
+
+                      {/* Instagram-style Seen Status with Timestamp */}
+                      {isOwn && isLastOwn && !msg.id.startsWith('temp-') && (
+                        <div className="thread-seen-indicator">
+                          {msg.read_at ? (
+                            <span
+                              className="thread-seen-text seen"
+                              title={`Seen on ${new Date(msg.read_at).toLocaleString('en-IN')}`}
+                            >
+                              <CheckCheck size={13} className="thread-seen-icon seen" />
+                              Seen {formatSeenTime(msg.read_at)}
+                            </span>
+                          ) : (
+                            <span className="thread-seen-text sent">
+                              <Check size={13} className="thread-seen-icon sent" />
+                              Sent
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
+
+                    {/* Quick Reply button */}
+                    <button
+                      className="thread-msg-reply-action"
+                      onClick={() => handleReply(msg)}
+                      title="Reply to message"
+                      aria-label="Reply to message"
+                    >
+                      <Reply size={13} />
+                    </button>
                   </div>
                 )
               })}
@@ -307,11 +465,37 @@ export default function DMThreadPage() {
 
       {/* Input area */}
       <div className="thread-input-area">
-        <div className="thread-input-wrap">
+        {/* Instagram-style Docked Reply Preview */}
+        {replyingTo && (
+          <div className="thread-reply-bar">
+            <div className="thread-reply-bar-accent" />
+            <div className="thread-reply-bar-body">
+              <div className="thread-reply-bar-title">
+                <Reply size={12} />
+                <span>
+                  Replying to <strong>{replyingTo.sender_id === user?.id ? 'yourself' : (other?.full_name || 'them')}</strong>
+                </span>
+              </div>
+              <div className="thread-reply-bar-snippet">
+                {replyingTo.content.slice(0, 100)}
+              </div>
+            </div>
+            <button
+              className="thread-reply-bar-close"
+              onClick={() => setReplyingTo(null)}
+              aria-label="Cancel reply"
+              title="Cancel reply"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
+
+        <div className={`thread-input-wrap${replyingTo ? ' has-reply' : ''}`}>
           <textarea
             ref={textareaRef}
             className="thread-input"
-            placeholder="Message…"
+            placeholder={replyingTo ? "Write your reply…" : "Message…"}
             value={content}
             onChange={autoResize}
             onKeyDown={onKeyDown}
@@ -354,7 +538,7 @@ const threadStyles = `
   cursor: pointer; flex-shrink: 0;
 }
 .thread-user-info { display: flex; align-items: center; gap: .65rem; }
-.thread-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--surface2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.thread-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--surface2, #f1f4f8); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .thread-avatar-img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
 .thread-avatar-initials { font-size: .75rem; font-weight: 700; color: var(--accent); }
 .thread-user-name { font-size: .9rem; font-weight: 700; color: var(--ink); }
@@ -385,32 +569,206 @@ const threadStyles = `
 .thread-date-divider::after { right: 0; }
 
 .thread-msg-row {
-  display: flex; align-items: flex-end; gap: .45rem; margin-bottom: .15rem;
+  display: flex; align-items: flex-end; gap: .45rem; margin-bottom: .25rem;
+  position: relative;
 }
 .thread-msg-row--own { flex-direction: row-reverse; }
 .thread-msg-avatar { width: 24px; flex-shrink: 0; }
 .thread-small-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
-.thread-small-initials { width: 24px; height: 24px; border-radius: 50%; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: .6rem; font-weight: 700; color: var(--accent); }
+.thread-small-initials { width: 24px; height: 24px; border-radius: 50%; background: var(--surface2, #f1f4f8); display: flex; align-items: center; justify-content: center; font-size: .6rem; font-weight: 700; color: var(--accent); }
 
-.thread-bubble-wrap { display: flex; flex-direction: column; max-width: 72%; }
+.thread-bubble-wrap { display: flex; flex-direction: column; max-width: 74%; }
 .thread-msg-row--own .thread-bubble-wrap { align-items: flex-end; }
 
 .thread-bubble {
   background: var(--surface); border-radius: 16px 16px 16px 4px;
   padding: .55rem .8rem; font-size: .875rem; color: var(--ink);
   line-height: 1.45; word-break: break-word; white-space: pre-wrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  border: 1px solid var(--border);
 }
 .thread-bubble--own {
-  background: var(--accent); color: var(--bg);
+  background: var(--accent); color: #0D1424;
   border-radius: 16px 16px 4px 16px;
+  border: none;
 }
 .thread-deleted { color: var(--ink-muted); font-style: italic; }
+
 .thread-msg-time { font-size: .65rem; color: var(--ink-muted); margin-top: .15rem; padding: 0 .1rem; }
 .thread-msg-time--own { text-align: right; }
 
+/* Quoted message in bubble */
+.thread-bubble-quote {
+  background: rgba(0, 0, 0, 0.05);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: opacity .15s ease;
+  font-size: .78rem;
+  max-width: 100%;
+}
+.thread-bubble-quote:hover { opacity: .82; }
+.thread-bubble--own .thread-bubble-quote {
+  background: rgba(0, 0, 0, 0.12);
+  border-left-color: #0D1424;
+}
+.thread-quote-author {
+  font-weight: 750;
+  font-size: .7rem;
+  margin-bottom: 1px;
+  display: flex;
+  align-items: center;
+  color: var(--ink);
+}
+.thread-bubble--own .thread-quote-author { color: #0D1424; }
+.thread-quote-snippet {
+  font-size: .74rem;
+  opacity: .88;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Quick reply button beside bubble */
+.thread-msg-reply-action {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink-muted);
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s ease, transform .15s ease, background .15s ease;
+  margin: 0 4px;
+  flex-shrink: 0;
+  align-self: center;
+}
+.thread-msg-row:hover .thread-msg-reply-action {
+  opacity: 1;
+}
+.thread-msg-reply-action:hover {
+  background: var(--surface-2, #f1f4f8);
+  color: var(--ink);
+  transform: scale(1.1);
+}
+@media (max-width: 768px) {
+  .thread-msg-reply-action {
+    opacity: 0.55;
+  }
+}
+
+/* Seen Status Indicator (Instagram Style) */
+.thread-seen-indicator {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+  padding: 0 2px;
+  animation: fadeInSeen .25s ease;
+}
+@keyframes fadeInSeen {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.thread-seen-text {
+  font-size: .68rem;
+  color: var(--ink-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: inherit;
+  font-weight: 500;
+}
+.thread-seen-text.seen {
+  color: var(--accent-text, #92600F);
+  font-weight: 600;
+}
+.thread-seen-icon.seen {
+  color: #0284C7; /* Instagram-style subtle blue double check */
+}
+.thread-seen-icon.sent {
+  color: var(--ink-muted);
+}
+
+/* Highlight message animation on jump */
+.thread-msg-highlight .thread-bubble {
+  animation: highlightGlow 1.8s ease-out;
+}
+@keyframes highlightGlow {
+  0%   { box-shadow: 0 0 0 3px var(--accent); }
+  50%  { box-shadow: 0 0 0 6px var(--accent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Reply Bar Docked Above Composer */
+.thread-reply-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  animation: slideUpReply .18s ease-out;
+}
+@keyframes slideUpReply {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.thread-reply-bar-accent {
+  width: 3px;
+  height: 26px;
+  border-radius: 99px;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.thread-reply-bar-body {
+  flex: 1;
+  min-width: 0;
+}
+.thread-reply-bar-title {
+  font-size: .75rem;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.thread-reply-bar-snippet {
+  font-size: .74rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+.thread-reply-bar-close {
+  background: transparent;
+  border: none;
+  color: var(--ink-muted);
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s, color .15s;
+}
+.thread-reply-bar-close:hover {
+  background: var(--bg-muted, #f1f4f8);
+  color: var(--ink);
+}
+.thread-input-wrap.has-reply {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 /* Input */
 .thread-input-area {
-  padding: .65rem .75rem;
+  padding: .5rem .75rem .65rem;
   background: var(--bg); border-top: 1px solid var(--border);
   padding-bottom: calc(.65rem + env(safe-area-inset-bottom, 0));
   flex-shrink: 0;
@@ -419,6 +777,7 @@ const threadStyles = `
   display: flex; align-items: flex-end; gap: .6rem;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: .5rem .5rem .5rem .85rem;
+  transition: border-radius .15s ease;
 }
 .thread-input {
   flex: 1; background: transparent; border: none; outline: none;
@@ -428,7 +787,7 @@ const threadStyles = `
 .thread-input::placeholder { color: var(--ink-muted); }
 .thread-send-btn {
   width: 34px; height: 34px; border-radius: 50%;
-  background: var(--accent); color: var(--bg); border: none;
+  background: var(--accent); color: #0D1424; border: none;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; flex-shrink: 0; transition: opacity .15s;
 }

@@ -23,6 +23,34 @@ router.use(authGuard);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function formatMessageContent(text, replyTo) {
+  if (!replyTo || typeof replyTo !== 'object' || !replyTo.id) return text;
+  return JSON.stringify({
+    _reply: {
+      id: String(replyTo.id),
+      name: String(replyTo.name || replyTo.sender_name || '').slice(0, 50),
+      text: String(replyTo.text || replyTo.content || '').slice(0, 120),
+    },
+    text: text,
+  });
+}
+
+function parseMessageContent(rawContent) {
+  if (typeof rawContent !== 'string') return { text: '', replyTo: null };
+  if (rawContent.startsWith('{"_reply":')) {
+    try {
+      const parsed = JSON.parse(rawContent);
+      if (parsed && parsed._reply && typeof parsed.text === 'string') {
+        return {
+          text: parsed.text,
+          replyTo: parsed._reply,
+        };
+      }
+    } catch (_) {}
+  }
+  return { text: rawContent, replyTo: null };
+}
+
 /**
  * Returns true if either user has blocked the other.
  * NOTE: 'blocks' table is not yet in schema.sql — returns false (fail-open)
@@ -153,10 +181,11 @@ router.get('/conversations', async (req, res) => {
       const lastMsg = lastMsgMap[c.id];
       const isMine  = lastMsg ? lastMsg.sender_id === uid : false;
       const lastMsgTime = (lastMsg && lastMsg.created_at) || c.last_message_at || null;
+      const parsedLast = lastMsg ? parseMessageContent(lastMsg.content) : null;
       return {
         id:              c.id,
         other_user:      profileMap[otherId] || { id: otherId, full_name: 'Unknown User' },
-        last_message:    lastMsg ? lastMsg.content.substring(0, 120) : null,
+        last_message:    parsedLast ? parsedLast.text.substring(0, 120) : null,
         last_message_at: lastMsgTime,
         unread_count:    unreadMap[c.id] || 0,
         is_last_mine:    isMine,
@@ -304,15 +333,19 @@ router.get('/conversations/:id', async (req, res) => {
     const next_cursor = has_more ? slice[slice.length - 1].created_at : null;
 
     // Reverse to ascending order for chat display
-    const data = slice.reverse().map(m => ({
-      id:         m.id,
-      sender_id:  m.sender_id,
-      content:    m.content,
-      read_at:    m.read_at,
-      is_read:    m.read_at !== null,
-      created_at: m.created_at,
-      is_mine:    m.sender_id === uid,
-    }));
+    const data = slice.reverse().map(m => {
+      const parsed = parseMessageContent(m.content);
+      return {
+        id:         m.id,
+        sender_id:  m.sender_id,
+        content:    parsed.text,
+        reply_to:   parsed.replyTo,
+        read_at:    m.read_at,
+        is_read:    m.read_at !== null,
+        created_at: m.created_at,
+        is_mine:    m.sender_id === uid,
+      };
+    });
 
     // Mark unread messages from the other user as read (async, don't block response)
     supabaseAdmin
@@ -344,7 +377,7 @@ router.get('/conversations/:id', async (req, res) => {
 router.post('/conversations/:id/messages', async (req, res) => {
   try {
     const uid = req.profile.id;
-    const { content } = req.body;
+    const { content, reply_to } = req.body;
 
     const msgErr = validateMessage(content);
     if (msgErr) return res.status(400).json({ error: msgErr });
@@ -367,9 +400,11 @@ router.post('/conversations/:id/messages', async (req, res) => {
     }
 
     const trimmed = content.trim();
+    const storedContent = formatMessageContent(trimmed, reply_to);
+
     const { data: msg, error: insertErr } = await supabaseAdmin
       .from('dm_messages')
-      .insert({ conversation_id: req.params.id, sender_id: uid, content: trimmed })
+      .insert({ conversation_id: req.params.id, sender_id: uid, content: storedContent })
       .select('id, sender_id, content, read_at, created_at')
       .single();
 
@@ -382,17 +417,32 @@ router.post('/conversations/:id/messages', async (req, res) => {
     supabaseAdmin.from('dm_conversations').update({ last_message_at: msg.created_at }).eq('id', req.params.id).then(() => {});
 
     // Notify recipient (awaited to ensure push leaves serverless before response)
+    const pushBody = reply_to && reply_to.name
+      ? `Replying to ${reply_to.name}: ${trimmed}`
+      : trimmed;
+
     await notify(recipientId, {
       type:    'dm',
       title:   `New message from ${req.profile.full_name}`,
-      body:    trimmed.substring(0, 120),
+      body:    pushBody.substring(0, 120),
       refId:   req.params.id,
       refType: 'conversation',
       prefKey: 'dm',
     });
 
+    const parsed = parseMessageContent(msg.content);
+
     res.status(201).json({
-      data: { ...msg, is_mine: true, is_read: false },
+      data: {
+        id:         msg.id,
+        sender_id:  msg.sender_id,
+        content:    parsed.text,
+        reply_to:   parsed.replyTo,
+        read_at:    msg.read_at,
+        is_read:    false,
+        created_at: msg.created_at,
+        is_mine:    true,
+      },
     });
   } catch (err) {
     console.error('[dm POST /conversations/:id/messages]', err);
