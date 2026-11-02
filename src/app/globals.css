@@ -335,7 +335,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* DM Thread Fullscreen Mode */
 .app-shell--dm-thread {
-  height: 100dvh;
+  height: var(--dm-thread-viewport-height, 100dvh);
   overflow: hidden;
 }
 .main-column--dm-thread {
@@ -343,7 +343,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   max-width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
-  height: 100dvh;
+  height: var(--dm-thread-viewport-height, 100dvh);
 }
 @media (max-width: 1199px) {
   .app-shell--dm-thread .desktop-sidebar,
@@ -355,13 +355,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     padding: 0 !important;
     margin: 0 !important;
     max-width: 100% !important;
+    height: var(--dm-thread-viewport-height, 100dvh);
   }
 }
 @media (min-width: 1200px) {
   .app-shell--dm-thread .app-grid {
     grid-template-columns: 224px minmax(500px, 720px) 0 !important;
     padding: 0 20px !important;
-    height: 100dvh;
+    height: var(--dm-thread-viewport-height, 100dvh);
     overflow: hidden;
   }
   .app-shell--dm-thread .context-sidebar {

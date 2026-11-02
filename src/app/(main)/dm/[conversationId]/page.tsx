@@ -105,6 +105,45 @@ export default function DMThreadPage() {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' })
   }, [])
 
+  // Keep the thread sized to the visible viewport so the composer stays above
+  // the software keyboard on mobile browsers that use an overlay keyboard.
+  useEffect(() => {
+    const root = document.documentElement
+    const visualViewport = window.visualViewport
+    let scrollFrame = 0
+    let keyboardWasOpen = false
+
+    const syncViewport = () => {
+      const visibleHeight = visualViewport?.height ?? window.innerHeight
+      const keyboardIsOpen = Boolean(visualViewport && window.innerHeight - visibleHeight > 120)
+      const keyboardJustOpened = keyboardIsOpen && !keyboardWasOpen
+      keyboardWasOpen = keyboardIsOpen
+
+      root.style.setProperty('--dm-thread-viewport-height', `${Math.round(visibleHeight)}px`)
+      if (keyboardIsOpen) root.style.setProperty('--dm-thread-safe-bottom', '0px')
+      else root.style.removeProperty('--dm-thread-safe-bottom')
+
+      if (keyboardJustOpened && document.activeElement === textareaRef.current) {
+        cancelAnimationFrame(scrollFrame)
+        scrollFrame = requestAnimationFrame(() => scrollToBottom(false))
+      }
+    }
+
+    syncViewport()
+    window.addEventListener('resize', syncViewport)
+    visualViewport?.addEventListener('resize', syncViewport)
+    visualViewport?.addEventListener('scroll', syncViewport)
+
+    return () => {
+      cancelAnimationFrame(scrollFrame)
+      window.removeEventListener('resize', syncViewport)
+      visualViewport?.removeEventListener('resize', syncViewport)
+      visualViewport?.removeEventListener('scroll', syncViewport)
+      root.style.removeProperty('--dm-thread-viewport-height')
+      root.style.removeProperty('--dm-thread-safe-bottom')
+    }
+  }, [scrollToBottom])
+
   function scrollToMessage(msgId: string) {
     const el = document.getElementById(`msg-${msgId}`)
     if (el) {
@@ -119,7 +158,10 @@ export default function DMThreadPage() {
     let cancelled = false
     async function load() {
       try {
-        const res = await api.get(`/dm/conversations/${conversationId}`)
+        const res = await api.get<{
+          data?: Message[]
+          other_user?: ConvInfo['other_user']
+        }>(`/dm/conversations/${conversationId}`)
         if (cancelled) return
         if (res.other_user) {
           setConvInfo({ id: conversationId, other_user: res.other_user as ConvInfo['other_user'] })
@@ -468,7 +510,7 @@ export default function DMThreadPage() {
                   <div
                     key={msg.id}
                     id={`msg-${msg.id}`}
-                    className={`ig-msg-row ${isOwn ? 'is-own' : 'is-other'} cluster-${clusterPos}`}
+                    className={`ig-msg-row ${isOwn ? 'is-own' : 'is-other'} cluster-${clusterPos}${isTimeActive ? ' is-time-active' : ''}`}
                     onClick={() => handleMessageTap(msg)}
                   >
                     <div className="ig-bubble-column">
@@ -503,6 +545,18 @@ export default function DMThreadPage() {
                         <div className={`ig-time-hint ${isOwn ? 'is-own' : ''}`}>
                           <span>{timeAgo(msg.created_at)}</span>
                           {isOptimistic && <span className="ig-sending-label"> · Sending…</span>}
+                          {isTimeActive && !isOptimistic && (
+                            <button
+                              type="button"
+                              className="ig-inline-reply"
+                              onClick={event => {
+                                event.stopPropagation()
+                                handleReply(msg)
+                              }}
+                            >
+                              <Reply size={12} /> Reply
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -531,7 +585,7 @@ export default function DMThreadPage() {
                         handleReply(msg)
                       }}
                       title="Reply"
-                      aria-label="Reply"
+                      aria-label={`Reply to ${isOwn ? 'your' : (other?.full_name || 'their')} message`}
                     >
                       <Reply size={13} />
                     </button>
@@ -581,7 +635,7 @@ export default function DMThreadPage() {
             rows={1}
           />
           <button
-            className={`ig-capsule-send-btn ${content.trim() ? 'can-send' : ''}`}
+            className={`ig-capsule-send-btn ${content.trim() && !sending ? 'can-send' : ''}`}
             onClick={sendMessage}
             disabled={!content.trim() || sending}
             aria-label="Send message"
@@ -601,10 +655,12 @@ const igThreadStyles = `
 .ig-thread-wrap {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: var(--dm-thread-viewport-height, 100dvh);
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
+  padding-top: env(safe-area-inset-top, 0px);
+  box-sizing: border-box;
   background: var(--bg);
   position: relative;
   overflow: hidden;
@@ -627,8 +683,8 @@ const igThreadStyles = `
 }
 
 .ig-back-btn {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -641,7 +697,7 @@ const igThreadStyles = `
   transition: background .12s ease;
 }
 .ig-back-btn:hover {
-  background: var(--surface2, rgba(0,0,0,0.06));
+  background: var(--bg-muted);
 }
 
 .ig-user-profile-btn {
@@ -658,7 +714,7 @@ const igThreadStyles = `
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: var(--surface2, #E2E8F0);
+  background: var(--accent-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -674,7 +730,7 @@ const igThreadStyles = `
 .ig-avatar-fallback {
   font-size: 0.8rem;
   font-weight: 750;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .ig-header-meta {
@@ -708,7 +764,7 @@ const igThreadStyles = `
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: var(--surface2, #E2E8F0);
+  background: var(--bg-subtle);
   animation: igPulse 1.4s infinite ease-in-out;
 }
 .ig-sk-lines {
@@ -717,7 +773,7 @@ const igThreadStyles = `
   gap: 5px;
 }
 .ig-sk-line {
-  background: var(--surface2, #E2E8F0);
+  background: var(--bg-subtle);
   border-radius: 4px;
   animation: igPulse 1.4s infinite ease-in-out;
 }
@@ -728,6 +784,7 @@ const igThreadStyles = `
 /* ─── Messages Canvas ──────────────────────────────────────────────── */
 .ig-messages-canvas {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px 14px;
   display: flex;
@@ -763,7 +820,7 @@ const igThreadStyles = `
   height: 68px;
   border-radius: 50%;
   overflow: hidden;
-  background: var(--surface2, #E2E8F0);
+  background: var(--accent-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -771,7 +828,7 @@ const igThreadStyles = `
   box-shadow: 0 2px 10px rgba(0,0,0,0.08);
 }
 .ig-empty-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.ig-empty-avatar span { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+.ig-empty-avatar span { font-size: 1.5rem; font-weight: 700; color: var(--accent-text); }
 .ig-empty-state h3 { font-size: 1.1rem; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
 .ig-empty-state p { font-size: 0.8rem; color: var(--ink-muted); margin-bottom: 14px; }
 .ig-empty-hint {
@@ -779,7 +836,7 @@ const igThreadStyles = `
   font-weight: 600;
   padding: 6px 14px;
   border-radius: 16px;
-  background: var(--surface2, rgba(0,0,0,0.05));
+  background: var(--bg-muted);
   color: var(--ink);
 }
 
@@ -846,8 +903,8 @@ const igThreadStyles = `
 
 /* Received Bubble (Clean Flat Neutral - Instagram Grey) */
 .ig-bubble--other {
-  background: var(--surface2, #EFEFEF);
-  color: var(--ink, #000000);
+  background: var(--bg-muted);
+  color: var(--ink);
 }
 .pos-single.ig-bubble--other { border-radius: 20px; }
 .pos-first.ig-bubble--other  { border-radius: 20px 20px 20px 4px; }
@@ -856,9 +913,9 @@ const igThreadStyles = `
 
 /* Sent Bubble (Instagram Signature Royal Blue/Indigo Gradient) */
 .ig-bubble--own {
-  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-  color: #FFFFFF;
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.22);
+  background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 70%, white), var(--accent));
+  color: #382606;
+  box-shadow: 0 1px 3px rgba(146, 96, 15, 0.14);
 }
 .pos-single.ig-bubble--own { border-radius: 20px; }
 .pos-first.ig-bubble--own  { border-radius: 20px 20px 4px 20px; }
@@ -872,10 +929,10 @@ const igThreadStyles = `
 
 /* ─── Quoted Preview Card Inside Bubble ─────────────────────────────── */
 .ig-quote-card {
-  border-radius: 10px;
-  padding: 5px 10px;
+  border-radius: 9px;
+  padding: 4px 9px;
   margin-bottom: 5px;
-  font-size: 0.76rem;
+  font-size: 0.73rem;
   cursor: pointer;
   transition: opacity .15s ease;
 }
@@ -884,11 +941,11 @@ const igThreadStyles = `
 }
 
 .ig-quote-card--other {
-  background: rgba(0, 0, 0, 0.05);
-  border-left: 3px solid #2563EB;
+  background: var(--accent-light);
+  border-left: 2px solid var(--accent);
 }
 .ig-quote-card--other .ig-quote-sender {
-  color: #2563EB;
+  color: var(--accent-text);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -900,18 +957,18 @@ const igThreadStyles = `
 }
 
 .ig-quote-card--own {
-  background: rgba(255, 255, 255, 0.18);
-  border-left: 3px solid #FFFFFF;
+  background: rgba(255, 255, 255, 0.48);
+  border-left: 2px solid var(--accent-text);
 }
 .ig-quote-card--own .ig-quote-sender {
-  color: #FFFFFF;
+  color: var(--accent-text);
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 .ig-quote-card--own .ig-quote-snippet {
-  color: rgba(255, 255, 255, 0.88);
+  color: #55421f;
   margin-top: 1px;
 }
 
@@ -919,7 +976,7 @@ const igThreadStyles = `
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.74rem;
+  font-size: 0.71rem;
 }
 
 /* ─── Compact Inline Timestamps & Seen Row ─────────────────────────── */
@@ -928,13 +985,29 @@ const igThreadStyles = `
   color: var(--ink-muted);
   margin-top: 2px;
   padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   animation: igFadeIn 0.15s ease;
 }
 .ig-time-hint.is-own {
   text-align: right;
 }
+.ig-inline-reply {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.ig-inline-reply:hover { color: var(--ink); }
 .ig-sending-label {
-  color: #2563EB;
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -951,7 +1024,7 @@ const igThreadStyles = `
   gap: 3px;
 }
 .ig-seen-label.seen {
-  color: #0284C7;
+  color: var(--accent-text);
   font-weight: 600;
 }
 .ig-seen-label.sent {
@@ -989,12 +1062,29 @@ const igThreadStyles = `
     opacity: 1;
     transform: scale(1.08);
     color: var(--ink);
-    background: var(--surface2);
+    background: var(--bg-muted);
   }
 }
 @media (hover: none) {
   .ig-hover-reply {
-    display: none;
+    display: flex;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .ig-hover-reply:focus-visible {
+    position: static;
+    width: 36px;
+    height: 36px;
+    overflow: visible;
+    clip-path: none;
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 
@@ -1003,14 +1093,14 @@ const igThreadStyles = `
   animation: igHighlight 1.8s ease-out;
 }
 @keyframes igHighlight {
-  0%   { box-shadow: 0 0 0 3px #2563EB; }
-  50%  { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.4); }
+  0%   { box-shadow: 0 0 0 3px var(--accent); }
+  50%  { box-shadow: 0 0 0 6px var(--accent-ring); }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 /* ─── Docked Reply Bar Above Composer ──────────────────────────────── */
 .ig-composer-footer {
-  padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 12px calc(6px + var(--dm-thread-safe-bottom, env(safe-area-inset-bottom, 0px)));
   background: color-mix(in srgb, var(--bg) 96%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -1040,7 +1130,7 @@ const igThreadStyles = `
   width: 3px;
   height: 26px;
   border-radius: 99px;
-  background: #2563EB;
+  background: var(--accent);
   flex-shrink: 0;
 }
 .ig-docked-reply-info {
@@ -1065,8 +1155,8 @@ const igThreadStyles = `
   background: transparent;
   border: none;
   color: var(--ink-muted);
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -1074,7 +1164,7 @@ const igThreadStyles = `
   flex-shrink: 0;
 }
 .ig-docked-reply-close:hover {
-  background: var(--surface2);
+  background: var(--bg-muted);
   color: var(--ink);
 }
 
@@ -1090,8 +1180,8 @@ const igThreadStyles = `
   transition: border-color .15s ease, box-shadow .15s ease, border-radius .15s ease;
 }
 .ig-capsule-box:focus-within {
-  border-color: #2563EB;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-ring);
 }
 .ig-capsule-box.has-reply-dock {
   border-top-left-radius: 0;
@@ -1118,27 +1208,35 @@ const igThreadStyles = `
 }
 
 .ig-capsule-send-btn {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: #2563EB;
-  color: #FFFFFF;
+  background: var(--bg-muted);
+  color: var(--ink-muted);
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  margin-bottom: 2px;
-  opacity: 0.25;
+  margin-bottom: 0;
+  opacity: 1;
   pointer-events: none;
-  transform: scale(0.9);
+  transform: scale(1);
   transition: transform .18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity .15s ease;
 }
 .ig-capsule-send-btn.can-send {
+  background: var(--accent);
+  color: #382606;
   opacity: 1;
   pointer-events: auto;
   transform: scale(1);
+}
+.ig-capsule-send-btn:focus-visible,
+.ig-docked-reply-close:focus-visible,
+.ig-inline-reply:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
 }
 .ig-capsule-send-btn:not(:disabled):active {
   transform: scale(0.92);
