@@ -97,12 +97,20 @@ export default function DMThreadPage() {
   const pendingTempIdsRef = useRef<Set<string>>(new Set())
   const lastTapRef = useRef<{ id: string; time: number } | null>(null)
 
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesCanvasRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   const scrollToBottom = useCallback((smooth = false) => {
-    bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' })
+    const canvas = messagesCanvasRef.current
+    if (!canvas) return
+
+    // Keep auto-scroll inside the conversation. scrollIntoView() can also move
+    // the document viewport when the mobile keyboard resizes the thread.
+    canvas.scrollTo({
+      top: canvas.scrollHeight,
+      behavior: smooth ? 'smooth' : 'instant',
+    })
   }, [])
 
   // Keep the thread sized to the visible viewport so the composer stays above
@@ -146,8 +154,12 @@ export default function DMThreadPage() {
 
   function scrollToMessage(msgId: string) {
     const el = document.getElementById(`msg-${msgId}`)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const canvas = messagesCanvasRef.current
+    if (el && canvas) {
+      const messageBounds = el.getBoundingClientRect()
+      const canvasBounds = canvas.getBoundingClientRect()
+      const centeredTop = canvas.scrollTop + messageBounds.top - canvasBounds.top - (canvas.clientHeight - messageBounds.height) / 2
+      canvas.scrollTo({ top: centeredTop, behavior: 'smooth' })
       el.classList.add('thread-msg-highlight')
       setTimeout(() => el.classList.remove('thread-msg-highlight'), 1800)
     }
@@ -473,7 +485,7 @@ export default function DMThreadPage() {
       </header>
 
       {/* Messages Canvas */}
-      <div className="ig-messages-canvas">
+      <div ref={messagesCanvasRef} className="ig-messages-canvas">
         {loading ? (
           <div className="ig-loading-center">
             <Loader2 size={24} className="ig-spinner" />
@@ -595,7 +607,6 @@ export default function DMThreadPage() {
             </div>
           ))
         )}
-        <div ref={bottomRef} />
       </div>
 
       {/* Docked Reply Bar & Capsule Composer */}
