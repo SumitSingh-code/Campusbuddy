@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Send, Loader2, Reply, X, Check, CheckCheck } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, Reply, X, CheckCheck } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -68,11 +68,11 @@ function formatSeenTime(dateStr: string) {
     const yesterday = new Date(now)
     yesterday.setDate(yesterday.getDate() - 1)
     if (d.toDateString() === yesterday.toDateString()) {
-      return `yesterday, ${timeStr}`
+      return `yesterday at ${timeStr}`
     }
 
     const dateFormatted = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-    return `${dateFormatted}, ${timeStr}`
+    return `${dateFormatted} at ${timeStr}`
   } catch {
     return 'recently'
   }
@@ -89,6 +89,7 @@ export default function DMThreadPage() {
   const [sending, setSending] = useState(false)
   const [content, setContent] = useState('')
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [activeMsgId, setActiveMsgId] = useState<string | null>(null)
 
   const currentUserIdRef = useRef<string | null>(null)
   currentUserIdRef.current = user?.id || profile?.id || null
@@ -146,7 +147,7 @@ export default function DMThreadPage() {
 
   // Scroll to bottom on initial load
   useEffect(() => {
-    if (!loading) setTimeout(() => scrollToBottom(false), 60)
+    if (!loading) setTimeout(() => scrollToBottom(false), 50)
   }, [loading, scrollToBottom])
 
   // Realtime subscription for incoming messages & read receipts
@@ -183,8 +184,6 @@ export default function DMThreadPage() {
             const isMine = Boolean(myId && newMsg.sender_id === myId)
 
             if (isMine) {
-              // Reconcile with pending optimistic temp message
-              // Match by content first, else match the earliest temp message
               const matchByContent = prev.findIndex(m => m.id.startsWith('temp-') && m.content === newMsg.content)
               const firstPending = prev.findIndex(m => m.id.startsWith('temp-'))
               const targetIdx = matchByContent !== -1 ? matchByContent : firstPending
@@ -202,7 +201,7 @@ export default function DMThreadPage() {
             return [...prev, newMsg]
           })
 
-          setTimeout(() => scrollToBottom(true), 60)
+          setTimeout(() => scrollToBottom(true), 50)
 
           // Mark as read if from other user
           const myId = currentUserIdRef.current
@@ -242,17 +241,18 @@ export default function DMThreadPage() {
     setReplyingTo(msg)
     setTimeout(() => {
       textareaRef.current?.focus()
-    }, 50)
+    }, 40)
   }
 
-  // Double tap or click on mobile to quickly reply
+  // Double tap to reply, single tap to toggle timestamp
   function handleMessageTap(msg: Message) {
     const now = Date.now()
-    if (lastTapRef.current && lastTapRef.current.id === msg.id && now - lastTapRef.current.time < 320) {
+    if (lastTapRef.current && lastTapRef.current.id === msg.id && now - lastTapRef.current.time < 300) {
       handleReply(msg)
       lastTapRef.current = null
     } else {
       lastTapRef.current = { id: msg.id, time: now }
+      setActiveMsgId(prev => prev === msg.id ? null : msg.id)
     }
   }
 
@@ -292,7 +292,7 @@ export default function DMThreadPage() {
 
     setMessages(prev => [...prev, optimistic])
     setReplyingTo(null)
-    setTimeout(() => scrollToBottom(true), 50)
+    setTimeout(() => scrollToBottom(true), 40)
 
     try {
       const res = await api.post<{ data: Message }>(`/dm/conversations/${conversationId}/messages`, {
@@ -344,7 +344,7 @@ export default function DMThreadPage() {
     setContent(e.target.value)
     const el = e.target
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    el.style.height = Math.min(el.scrollHeight, 110) + 'px'
   }
 
   function getInitials(name: string) {
@@ -390,61 +390,69 @@ export default function DMThreadPage() {
   const lastOwnMsg = [...messages].reverse().find(m => m.sender_id === myId)
 
   return (
-    <div className="thread-wrap">
-      {/* Top bar (Instagram Direct Style) */}
-      <header className="thread-topbar">
-        <button className="thread-back" onClick={() => router.push('/dm')} aria-label="Back to chats">
-          <ArrowLeft size={20} />
+    <div className="ig-thread-wrap">
+      {/* Instagram Direct Top Header */}
+      <header className="ig-thread-header">
+        <button className="ig-back-btn" onClick={() => router.push('/dm')} aria-label="Back to chats">
+          <ArrowLeft size={22} />
         </button>
 
         {other ? (
-          <Link href={`/profile/${other.id}`} className="thread-user-info" aria-label={`View ${other.full_name}'s profile`}>
-            <div className="thread-avatar">
+          <Link href={`/profile/${other.id}`} className="ig-user-profile-btn" aria-label={`View ${other.full_name}'s profile`}>
+            <div className="ig-header-avatar">
               {other.avatar_url ? (
-                <img src={other.avatar_url} alt={other.full_name} className="thread-avatar-img" />
+                <img src={other.avatar_url} alt={other.full_name} className="ig-avatar-img" />
               ) : (
-                <span className="thread-avatar-initials">{getInitials(other.full_name)}</span>
+                <span className="ig-avatar-fallback">{getInitials(other.full_name)}</span>
               )}
             </div>
-            <div className="thread-user-meta">
-              <div className="thread-user-name">
+
+            <div className="ig-header-meta">
+              <div className="ig-header-name">
                 <span className="truncate">{other.full_name}</span>
                 {isGoldenVerified(other) && (
-                  <GoldenTick size={14} title="Haryana Day Early Bird Pioneer · Golden Badge" />
+                  <GoldenTick size={15} title="Haryana Day Pioneer · Golden Tick" />
                 )}
               </div>
-              <div className="thread-user-status">
-                {other.department || 'CRSU Student'}
+              <div className="ig-header-subtitle">
+                {other.department ? other.department : 'CRSU Student'}
               </div>
             </div>
           </Link>
         ) : (
-          <div className="thread-user-loading">
-            <div className="sk-avatar" />
-            <div className="sk-lines">
-              <span className="sk-line sk-line-name" />
-              <span className="sk-line sk-line-dept" />
+          <div className="ig-header-skeleton">
+            <div className="ig-sk-avatar" />
+            <div className="ig-sk-lines">
+              <div className="ig-sk-line ig-sk-name" />
+              <div className="ig-sk-line ig-sk-sub" />
             </div>
           </div>
         )}
       </header>
 
-      {/* Messages area */}
-      <div className="thread-messages">
+      {/* Messages Canvas */}
+      <div className="ig-messages-canvas">
         {loading ? (
-          <div className="thread-loading">
-            <Loader2 size={24} className="thread-spinner" />
+          <div className="ig-loading-center">
+            <Loader2 size={24} className="ig-spinner" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="thread-empty">
-            <div className="thread-empty-icon">💬</div>
-            <p>No messages yet</p>
-            <span>Say hi to {other?.full_name || 'start chatting'}</span>
+          <div className="ig-empty-state">
+            <div className="ig-empty-avatar">
+              {other?.avatar_url ? (
+                <img src={other.avatar_url} alt="" />
+              ) : (
+                <span>{other ? getInitials(other.full_name) : '💬'}</span>
+              )}
+            </div>
+            <h3>{other?.full_name || 'Direct Message'}</h3>
+            <p>{other?.department ? `${other.department} · CRSU` : 'Start a private conversation'}</p>
+            <div className="ig-empty-hint">Say hi to break the ice 👋</div>
           </div>
         ) : (
           groupByDay(messages).map(group => (
-            <div key={group.date} className="thread-day-group">
-              <div className="thread-date-divider">
+            <div key={group.date} className="ig-day-section">
+              <div className="ig-day-pill">
                 <span>{group.date}</span>
               </div>
 
@@ -452,83 +460,62 @@ export default function DMThreadPage() {
                 const isOwn = msg.sender_id === myId
                 const clusterPos = getClusterPosition(group.messages, i)
                 const isClusterLast = clusterPos === 'last' || clusterPos === 'single'
-                const isClusterFirst = clusterPos === 'first' || clusterPos === 'single'
                 const isLastOwn = msg.id === lastOwnMsg?.id
                 const isOptimistic = msg.id.startsWith('temp-')
+                const isTimeActive = activeMsgId === msg.id
 
                 return (
                   <div
                     key={msg.id}
                     id={`msg-${msg.id}`}
-                    className={`thread-msg-row ${isOwn ? 'thread-msg-row--own' : 'thread-msg-row--other'} cluster-${clusterPos}`}
-                    onDoubleClick={() => handleReply(msg)}
+                    className={`ig-msg-row ${isOwn ? 'is-own' : 'is-other'} cluster-${clusterPos}`}
                     onClick={() => handleMessageTap(msg)}
                   >
-                    {/* Other user avatar (only on the last message of the cluster) */}
-                    {!isOwn && (
-                      <div className="thread-msg-avatar">
-                        {isClusterLast && (
-                          other?.avatar_url ? (
-                            <img src={other.avatar_url} alt="" className="thread-small-avatar" />
-                          ) : (
-                            <span className="thread-small-initials">{other ? getInitials(other.full_name) : '?'}</span>
-                          )
-                        )}
-                      </div>
-                    )}
-
-                    {/* Bubble Content */}
-                    <div className="thread-bubble-wrap">
-                      <div
-                        className={`thread-bubble ${isOwn ? 'thread-bubble--own' : 'thread-bubble--other'} bubble-pos-${clusterPos}`}
-                      >
-                        {/* Quoted message if this message is a reply */}
+                    <div className="ig-bubble-column">
+                      <div className={`ig-bubble ${isOwn ? 'ig-bubble--own' : 'ig-bubble--other'} pos-${clusterPos}`}>
+                        {/* Quoted preview if reply */}
                         {msg.reply_to && (
                           <div
-                            className={`thread-bubble-quote ${isOwn ? 'thread-bubble-quote--own' : 'thread-bubble-quote--other'}`}
+                            className={`ig-quote-card ${isOwn ? 'ig-quote-card--own' : 'ig-quote-card--other'}`}
                             onClick={(e) => {
                               e.stopPropagation()
                               scrollToMessage(msg.reply_to!.id)
                             }}
-                            title="Click to view quoted message"
+                            title="Jump to quoted message"
                           >
-                            <div className="thread-quote-author">
-                              <Reply size={11} className="thread-quote-icon" />
+                            <div className="ig-quote-sender">
+                              <Reply size={11} className="ig-quote-icon" />
                               <span>{msg.reply_to.name}</span>
                             </div>
-                            <div className="thread-quote-snippet">
+                            <div className="ig-quote-snippet">
                               {msg.reply_to.text}
                             </div>
                           </div>
                         )}
 
-                        <div className="thread-bubble-content">
-                          {msg.is_deleted ? <em className="thread-deleted">This message was deleted</em> : msg.content}
+                        <div className="ig-msg-body">
+                          {msg.is_deleted ? <em className="ig-deleted-text">This message was deleted</em> : msg.content}
                         </div>
                       </div>
 
-                      {/* Timestamp (only on the last message of the cluster, or sending indicator) */}
-                      {(isClusterLast || isOptimistic) && (
-                        <div className={`thread-msg-time ${isOwn ? 'thread-msg-time--own' : ''}`}>
+                      {/* Explicit toggle timestamp or sending indicator */}
+                      {(isTimeActive || isOptimistic) && (
+                        <div className={`ig-time-hint ${isOwn ? 'is-own' : ''}`}>
                           <span>{timeAgo(msg.created_at)}</span>
-                          {isOptimistic && <span className="thread-sending-dot"> · Sending…</span>}
+                          {isOptimistic && <span className="ig-sending-label"> · Sending…</span>}
                         </div>
                       )}
 
-                      {/* Instagram-style Seen Status on the last own message */}
+                      {/* Instagram Seen Status under the last own message */}
                       {isOwn && isLastOwn && !isOptimistic && (
-                        <div className="thread-seen-indicator">
+                        <div className="ig-seen-row">
                           {msg.read_at ? (
-                            <span
-                              className="thread-seen-text seen"
-                              title={`Seen on ${new Date(msg.read_at).toLocaleString('en-IN')}`}
-                            >
-                              <CheckCheck size={14} className="thread-seen-icon seen" />
+                            <span className="ig-seen-label seen">
+                              <CheckCheck size={13} className="ig-seen-check" />
                               <span>Seen {formatSeenTime(msg.read_at)}</span>
                             </span>
                           ) : (
-                            <span className="thread-seen-text sent">
-                              <Check size={13} className="thread-seen-icon sent" />
+                            <span className="ig-seen-label sent">
                               <span>Sent</span>
                             </span>
                           )}
@@ -536,15 +523,15 @@ export default function DMThreadPage() {
                       )}
                     </div>
 
-                    {/* Desktop Hover Quick Reply Button */}
+                    {/* Desktop Hover Quick Reply */}
                     <button
-                      className="thread-msg-reply-action"
+                      className="ig-hover-reply"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleReply(msg)
                       }}
                       title="Reply"
-                      aria-label="Reply to message"
+                      aria-label="Reply"
                     >
                       <Reply size={13} />
                     </button>
@@ -557,38 +544,36 @@ export default function DMThreadPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input area (Instagram Capsule Bar) */}
-      <div className="thread-input-area">
-        {/* Instagram-style Docked Reply Preview */}
+      {/* Docked Reply Bar & Capsule Composer */}
+      <footer className="ig-composer-footer">
         {replyingTo && (
-          <div className="thread-reply-bar">
-            <div className="thread-reply-bar-accent" />
-            <div className="thread-reply-bar-body">
-              <div className="thread-reply-bar-title">
-                <Reply size={12} />
+          <div className="ig-docked-reply">
+            <div className="ig-docked-reply-accent" />
+            <div className="ig-docked-reply-info">
+              <div className="ig-docked-reply-title">
+                <Reply size={11} />
                 <span>
                   Replying to <strong>{replyingTo.sender_id === myId ? 'yourself' : (other?.full_name || 'them')}</strong>
                 </span>
               </div>
-              <div className="thread-reply-bar-snippet">
-                {replyingTo.content.slice(0, 100)}
+              <div className="ig-docked-reply-preview">
+                {replyingTo.content.slice(0, 90)}
               </div>
             </div>
             <button
-              className="thread-reply-bar-close"
+              className="ig-docked-reply-close"
               onClick={() => setReplyingTo(null)}
               aria-label="Cancel reply"
-              title="Cancel reply"
             >
               <X size={15} />
             </button>
           </div>
         )}
 
-        <div className={`thread-composer-box ${replyingTo ? 'has-reply' : ''}`}>
+        <div className={`ig-capsule-box ${replyingTo ? 'has-reply-dock' : ''}`}>
           <textarea
             ref={textareaRef}
-            className="thread-composer-input"
+            className="ig-capsule-textarea"
             placeholder={replyingTo ? "Write a reply…" : "Message…"}
             value={content}
             onChange={autoResize}
@@ -596,53 +581,54 @@ export default function DMThreadPage() {
             rows={1}
           />
           <button
-            className={`thread-send-btn ${content.trim() ? 'is-active' : ''}`}
+            className={`ig-capsule-send-btn ${content.trim() ? 'can-send' : ''}`}
             onClick={sendMessage}
             disabled={!content.trim() || sending}
-            aria-label="Send"
+            aria-label="Send message"
           >
-            {sending ? <Loader2 size={16} className="thread-spinner" /> : <Send size={15} />}
+            {sending ? <Loader2 size={16} className="ig-spinner" /> : <Send size={15} />}
           </button>
         </div>
-      </div>
+      </footer>
 
-      <style>{threadStyles}</style>
+      <style>{igThreadStyles}</style>
     </div>
   )
 }
 
-const threadStyles = `
-/* Immersive Instagram-Grade Direct Thread */
-.thread-wrap {
+const igThreadStyles = `
+/* ─── Instagram Direct Precision Container ────────────────────────── */
+.ig-thread-wrap {
   display: flex;
   flex-direction: column;
   height: 100dvh;
   width: 100%;
-  max-width: 680px;
+  max-width: 640px;
   margin: 0 auto;
   background: var(--bg);
   position: relative;
   overflow: hidden;
 }
 
-/* Topbar */
-.thread-topbar {
+/* ─── Header ───────────────────────────────────────────────────────── */
+.ig-thread-header {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 0.85rem;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 40;
   flex-shrink: 0;
 }
-.thread-back {
-  width: 36px;
-  height: 36px;
+
+.ig-back-btn {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -652,50 +638,52 @@ const threadStyles = `
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background .15s ease;
+  transition: background .12s ease;
 }
-.thread-back:hover {
-  background: var(--surface2, rgba(0,0,0,0.05));
+.ig-back-btn:hover {
+  background: var(--surface2, rgba(0,0,0,0.06));
 }
 
-.thread-user-info {
+.ig-user-profile-btn {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 10px;
   text-decoration: none;
   color: inherit;
   min-width: 0;
   flex: 1;
 }
-.thread-avatar {
+
+.ig-header-avatar {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: var(--surface2, #e5e7eb);
+  background: var(--surface2, #E2E8F0);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px var(--border);
   overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border);
 }
-.thread-avatar-img {
+.ig-avatar-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.thread-avatar-initials {
-  font-size: 0.82rem;
-  font-weight: 700;
+.ig-avatar-fallback {
+  font-size: 0.8rem;
+  font-weight: 750;
   color: var(--accent);
 }
-.thread-user-meta {
+
+.ig-header-meta {
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
-.thread-user-name {
-  font-size: 0.92rem;
+.ig-header-name {
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--ink);
   display: flex;
@@ -703,407 +691,377 @@ const threadStyles = `
   gap: 5px;
   line-height: 1.25;
 }
-.thread-user-status {
+.ig-header-subtitle {
   font-size: 0.72rem;
   color: var(--ink-muted);
   line-height: 1.2;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 /* Skeleton Loading */
-.thread-user-loading {
+.ig-header-skeleton {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 10px;
 }
-.sk-avatar {
+.ig-sk-avatar {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: var(--surface2, #e5e7eb);
-  animation: skPulse 1.4s infinite ease-in-out;
+  background: var(--surface2, #E2E8F0);
+  animation: igPulse 1.4s infinite ease-in-out;
 }
-.sk-lines {
+.ig-sk-lines {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
-.sk-line {
-  display: block;
-  background: var(--surface2, #e5e7eb);
+.ig-sk-line {
+  background: var(--surface2, #E2E8F0);
   border-radius: 4px;
-  animation: skPulse 1.4s infinite ease-in-out;
+  animation: igPulse 1.4s infinite ease-in-out;
 }
-.sk-line-name { width: 110px; height: 14px; }
-.sk-line-dept { width: 75px; height: 11px; }
-@keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.ig-sk-name { width: 110px; height: 14px; }
+.ig-sk-sub  { width: 70px;  height: 11px; }
+@keyframes igPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* Messages Area */
-.thread-messages {
+/* ─── Messages Canvas ──────────────────────────────────────────────── */
+.ig-messages-canvas {
   flex: 1;
   overflow-y: auto;
-  padding: 0.75rem 0.85rem;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
 }
-.thread-loading {
+
+.ig-loading-center {
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 4rem 1rem;
 }
-.thread-spinner {
-  animation: spin 0.7s linear infinite;
+.ig-spinner {
+  animation: igSpin 0.7s linear infinite;
   color: var(--accent);
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes igSpin { to { transform: rotate(360deg); } }
 
-.thread-empty {
+/* Empty state */
+.ig-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem 1.5rem;
+  padding: 3rem 1.5rem;
   text-align: center;
   margin: auto;
-  color: var(--ink-muted);
 }
-.thread-empty-icon {
-  font-size: 2.2rem;
-  margin-bottom: 0.5rem;
-  opacity: 0.85;
+.ig-empty-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface2, #E2E8F0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
 }
-.thread-empty p {
-  font-size: 0.95rem;
-  font-weight: 700;
+.ig-empty-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ig-empty-avatar span { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+.ig-empty-state h3 { font-size: 1.1rem; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.ig-empty-state p { font-size: 0.8rem; color: var(--ink-muted); margin-bottom: 14px; }
+.ig-empty-hint {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: var(--surface2, rgba(0,0,0,0.05));
   color: var(--ink);
-  margin-bottom: 0.2rem;
-}
-.thread-empty span {
-  font-size: 0.82rem;
 }
 
-/* Date Divider */
-.thread-day-group {
+/* Day Section & Pill */
+.ig-day-section {
   display: flex;
   flex-direction: column;
 }
-.thread-date-divider {
+.ig-day-pill {
   text-align: center;
-  margin: 1rem 0 0.65rem;
+  margin: 14px 0 8px;
   position: relative;
 }
-.thread-date-divider span {
+.ig-day-pill span {
   display: inline-block;
-  padding: 3px 12px;
-  background: var(--surface2, rgba(0,0,0,0.05));
-  border-radius: 12px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--ink-muted);
   letter-spacing: 0.02em;
 }
 
-/* Message Rows & Clustering */
-.thread-msg-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.45rem;
-  position: relative;
-  user-select: text;
-  margin-bottom: 2px;
-}
-.thread-msg-row--own {
-  flex-direction: row-reverse;
-}
-.thread-msg-row.cluster-last,
-.thread-msg-row.cluster-single {
-  margin-bottom: 8px;
-}
-
-.thread-msg-avatar {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-.thread-small-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  object-fit: cover;
-  box-shadow: 0 0 0 1px var(--border);
-}
-.thread-small-initials {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--surface2, #e5e7eb);
+/* ─── Message Rows & Clean Gutters (No Avatars in 1-on-1) ───────────── */
+.ig-msg-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 0.62rem;
-  font-weight: 700;
-  color: var(--accent);
+  gap: 6px;
+  position: relative;
+  margin-bottom: 2px;
+}
+.ig-msg-row.is-own {
+  justify-content: flex-end;
+}
+.ig-msg-row.is-other {
+  justify-content: flex-start;
+}
+.ig-msg-row.cluster-last,
+.ig-msg-row.cluster-single {
+  margin-bottom: 9px;
 }
 
-.thread-bubble-wrap {
+.ig-bubble-column {
   display: flex;
   flex-direction: column;
-  max-width: 76%;
+  max-width: 74%;
 }
-.thread-msg-row--own .thread-bubble-wrap {
+.ig-msg-row.is-own .ig-bubble-column {
   align-items: flex-end;
 }
 
-/* Bubble Styling */
-.thread-bubble {
-  padding: 0.55rem 0.85rem;
-  font-size: 0.9rem;
-  line-height: 1.45;
+/* ─── Real Instagram Message Bubbles ───────────────────────────────── */
+.ig-bubble {
+  padding: 8px 14px;
+  font-size: 0.92rem;
+  line-height: 1.42;
   word-break: break-word;
   white-space: pre-wrap;
-  transition: transform .12s ease;
-  position: relative;
+  user-select: text;
+  cursor: pointer;
+  transition: transform .1s ease, filter .1s ease;
+}
+.ig-bubble:active {
+  transform: scale(0.985);
 }
 
-/* Received Bubbles */
-.thread-bubble--other {
-  background: var(--surface2, #f3f4f6);
-  color: var(--ink);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+/* Received Bubble (Clean Flat Neutral - Instagram Grey) */
+.ig-bubble--other {
+  background: var(--surface2, #EFEFEF);
+  color: var(--ink, #000000);
 }
-.bubble-pos-single.thread-bubble--other {
-  border-radius: 18px 18px 18px 4px;
-}
-.bubble-pos-first.thread-bubble--other {
-  border-radius: 18px 18px 18px 4px;
-}
-.bubble-pos-middle.thread-bubble--other {
-  border-radius: 4px 18px 18px 4px;
-}
-.bubble-pos-last.thread-bubble--other {
-  border-radius: 4px 18px 18px 18px;
-}
+.pos-single.ig-bubble--other { border-radius: 20px; }
+.pos-first.ig-bubble--other  { border-radius: 20px 20px 20px 4px; }
+.pos-middle.ig-bubble--other { border-radius: 4px 20px 20px 4px; }
+.pos-last.ig-bubble--other   { border-radius: 4px 20px 20px 20px; }
 
-/* Sent Bubbles (Instagram Warm Gold / Amber Gradient) */
-.thread-bubble--own {
-  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-  color: #0A0F1D;
-  border: none;
-  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.18);
-  font-weight: 480;
+/* Sent Bubble (Instagram Signature Royal Blue/Indigo Gradient) */
+.ig-bubble--own {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.22);
 }
-.bubble-pos-single.thread-bubble--own {
-  border-radius: 18px 18px 4px 18px;
-}
-.bubble-pos-first.thread-bubble--own {
-  border-radius: 18px 18px 4px 18px;
-}
-.bubble-pos-middle.thread-bubble--own {
-  border-radius: 18px 4px 4px 18px;
-}
-.bubble-pos-last.thread-bubble--own {
-  border-radius: 18px 4px 18px 18px;
-}
+.pos-single.ig-bubble--own { border-radius: 20px; }
+.pos-first.ig-bubble--own  { border-radius: 20px 20px 4px 20px; }
+.pos-middle.ig-bubble--own { border-radius: 20px 4px 4px 20px; }
+.pos-last.ig-bubble--own   { border-radius: 20px 4px 20px 20px; }
 
-.thread-deleted {
-  color: var(--ink-muted);
+.ig-deleted-text {
+  opacity: 0.7;
   font-style: italic;
 }
 
-/* Quoted Reply Card Inside Bubble */
-.thread-bubble-quote {
-  border-radius: 8px;
-  padding: 5px 9px;
+/* ─── Quoted Preview Card Inside Bubble ─────────────────────────────── */
+.ig-quote-card {
+  border-radius: 10px;
+  padding: 5px 10px;
   margin-bottom: 5px;
+  font-size: 0.76rem;
   cursor: pointer;
   transition: opacity .15s ease;
-  max-width: 100%;
 }
-.thread-bubble-quote:hover {
-  opacity: 0.85;
+.ig-quote-card:hover {
+  opacity: 0.88;
 }
-.thread-bubble-quote--other {
-  background: rgba(0, 0, 0, 0.04);
-  border-left: 3px solid var(--accent);
+
+.ig-quote-card--other {
+  background: rgba(0, 0, 0, 0.05);
+  border-left: 3px solid #2563EB;
 }
-.thread-bubble-quote--own {
-  background: rgba(0, 0, 0, 0.12);
-  border-left: 3px solid #0A0F1D;
-}
-.thread-quote-author {
-  font-weight: 750;
-  font-size: 0.7rem;
-  margin-bottom: 1px;
+.ig-quote-card--other .ig-quote-sender {
+  color: #2563EB;
+  font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
 }
-.thread-bubble-quote--other .thread-quote-author {
-  color: var(--accent-text, #92600F);
+.ig-quote-card--other .ig-quote-snippet {
+  color: var(--ink-muted, #555555);
+  margin-top: 1px;
 }
-.thread-bubble-quote--own .thread-quote-author {
-  color: #0A0F1D;
+
+.ig-quote-card--own {
+  background: rgba(255, 255, 255, 0.18);
+  border-left: 3px solid #FFFFFF;
 }
-.thread-quote-snippet {
-  font-size: 0.74rem;
+.ig-quote-card--own .ig-quote-sender {
+  color: #FFFFFF;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ig-quote-card--own .ig-quote-snippet {
+  color: rgba(255, 255, 255, 0.88);
+  margin-top: 1px;
+}
+
+.ig-quote-snippet {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.thread-bubble-quote--other .thread-quote-snippet {
-  color: var(--ink-muted);
-}
-.thread-bubble-quote--own .thread-quote-snippet {
-  color: rgba(10, 15, 29, 0.88);
+  font-size: 0.74rem;
 }
 
-/* Timestamps */
-.thread-msg-time {
+/* ─── Compact Inline Timestamps & Seen Row ─────────────────────────── */
+.ig-time-hint {
   font-size: 0.65rem;
   color: var(--ink-muted);
   margin-top: 2px;
   padding: 0 4px;
+  animation: igFadeIn 0.15s ease;
 }
-.thread-msg-time--own {
+.ig-time-hint.is-own {
   text-align: right;
 }
-.thread-sending-dot {
-  color: var(--accent-text, #92600F);
+.ig-sending-label {
+  color: #2563EB;
   font-weight: 600;
 }
 
-/* Seen Status Indicator (Instagram Sky Blue Double Check) */
-.thread-seen-indicator {
-  display: flex;
-  justify-content: flex-end;
+.ig-seen-row {
   margin-top: 3px;
   padding: 0 4px;
-  animation: fadeInSeen 0.22s ease-out;
+  animation: igFadeIn 0.2s ease;
 }
-@keyframes fadeInSeen {
-  from { opacity: 0; transform: translateY(-3px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.thread-seen-text {
-  font-size: 0.69rem;
+.ig-seen-label {
+  font-size: 0.68rem;
+  font-weight: 550;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-family: inherit;
-  font-weight: 550;
+  gap: 3px;
 }
-.thread-seen-text.seen {
+.ig-seen-label.seen {
   color: #0284C7;
   font-weight: 600;
 }
-.thread-seen-icon.seen {
-  color: #0284C7;
-}
-.thread-seen-text.sent {
+.ig-seen-label.sent {
   color: var(--ink-muted);
 }
-.thread-seen-icon.sent {
-  color: var(--ink-muted);
+@keyframes igFadeIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Quick Reply Action beside Bubble (Desktop hover only) */
-.thread-msg-reply-action {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--ink-muted);
+/* ─── Desktop Hover Reply Button ───────────────────────────────────── */
+.ig-hover-reply {
   width: 28px;
   height: 28px;
   border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .15s ease, transform .15s ease, background .15s ease;
-  margin: 0 4px;
-  flex-shrink: 0;
-  align-self: center;
+  transition: opacity .15s ease, transform .12s ease;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  flex-shrink: 0;
 }
 @media (hover: hover) {
-  .thread-msg-row:hover .thread-msg-reply-action {
+  .ig-msg-row:hover .ig-hover-reply {
     opacity: 0.85;
     pointer-events: auto;
   }
-  .thread-msg-reply-action:hover {
+  .ig-hover-reply:hover {
     opacity: 1;
-    background: var(--surface2, #f1f4f8);
-    color: var(--ink);
     transform: scale(1.08);
+    color: var(--ink);
+    background: var(--surface2);
   }
 }
 @media (hover: none) {
-  .thread-msg-reply-action {
+  .ig-hover-reply {
     display: none;
   }
 }
 
-/* Highlight message animation on jump */
-.thread-msg-highlight .thread-bubble {
-  animation: highlightGlow 1.8s ease-out;
+/* Highlight Jump */
+.thread-msg-highlight .ig-bubble {
+  animation: igHighlight 1.8s ease-out;
 }
-@keyframes highlightGlow {
-  0%   { box-shadow: 0 0 0 3px var(--accent); }
-  50%  { box-shadow: 0 0 0 6px var(--accent); }
+@keyframes igHighlight {
+  0%   { box-shadow: 0 0 0 3px #2563EB; }
+  50%  { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.4); }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 
-/* Docked Reply Bar Above Composer */
-.thread-reply-bar {
+/* ─── Docked Reply Bar Above Composer ──────────────────────────────── */
+.ig-composer-footer {
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  flex-shrink: 0;
+}
+
+.ig-docked-reply {
   background: var(--surface);
   border: 1px solid var(--border);
   border-bottom: none;
-  border-radius: 18px 18px 0 0;
-  padding: 8px 12px;
+  border-radius: 16px 16px 0 0;
+  padding: 6px 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  animation: slideUpReply 0.18s ease-out;
+  gap: 8px;
+  animation: igSlideUp 0.15s ease-out;
 }
-@keyframes slideUpReply {
+@keyframes igSlideUp {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.thread-reply-bar-accent {
+.ig-docked-reply-accent {
   width: 3px;
-  height: 28px;
+  height: 26px;
   border-radius: 99px;
-  background: var(--accent);
+  background: #2563EB;
   flex-shrink: 0;
 }
-.thread-reply-bar-body {
+.ig-docked-reply-info {
   flex: 1;
   min-width: 0;
 }
-.thread-reply-bar-title {
-  font-size: 0.74rem;
+.ig-docked-reply-title {
+  font-size: 0.72rem;
   color: var(--ink);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
-.thread-reply-bar-snippet {
-  font-size: 0.74rem;
+.ig-docked-reply-preview {
+  font-size: 0.72rem;
   color: var(--ink-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
 }
-.thread-reply-bar-close {
+.ig-docked-reply-close {
   background: transparent;
   border: none;
   color: var(--ink-muted);
@@ -1115,91 +1073,74 @@ const threadStyles = `
   cursor: pointer;
   flex-shrink: 0;
 }
-.thread-reply-bar-close:hover {
-  background: var(--surface2, #f1f4f8);
+.ig-docked-reply-close:hover {
+  background: var(--surface2);
   color: var(--ink);
 }
 
-/* Composer / Input Area (Instagram Pill Standard) */
-.thread-input-area {
-  padding: 0.5rem 0.85rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
-  background: color-mix(in srgb, var(--bg) 96%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-  position: sticky;
-  bottom: 0;
-  z-index: 30;
-}
-
-.thread-composer-box {
+/* ─── Instagram Pill Capsule Composer ──────────────────────────────── */
+.ig-capsule-box {
   display: flex;
   align-items: flex-end;
-  gap: 0.5rem;
+  gap: 6px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 26px;
+  border: 1.5px solid var(--border);
+  border-radius: 24px;
   padding: 4px 6px 4px 14px;
   transition: border-color .15s ease, box-shadow .15s ease, border-radius .15s ease;
 }
-.thread-composer-box:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.16);
+.ig-capsule-box:focus-within {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
 }
-.thread-composer-box.has-reply {
+.ig-capsule-box.has-reply-dock {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
 
-.thread-composer-input {
+.ig-capsule-textarea {
   flex: 1;
   background: transparent;
-  border: none;
-  outline: none;
-  box-shadow: none;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   resize: none;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   line-height: 1.45;
   color: var(--ink);
-  max-height: 110px;
+  max-height: 100px;
   min-height: 24px;
   font-family: inherit;
   padding: 6px 0;
 }
-.thread-composer-input::placeholder {
+.ig-capsule-textarea::placeholder {
   color: var(--ink-muted);
 }
-.thread-composer-input:focus {
-  outline: none;
-  box-shadow: none;
-}
 
-.thread-send-btn {
-  width: 34px;
-  height: 34px;
+.ig-capsule-send-btn {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--accent);
-  color: #0D1424;
+  background: #2563EB;
+  color: #FFFFFF;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  margin-bottom: 1px;
-  opacity: 0.35;
+  margin-bottom: 2px;
+  opacity: 0.25;
   pointer-events: none;
-  transform: scale(0.92);
-  transition: transform .18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity .15s ease, box-shadow .15s ease;
+  transform: scale(0.9);
+  transition: transform .18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity .15s ease;
 }
-.thread-send-btn.is-active {
+.ig-capsule-send-btn.can-send {
   opacity: 1;
   pointer-events: auto;
   transform: scale(1);
-  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.38);
 }
-.thread-send-btn:not(:disabled):active {
+.ig-capsule-send-btn:not(:disabled):active {
   transform: scale(0.92);
 }
 `
