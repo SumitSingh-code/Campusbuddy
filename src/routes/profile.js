@@ -36,6 +36,23 @@ router.get('/me', async (req, res) => {
   }
 });
 
+// ─── POST /heartbeat — Active presence ping ───────────────────────────────────
+router.post('/heartbeat', async (req, res) => {
+  try {
+    const now = new Date().toISOString();
+    supabaseAdmin
+      .from('profiles')
+      .update({ updated_at: now })
+      .eq('id', req.profile.id)
+      .then()
+      .catch(() => {});
+
+    res.json({ success: true, timestamp: now });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to record heartbeat' });
+  }
+});
+
 // ─── PATCH /me — Update own profile ──────────────────────────────────────────
 
 router.patch('/me', async (req, res) => {

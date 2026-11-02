@@ -251,6 +251,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchProfile])
 
+  // Periodic activity heartbeat when active in the app
+  useEffect(() => {
+    if (!user || !profile || profile.status !== 'active') return
+
+    const sendHeartbeat = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        api.post('/profile/heartbeat', {}).catch(() => {})
+      }
+    }
+
+    sendHeartbeat()
+    const interval = setInterval(sendHeartbeat, 90 * 1000)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        sendHeartbeat()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [user, profile?.id, profile?.status])
+
   // ── Auth Methods ─────────────────────────────────────────────
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })

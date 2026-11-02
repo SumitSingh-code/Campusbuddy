@@ -377,6 +377,50 @@
     .badge--admin     { background: rgba(212,175,55,.2);   color: var(--adm-gold); }
     .badge--muted     { background: var(--adm-surface-2);  color: var(--adm-text-muted); }
 
+    /* ── Presence & Last Seen ─────────────────────────────────────────────── */
+    .presence-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+    .presence-dot--online {
+      background: #22C55E;
+      box-shadow: 0 0 0 2px rgba(34,197,94,0.25);
+      animation: pulse-presence 2s infinite;
+    }
+    @keyframes pulse-presence {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34,197,94,0.7); }
+      70% { transform: scale(1.15); box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+    .presence-dot--recent {
+      background: #F59E0B;
+    }
+    .presence-dot--offline {
+      background: #9CA3AF;
+    }
+    .last-seen-cell {
+      display: inline-flex;
+      align-items: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .75rem;
+      white-space: nowrap;
+    }
+    .last-seen-cell--online {
+      color: #16A34A;
+      font-weight: 600;
+    }
+    .last-seen-cell--recent {
+      color: #D97706;
+      font-weight: 500;
+    }
+    .last-seen-cell--offline {
+      color: var(--adm-text-muted);
+    }
+
     /* ── Buttons ─────────────────────────────────────────────────────────── */
     .btn {
       display: inline-flex; align-items: center; gap: .4rem;
@@ -796,6 +840,12 @@
             <option value="banned">Banned</option>
             <option value="rejected">Rejected</option>
           </select>
+          <select class="form-select" id="user-sort" style="width:auto;min-height:44px;padding:.5rem .75rem;flex-shrink:0;">
+            <option value="last_seen">Recently Active (Last Seen)</option>
+            <option value="created_desc">Newly Joined First</option>
+            <option value="created_asc">Oldest Joined First</option>
+            <option value="name_asc">Name (A-Z)</option>
+          </select>
         </div>
         <div id="users-list">
           <div class="empty-state"><div class="spinner"></div></div>
@@ -1074,6 +1124,40 @@
     let userPage = 1;
     let resolveResetId = null;
 
+    function formatLastSeen(dateStr) {
+      if (!dateStr) return '<span class="last-seen-cell last-seen-cell--offline">—</span>';
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now - d;
+      if (isNaN(diffMs)) return '<span class="last-seen-cell last-seen-cell--offline">—</span>';
+
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHr  = Math.floor(diffMin / 60);
+      const diffDay = Math.floor(diffHr / 24);
+
+      const timeFormatted = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+      const dateFormatted = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      const fullTooltip = `${dateFormatted}, ${timeFormatted}`;
+
+      if (diffMin < 5) {
+        return `<span class="last-seen-cell last-seen-cell--online" title="${fullTooltip}"><span class="presence-dot presence-dot--online"></span>Active now</span>`;
+      }
+      if (diffMin < 60) {
+        return `<span class="last-seen-cell last-seen-cell--recent" title="${fullTooltip}"><span class="presence-dot presence-dot--recent"></span>${diffMin}m ago</span>`;
+      }
+      if (diffHr < 24) {
+        return `<span class="last-seen-cell last-seen-cell--recent" title="${fullTooltip}"><span class="presence-dot presence-dot--recent"></span>${diffHr}h ago (${timeFormatted})</span>`;
+      }
+      if (diffDay === 1) {
+        return `<span class="last-seen-cell last-seen-cell--offline" title="${fullTooltip}"><span class="presence-dot presence-dot--offline"></span>Yest. ${timeFormatted}</span>`;
+      }
+      if (diffDay < 7) {
+        return `<span class="last-seen-cell last-seen-cell--offline" title="${fullTooltip}"><span class="presence-dot presence-dot--offline"></span>${diffDay}d ago (${dateFormatted})</span>`;
+      }
+      return `<span class="last-seen-cell last-seen-cell--offline" title="${fullTooltip}"><span class="presence-dot presence-dot--offline"></span>${dateFormatted}</span>`;
+    }
+
     // ── Dark mode (admin-only, persisted) ──────────────────────────────
     const DARK_KEY = 'unigram_admin_dark';
     const htmlEl   = document.getElementById('admin-html');
@@ -1175,6 +1259,7 @@
         searchTimer = setTimeout(() => loadUsers(1), 350);
       });
       document.getElementById('user-filter-status').addEventListener('change', () => loadUsers(1));
+      document.getElementById('user-sort')?.addEventListener('change', () => loadUsers(1));
 
       // Promote modal
       document.getElementById('btn-promote').addEventListener('click', promoteUser);
@@ -1461,9 +1546,11 @@
 
       const q      = document.getElementById('user-search').value.trim();
       const status = document.getElementById('user-filter-status').value;
-      const params = new URLSearchParams({ page, limit: 20 });
+      const sort   = document.getElementById('user-sort')?.value || 'last_seen';
+      const params = new URLSearchParams({ page, limit: 25 });
       if (q)      params.set('q', q);
       if (status) params.set('status', status);
+      if (sort)   params.set('sort', sort);
 
       try {
         const res = await API.get(`/admin/users?${params}`);
@@ -1484,6 +1571,7 @@
                   <th>Department</th>
                   <th>Status</th>
                   <th>Role</th>
+                  <th>Last Seen</th>
                   <th>Joined</th>
                   <th>Actions</th>
                 </tr>
@@ -1498,6 +1586,7 @@
                     <td style="font-size:.8125rem;max-width:180px;word-break:break-word;">${escHtml(u.department)}</td>
                     <td><span class="badge badge--${escHtml(u.status)}">${escHtml(u.status)}</span></td>
                     <td><span class="badge badge--${u.role !== 'student' ? 'admin' : 'muted'}">${escHtml(u.role)}</span></td>
+                    <td>${formatLastSeen(u.last_seen_at)}</td>
                     <td style="font-family:'JetBrains Mono',monospace;font-size:.75rem;white-space:nowrap;">${timeAgo(u.created_at)}</td>
                     <td>
                       <div class="action-cell">

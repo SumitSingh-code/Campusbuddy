@@ -14,6 +14,19 @@
 
 const { supabaseAdmin } = require('../lib/supabase-admin');
 
+// In-memory throttle to update user activity timestamp at most once every 60s
+const _lastSeenThrottle = new Map();
+function touchUserActivity(userId) {
+  if (!userId) return;
+  const now = Date.now();
+  const last = _lastSeenThrottle.get(userId) || 0;
+  if (now - last < 60000) return; // 1 min throttle
+  _lastSeenThrottle.set(userId, now);
+
+  const iso = new Date(now).toISOString();
+  supabaseAdmin.from('profiles').update({ updated_at: iso }).eq('id', userId).then().catch(() => {});
+}
+
 /**
  * Decode user ID from JWT payload without verifying signature.
  * Used only to initiate the parallel DB query — getUser() still verifies.
@@ -122,6 +135,7 @@ const authGuard = async (req, res, next) => {
 
     req.user    = user;
     req.profile = profile;
+    touchUserActivity(user.id);
     next();
   } catch (err) {
     console.error('authGuard error:', err);

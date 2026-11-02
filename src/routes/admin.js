@@ -176,17 +176,38 @@ router.patch('/users/:id/activate', async (req, res) => {
   }
 });
 
+let _cachedAuthUsersMap = null;
+let _cachedAuthUsersTime = 0;
+
+async function getAuthUsersMap() {
+  const now = Date.now();
+  if (_cachedAuthUsersMap && (now - _cachedAuthUsersTime < 60000)) {
+    return _cachedAuthUsersMap;
+  }
+  try {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    if (!error && data?.users) {
+      _cachedAuthUsersMap = new Map(data.users.map(u => [u.id, u.last_sign_in_at]));
+      _cachedAuthUsersTime = now;
+      return _cachedAuthUsersMap;
+    }
+  } catch (err) {
+    console.warn('[Admin] getAuthUsersMap error:', err.message);
+  }
+  return _cachedAuthUsersMap || new Map();
+}
+
 router.get('/users', async (req, res) => {
   try {
-    const { q, status, role, page = 1, limit = 20 } = req.query;
+    const { q, status, role, sort = 'last_seen', page = 1, limit = 25 } = req.query;
     
     const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 20));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 25));
     const offset = (pageNum - 1) * limitNum;
 
     let query = supabaseAdmin
       .from('profiles')
-      .select('id, full_name, roll_number, department, phone_number, email, role, status, karma, posts_count, notes_uploaded, auth_provider, created_at', { count: 'exact' });
+      .select('id, full_name, roll_number, department, phone_number, email, role, status, karma, posts_count, notes_uploaded, auth_provider, created_at, updated_at, notification_preferences', { count: 'exact' });
 
     if (status) query = query.eq('status', status);
     if (role) query = query.eq('role', role);
@@ -194,22 +215,53 @@ router.get('/users', async (req, res) => {
       query = query.or(`full_name.ilike.%${q}%,roll_number.ilike.%${q}%`);
     }
 
-    query = query.order('created_at', { ascending: false })
-                 .range(offset, offset + limitNum - 1);
+    if (sort === 'created_asc') {
+      query = query.order('created_at', { ascending: true });
+    } else if (sort === 'created_desc') {
+      query = query.order('created_at', { ascending: false });
+    } else if (sort === 'name_asc') {
+      query = query.order('full_name', { ascending: true });
+    } else {
+      // Default: sort by updated_at (most recently active/updated profiles first)
+      query = query.order('updated_at', { ascending: false, nullsFirst: false });
+    }
 
-    const { data, count, error } = await query;
+    query = query.range(offset, offset + limitNum - 1);
+
+    const [{ data, count, error }, authUsersMap] = await Promise.all([
+      query,
+      getAuthUsersMap(),
+    ]);
 
     if (error) {
       console.error('Get users DB error:', error);
       return res.status(500).json({ error: 'Database error' });
     }
 
+    const enriched = (data || []).map(u => {
+      const lastSignIn = authUsersMap?.get(u.id);
+      const lastSeenPref = u.notification_preferences?.last_seen_at;
+      const timestamps = [u.updated_at, lastSignIn, lastSeenPref, u.created_at].filter(Boolean);
+      timestamps.sort((a, b) => new Date(b) - new Date(a));
+      const lastSeen = timestamps[0] || u.created_at;
+
+      return {
+        ...u,
+        last_seen_at: lastSeen,
+        last_sign_in_at: lastSignIn || null,
+      };
+    });
+
+    if (sort === 'last_seen') {
+      enriched.sort((a, b) => new Date(b.last_seen_at) - new Date(a.last_seen_at));
+    }
+
     res.json({
-      data: data || [],
+      data: enriched,
       total: count || 0,
       page: pageNum,
       limit: limitNum,
-      has_more: count > offset + data.length
+      has_more: count > offset + enriched.length
     });
   } catch (err) {
     console.error('Get users error:', err);
