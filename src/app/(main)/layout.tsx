@@ -38,6 +38,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const isAnonRoute = pathname === '/anon'
+  const isDmThread = pathname.startsWith('/dm/') && pathname !== '/dm'
   const [createOpen, setCreateOpen] = useState(false)
   const [showNotifBanner, setShowNotifBanner] = useState(false)
   const [enablingPush, setEnablingPush] = useState(false)
@@ -87,30 +88,32 @@ function AppShell({ children }: { children: React.ReactNode }) {
   if (!isLoggedIn || !isActive) return null
 
   return (
-    <div className="app-shell">
-      <header className={`mobile-header${isAnonRoute ? ' anon-mobile-header' : ''}`}>
-        <Link href="/feed" className="brand-lockup" aria-label="Unigram home">
-          <img src="/icons/icon-192.png" alt="" width={30} height={30} />
-          <span>unigram</span>
-        </Link>
-        <div className="mobile-header-actions">
-          {isAnonRoute ? (
-            <Link href="/profile" className="header-mobile-profile" aria-label="Your profile">
-              <span className="header-mobile-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials}</span>
-              <span className="anon-mobile-presence" aria-hidden="true" />
-            </Link>
-          ) : (
-            <>
-              <span className="mobile-page-title">{pageTitle}</span>
+    <div className={`app-shell${isDmThread ? ' app-shell--dm-thread' : ''}`}>
+      {!isDmThread && (
+        <header className={`mobile-header${isAnonRoute ? ' anon-mobile-header' : ''}`}>
+          <Link href="/feed" className="brand-lockup" aria-label="Unigram home">
+            <img src="/icons/icon-192.png" alt="" width={30} height={30} />
+            <span>unigram</span>
+          </Link>
+          <div className="mobile-header-actions">
+            {isAnonRoute ? (
               <Link href="/profile" className="header-mobile-profile" aria-label="Your profile">
                 <span className="header-mobile-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials}</span>
+                <span className="anon-mobile-presence" aria-hidden="true" />
               </Link>
-            </>
-          )}
-        </div>
-      </header>
+            ) : (
+              <>
+                <span className="mobile-page-title">{pageTitle}</span>
+                <Link href="/profile" className="header-mobile-profile" aria-label="Your profile">
+                  <span className="header-mobile-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials}</span>
+                </Link>
+              </>
+            )}
+          </div>
+        </header>
+      )}
 
-      <div className="app-grid">
+      <div className={`app-grid${isDmThread ? ' app-grid--dm-thread' : ''}`}>
         <aside className="desktop-sidebar" aria-label="Main navigation">
           <Link href="/feed" className="brand-lockup sidebar-brand">
             <img src="/icons/icon-192.png" alt="" width={32} height={32} />
@@ -136,8 +139,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
         </aside>
 
-        <div className="mobile-header-spacer" />
-        <main className="main-column">
+        {!isDmThread && <div className="mobile-header-spacer" />}
+        <main className={`main-column${isDmThread ? ' main-column--dm-thread' : ''}`}>
           {showNotifBanner && (
             <div style={{
               margin: '0.5rem 0.75rem 0.25rem',
@@ -226,21 +229,23 @@ function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
       </div>
 
-      <nav className={`mobile-bottom-nav${isAnonRoute ? ' anon-context-nav' : ''}`} aria-label="Primary navigation">
-        {isAnonRoute ? <>
-          <Link href="/feed" aria-label="Feed"><Home size={19} /><span>Feed</span></Link>
-          <Link href="/anon" className="is-active" aria-current="page"><ShieldCheck size={19} /><span>Anon</span></Link>
-          <Link href="/dm" aria-label="DMs"><MessageCircle size={19} /><span>DMs</span></Link>
-          <Link href="/profile" aria-label="Profile"><UserRound size={19} /><span>Profile</span></Link>
-          <Link href="/more" aria-label="More"><Compass size={19} /><span>More</span></Link>
-        </> : <>
-          <Link href="/feed" className={pathname === '/feed' ? 'is-active' : ''} aria-current={pathname === '/feed' ? 'page' : undefined}><Home size={21} /><span>Home</span></Link>
-          <Link href="/more" className={pathname === '/more' ? 'is-active' : ''} aria-current={pathname === '/more' ? 'page' : undefined}><Compass size={21} /><span>Explore</span></Link>
-          <button className="mobile-create-button" onClick={() => setCreateOpen(true)} aria-label="Create"><Plus size={22} /></button>
-          <Link href="/dm" className={pathname === '/dm' || pathname.startsWith('/dm/') ? 'is-active' : ''} aria-current={pathname.startsWith('/dm') ? 'page' : undefined}><MessageCircle size={21} /><span>Chats</span></Link>
-          <Link href="/profile" className={pathname.startsWith('/profile') ? 'is-active' : ''} aria-current={pathname.startsWith('/profile') ? 'page' : undefined}><UserRound size={21} /><span>You</span></Link>
-        </>}
-      </nav>
+      {!isDmThread && (
+        <nav className={`mobile-bottom-nav${isAnonRoute ? ' anon-context-nav' : ''}`} aria-label="Primary navigation">
+          {isAnonRoute ? <>
+            <Link href="/feed" aria-label="Feed"><Home size={19} /><span>Feed</span></Link>
+            <Link href="/anon" className="is-active" aria-current="page"><ShieldCheck size={19} /><span>Anon</span></Link>
+            <Link href="/dm" aria-label="DMs"><MessageCircle size={19} /><span>DMs</span></Link>
+            <Link href="/profile" aria-label="Profile"><UserRound size={19} /><span>Profile</span></Link>
+            <Link href="/more" aria-label="More"><Compass size={19} /><span>More</span></Link>
+          </> : <>
+            <Link href="/feed" className={pathname === '/feed' ? 'is-active' : ''} aria-current={pathname === '/feed' ? 'page' : undefined}><Home size={21} /><span>Home</span></Link>
+            <Link href="/more" className={pathname === '/more' ? 'is-active' : ''} aria-current={pathname === '/more' ? 'page' : undefined}><Compass size={21} /><span>Explore</span></Link>
+            <button className="mobile-create-button" onClick={() => setCreateOpen(true)} aria-label="Create"><Plus size={22} /></button>
+            <Link href="/dm" className={pathname === '/dm' || pathname.startsWith('/dm/') ? 'is-active' : ''} aria-current={pathname.startsWith('/dm') ? 'page' : undefined}><MessageCircle size={21} /><span>Chats</span></Link>
+            <Link href="/profile" className={pathname.startsWith('/profile') ? 'is-active' : ''} aria-current={pathname.startsWith('/profile') ? 'page' : undefined}><UserRound size={21} /><span>You</span></Link>
+          </>}
+        </nav>
+      )}
 
       {createOpen && <div className="create-overlay" onMouseDown={event => { if (event.target === event.currentTarget) setCreateOpen(false) }}>
         <section className="create-sheet" role="dialog" aria-modal="true" aria-labelledby="create-sheet-title">
