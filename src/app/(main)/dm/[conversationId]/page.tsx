@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Send, Loader2, Reply, X, CheckCheck, MoreVertical, Ban, ShieldCheck, ShieldAlert, UserRound } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, Reply, X, CheckCheck, MoreVertical, Ban, ShieldCheck, ShieldAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -610,15 +610,6 @@ export default function DMThreadPage() {
 
               {menuOpen && (
                 <div className="ig-options-menu">
-                  <Link
-                    href={`/profile/${other.id}`}
-                    className="ig-options-item"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <UserRound size={16} />
-                    <span>View Profile</span>
-                  </Link>
-
                   {blockState.blockedByMe ? (
                     <button
                       type="button"
