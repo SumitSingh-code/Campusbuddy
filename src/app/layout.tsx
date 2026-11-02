@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Toaster } from 'sonner'
+import PwaInstallBanner from '@/components/pwa/PwaInstallBanner'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -247,6 +248,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
+        <PwaInstallBanner />
         {children}
         <Toaster
           position="top-right"
