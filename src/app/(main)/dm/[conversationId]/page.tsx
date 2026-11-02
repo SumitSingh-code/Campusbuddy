@@ -95,16 +95,48 @@ export default function DMThreadPage() {
         },
         (payload) => {
           const newMsg = payload.new as Message
+          if (!newMsg || !newMsg.id) return
+
           setMessages(prev => {
-            // deduplicate
+            // 1. If this exact message ID is already in the list, ignore
             if (prev.some(m => m.id === newMsg.id)) return prev
+
+            // 2. If it's sent by current user, reconcile with matching pending optimistic message
+            if (newMsg.sender_id === user.id) {
+              const pendingIdx = prev.findIndex(
+                m => m.id.startsWith('temp-') && m.sender_id === user.id && m.content === newMsg.content
+              )
+              if (pendingIdx !== -1) {
+                const next = [...prev]
+                next[pendingIdx] = newMsg
+                return next
+              }
+            }
+
+            // 3. Otherwise append new message
             return [...prev, newMsg]
           })
+
           setTimeout(() => scrollToBottom(true), 50)
+
           // Mark as read if from other user
           if (newMsg.sender_id !== user.id) {
             api.patch(`/dm/conversations/${conversationId}/read`, {}).catch(() => {})
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'dm_messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const updated = payload.new as Message
+          if (!updated || !updated.id) return
+          setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m))
         }
       )
       .subscribe()
@@ -121,7 +153,7 @@ export default function DMThreadPage() {
     setContent('')
     textareaRef.current?.focus()
 
-    // Optimistic
+    // Optimistic message
     const tempId = `temp-${Date.now()}`
     const optimistic: Message = {
       id: tempId,
@@ -134,9 +166,25 @@ export default function DMThreadPage() {
     setTimeout(() => scrollToBottom(true), 50)
 
     try {
-      await api.post(`/dm/conversations/${conversationId}/messages`, { content: tempContent })
-      // realtime will add the real message; remove optimistic
-      setMessages(prev => prev.filter(m => m.id !== tempId))
+      const res = await api.post<{ data: Message }>(`/dm/conversations/${conversationId}/messages`, { content: tempContent })
+      const realMsg = (res as { data?: Message })?.data || (res as unknown as Message)
+
+      setMessages(prev => {
+        // If the real message was already swapped in by Realtime:
+        if (realMsg?.id && prev.some(m => m.id === realMsg.id)) {
+          return prev.filter(m => m.id !== tempId)
+        }
+
+        // If Realtime hasn't arrived yet, replace tempId with realMsg in-place
+        const pendingIdx = prev.findIndex(m => m.id === tempId)
+        if (pendingIdx !== -1 && realMsg?.id) {
+          const next = [...prev]
+          next[pendingIdx] = realMsg
+          return next
+        }
+
+        return prev
+      })
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to send message')
       setMessages(prev => prev.filter(m => m.id !== tempId))
@@ -268,7 +316,6 @@ export default function DMThreadPage() {
             onChange={autoResize}
             onKeyDown={onKeyDown}
             rows={1}
-            disabled={sending}
           />
           <button
             className="thread-send-btn"
