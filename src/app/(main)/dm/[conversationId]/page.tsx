@@ -86,7 +86,6 @@ export default function DMThreadPage() {
   const [convInfo, setConvInfo] = useState<ConvInfo | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
   const [content, setContent] = useState('')
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [activeMsgId, setActiveMsgId] = useState<string | null>(null)
@@ -96,6 +95,9 @@ export default function DMThreadPage() {
 
   const pendingTempIdsRef = useRef<Set<string>>(new Set())
   const lastTapRef = useRef<{ id: string; time: number } | null>(null)
+  const messageSwipeRef = useRef<{ id: string; pointerId: number; x: number; y: number } | null>(null)
+  const suppressMessageTapRef = useRef(false)
+  const contentRef = useRef('')
 
   const messagesCanvasRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -310,11 +312,45 @@ export default function DMThreadPage() {
     }
   }
 
+  function handleMessagePointerDown(event: React.PointerEvent<HTMLDivElement>, msg: Message) {
+    if (event.pointerType !== 'touch' || !event.isPrimary) return
+    messageSwipeRef.current = {
+      id: msg.id,
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function handleMessagePointerUp(event: React.PointerEvent<HTMLDivElement>, msg: Message) {
+    const start = messageSwipeRef.current
+    messageSwipeRef.current = null
+    if (!start || start.id !== msg.id || start.pointerId !== event.pointerId) return
+
+    const deltaX = event.clientX - start.x
+    const deltaY = Math.abs(event.clientY - start.y)
+    if (deltaX < 56 || deltaY > 48 || deltaY > deltaX * 0.65) return
+
+    // A horizontal swipe replies instead of also triggering the row's tap action.
+    suppressMessageTapRef.current = true
+    handleReply(msg)
+    window.setTimeout(() => {
+      suppressMessageTapRef.current = false
+    }, 0)
+  }
+
+  function handleMessagePointerCancel(event: React.PointerEvent<HTMLDivElement>) {
+    if (messageSwipeRef.current?.pointerId === event.pointerId) {
+      messageSwipeRef.current = null
+    }
+  }
+
   async function sendMessage() {
-    const text = content.trim()
-    if (!text || sending) return
-    setSending(true)
+    const text = contentRef.current.trim()
+    if (!text) return
     const tempContent = text
+    contentRef.current = ''
     setContent('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
@@ -346,7 +382,7 @@ export default function DMThreadPage() {
 
     setMessages(prev => [...prev, optimistic])
     setReplyingTo(null)
-    setTimeout(() => scrollToBottom(true), 40)
+    requestAnimationFrame(() => scrollToBottom(true))
 
     try {
       const res = await api.post<{ data: Message }>(`/dm/conversations/${conversationId}/messages`, {
@@ -376,9 +412,17 @@ export default function DMThreadPage() {
       pendingTempIdsRef.current.delete(tempId)
       toast.error((e as Error).message || 'Failed to send message')
       setMessages(prev => prev.filter(m => m.id !== tempId))
-      setContent(tempContent)
-    } finally {
-      setSending(false)
+      // Restore the failed text only when the composer has no newer draft.
+      if (!contentRef.current.trim()) {
+        contentRef.current = tempContent
+        setContent(tempContent)
+        requestAnimationFrame(() => {
+          const textarea = textareaRef.current
+          if (!textarea) return
+          textarea.style.height = 'auto'
+          textarea.style.height = Math.min(textarea.scrollHeight, 110) + 'px'
+        })
+      }
     }
   }
 
@@ -395,6 +439,7 @@ export default function DMThreadPage() {
   }
 
   function autoResize(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    contentRef.current = e.target.value
     setContent(e.target.value)
     const el = e.target
     el.style.height = 'auto'
@@ -523,7 +568,16 @@ export default function DMThreadPage() {
                     key={msg.id}
                     id={`msg-${msg.id}`}
                     className={`ig-msg-row ${isOwn ? 'is-own' : 'is-other'} cluster-${clusterPos}${isTimeActive ? ' is-time-active' : ''}`}
-                    onClick={() => handleMessageTap(msg)}
+                    onPointerDown={event => handleMessagePointerDown(event, msg)}
+                    onPointerUp={event => handleMessagePointerUp(event, msg)}
+                    onPointerCancel={handleMessagePointerCancel}
+                    onClick={() => {
+                      if (suppressMessageTapRef.current) {
+                        suppressMessageTapRef.current = false
+                        return
+                      }
+                      handleMessageTap(msg)
+                    }}
                   >
                     <div className="ig-bubble-column">
                       <div className={`ig-bubble ${isOwn ? 'ig-bubble--own' : 'ig-bubble--other'} pos-${clusterPos}`}>
@@ -646,12 +700,12 @@ export default function DMThreadPage() {
             rows={1}
           />
           <button
-            className={`ig-capsule-send-btn ${content.trim() && !sending ? 'can-send' : ''}`}
+            className={`ig-capsule-send-btn ${content.trim() ? 'can-send' : ''}`}
             onClick={sendMessage}
-            disabled={!content.trim() || sending}
+            disabled={!content.trim()}
             aria-label="Send message"
           >
-            {sending ? <Loader2 size={16} className="ig-spinner" /> : <Send size={15} />}
+            <Send size={15} />
           </button>
         </div>
       </footer>
@@ -876,6 +930,7 @@ const igThreadStyles = `
   gap: 6px;
   position: relative;
   margin-bottom: 2px;
+  touch-action: pan-y;
 }
 .ig-msg-row.is-own {
   justify-content: flex-end;
