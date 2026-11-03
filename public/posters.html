@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniGram CRSU — Lift A4 Posters (Print Ready)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── A4 Print Specifications (210mm x 297mm at 300 DPI) ──────────── */
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #111827;
+      color: #FFFFFF;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+      padding: 40px 20px;
+    }
+
+    /* Print Control Bar (Hidden on Print) */
+    .print-controls {
+      position: sticky;
+      top: 20px;
+      z-index: 9999;
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 999px;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .print-btn {
+      background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+      color: #0D1424;
+      font-weight: 800;
+      font-size: 0.95rem;
+      padding: 10px 22px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+      transition: transform 0.15s ease;
+    }
+    .print-btn:hover {
+      transform: translateY(-1px);
+    }
+    .print-info {
+      font-size: 0.85rem;
+      color: #94A3B8;
+    }
+
+    /* ─── A4 Sheet Canvas ─────────────────────────────────────────────── */
+    .a4-sheet {
+      width: 210mm;
+      height: 297mm;
+      min-width: 210mm;
+      min-height: 297mm;
+      position: relative;
+      overflow: hidden;
+      background: #090E1A;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14mm 14mm 12mm;
+      page-break-after: always;
+    }
+
+    /* Background Ambient Gradients */
+    .bg-glow-top {
+      position: absolute;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 500px;
+      height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.18) 0%, rgba(212, 175, 55, 0.05) 50%, transparent 75%);
+      pointer-events: none;
+      filter: blur(40px);
+    }
+    .bg-glow-bottom {
+      position: absolute;
+      bottom: -100px;
+      right: -80px;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+      filter: blur(50px);
+    }
+    .poster-border-frame {
+      position: absolute;
+      inset: 6mm;
+      border: 1px solid rgba(245, 158, 11, 0.22);
+      border-radius: 18px;
+      pointer-events: none;
+    }
+    .poster-corner-accent {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-color: #F59E0B;
+      border-style: solid;
+      pointer-events: none;
+    }
+    .accent-tl { top: 5.5mm; left: 5.5mm; border-width: 2.5px 0 0 2.5px; border-top-left-radius: 12px; }
+    .accent-tr { top: 5.5mm; right: 5.5mm; border-width: 2.5px 2.5px 0 0; border-top-right-radius: 12px; }
+    .accent-bl { bottom: 5.5mm; left: 5.5mm; border-width: 0 0 2.5px 2.5px; border-bottom-left-radius: 12px; }
+    .accent-br { bottom: 5.5mm; right: 5.5mm; border-width: 0 2.5px 2.5px 0; border-bottom-right-radius: 12px; }
+
+    /* ─── Poster Header Section ────────────────────────────────────────── */
+    .poster-header {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 12px;
+    }
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo-box {
+      width: 48px;
+      height: 48px;
+      border-radius: 13px;
+      background: #0D1424;
+      border: 1.5px solid rgba(245, 158, 11, 0.45);
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .brand-logo-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .brand-text h1 {
+      font-size: 1.35rem;
+      font-weight: 850;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .brand-text h1 span {
+      background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand-text p {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94A3B8;
+    }
+    .badge-pioneer {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #F59E0B;
+      font-size: 0.72rem;
+      font-weight: 750;
+      letter-spacing: 0.02em;
+    }
+
+    /* ─── Hero Headline & Elevator Hook ────────────────────────────────── */
+    .poster-hero {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      margin-top: 10px;
+    }
+    .hook-pill {
+      display: inline-block;
+      font-size: 0.76rem;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #FBBF24;
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 4px 14px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+    .main-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.45rem;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+    }
+    .main-title .gold-gradient {
+      background: linear-gradient(135deg, #F59E0B 0%, #FDE68A 50%, #D97706 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sub-title {
+      font-size: 1.02rem;
+      font-weight: 500;
+      color: #CBD5E1;
+      max-width: 90%;
+      margin: 0 auto;
+      line-height: 1.45;
+    }
+
+    /* ─── Feature Bento / Value Cards ─────────────────────────────────── */
+    .feature-grid {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .feature-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+    }
+    .feature-card.highlight {
+      grid-column: span 2;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
+      border: 1.5px solid rgba(245, 158, 11, 0.35);
+    }
+    .feature-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .feature-info h4 {
+      font-size: 0.88rem;
+      font-weight: 750;
+      color: #FFFFFF;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .feature-info p {
+      font-size: 0.74rem;
+      color: #94A3B8;
+      line-height: 1.35;
+    }
+    .feature-tag {
+      font-size: 0.58rem;
+      font-weight: 800;
+      background: #F59E0B;
+      color: #0D1424;
+      padding: 1px 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    /* ─── Center Callout & QR Code Section ────────────────────────────── */
+    .qr-hero-card {
+      position: relative;
+      z-index: 2;
+      background: linear-gradient(145deg, rgba(245, 158, 11, 0.14) 0%, rgba(30, 41, 59, 0.85) 100%);
+      border: 2px solid rgba(245, 158, 11, 0.45);
+      border-radius: 20px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+    }
+    .qr-text-side h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #FFFFFF;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .qr-text-side p {
+      font-size: 0.82rem;
+      color: #CBD5E1;
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+    .qr-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .qr-micro-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #E2E8F0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .qr-code-wrapper {
+      background: #FFFFFF;
+      padding: 10px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      border: 2px solid #F59E0B;
+    }
+    .qr-img {
+      width: 110px;
+      height: 110px;
+      display: block;
+    }
+    .qr-caption {
+      font-size: 0.64rem;
+      font-weight: 800;
+      color: #0F172A;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* ─── Bottom Footer & Administration Pride Line ──────────────────── */
+    .poster-footer {
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pride-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #FBBF24;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .admin-disclaimer {
+      font-size: 0.64rem;
+      color: #64748B;
+      text-align: right;
+      line-height: 1.35;
+      font-weight: 500;
+    }
+
+    /* ─── Lift 2 Variation Theme (Clean Emerald/Champagne Gold) ──────── */
+    .theme-lift2 {
+      background: #080D18;
+    }
+    .theme-lift2 .hook-pill {
+      color: #34D399;
+      background: rgba(16, 185, 129, 0.14);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .theme-lift2 .main-title .gold-gradient {
+      background: linear-gradient(135deg, #10B981 0%, #6EE7B7 50%, #F59E0B 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .theme-lift2 .badge-pioneer {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.35);
+      color: #34D399;
+    }
+    .theme-lift2 .feature-icon-box {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .theme-lift2 .qr-hero-card {
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.14) 0%, rgba(30, 41, 59, 0.85) 100%);
+      border-color: rgba(16, 185, 129, 0.45);
+    }
+    .theme-lift2 .qr-code-wrapper {
+      border-color: #10B981;
+    }
+
+    /* Print Media Overrides */
+    @media print {
+      body {
+        background: transparent;
+        padding: 0;
+        gap: 0;
+      }
+      .print-controls {
+        display: none !important;
+      }
+      .a4-sheet {
+        box-shadow: none;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen Top Bar with Instant Print Action -->
+  <div class="print-controls">
+    <button class="print-btn" onclick="window.print()">
+      🖨️ Print Both A4 Posters (Ctrl + P)
+    </button>
+    <div class="print-info">
+      Designed for <strong>CRSU Department Lifts</strong> · 300 DPI A4 Dimensions (210×297mm)
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════════════ -->
+  <!-- POSTER 1: FOR LIFT 1 (ACADEMIC EXCELLENCE, PYQs & NOTES REVOLUTION) -->
+  <!-- ═════════════════════════════════════════════════════════════════════ -->
+  <article class="a4-sheet">
+    <!-- Ambient Lighting & Borders -->
+    <div class="bg-glow-top"></div>
+    <div class="bg-glow-bottom"></div>
+    <div class="poster-border-frame"></div>
+    <div class="poster-corner-accent accent-tl"></div>
+    <div class="poster-corner-accent accent-tr"></div>
+    <div class="poster-corner-accent accent-bl"></div>
+    <div class="poster-corner-accent accent-br"></div>
+
+    <!-- Header -->
+    <header class="poster-header">
+      <div class="brand-group">
+        <div class="brand-logo-box">
+          <img src="/icons/icon-192.png" alt="UniGram Logo" onerror="this.src='https://api.iconify.design/lucide:graduation-cap.svg?color=%23F59E0B'">
+        </div>
+        <div class="brand-text">
+          <h1>Uni<span>Gram</span></h1>
+          <p>UNIGRAM Student Community · unigramjind.site</p>
+        </div>
+      </div>
+      <div class="badge-pioneer">
+        <span>⚡ Built by CRSU Students</span>
+      </div>
+    </header>
+
+    <!-- Main Elevator Hook & Title -->
+    <section class="poster-hero">
+      <div class="hook-pill">Lift me up? Exam me kaun uthayega? 🎯</div>
+      <h2 class="main-title">
+        Stop Chasing Seniors for <br>
+        <span class="gold-gradient">5-Year PYQs & Notes.</span>
+      </h2>
+      <p class="sub-title">
+        Har semester ke Question Papers aur Topper Study Notes ab seedha aapke phone me — bilkul <strong>FREE & 0 MB</strong>.
+      </p>
+    </section>
+
+    <!-- Value Proposition Bento Grid -->
+    <section class="feature-grid">
+      <div class="feature-card highlight">
+        <div class="feature-icon-box">📚</div>
+        <div class="feature-info">
+          <h4>5-Year Solved PYQs Archive <span class="feature-tag">Instant PDF</span></h4>
+          <p>BCA, B.Tech, MCA, MBA, BA, B.Sc aur sabhi departments ke authentic university exam papers ek click me.</p>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">⚡</div>
+        <div class="feature-info">
+          <h4>0 MB · No App Store</h4>
+          <p>Phone memory bhare bina browser me turant 1 tap par install hoti hai.</p>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">🔒</div>
+        <div class="feature-info">
+          <h4>100% Anonymous Feed</h4>
+          <p>Bina apna naam bataye campus queries aur sachhi baatein share karein.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Giant QR Hero Container (Target: Chest / Eye Level) -->
+    <section class="qr-hero-card">
+      <div class="qr-text-side">
+        <h3>Camera Kholo,<br>Scan Karo! 📱</h3>
+        <p>Lift rukne se pehle apna semester portal unlock karein.</p>
+        <div class="qr-pills">
+          <span class="qr-micro-pill">✓ 0 MB Storage</span>
+          <span class="qr-micro-pill">✓ Offline Access</span>
+          <span class="qr-micro-pill">✓ Free for all CRSUians</span>
+        </div>
+      </div>
+      <div class="qr-code-wrapper">
+        <!-- SVG Vector QR Code for unigramjind.site -->
+        <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://unigramjind.site&color=0D1424&bgcolor=FFFFFF&margin=1" alt="Scan QR Code to open UniGram">
+        <span class="qr-caption">Scan to Open</span>
+      </div>
+    </section>
+
+    <!-- Respectful Administrative & Student Pride Footer -->
+    <footer class="poster-footer">
+      <div class="pride-pill">
+        <span>🎓 Proud Student Engineering Project</span>
+      </div>
+      <div class="admin-disclaimer">
+        Independent Student Initiative · Made by students, for students<br>
+        Not affiliated with official CRSU administration.
+      </div>
+    </footer>
+  </article>
+
+  <!-- ═════════════════════════════════════════════════════════════════════ -->
+  <!-- POSTER 2: FOR LIFT 2 (CAMPUS COMMUNITY, LOST & FOUND & DAILY LIFE)  -->
+  <!-- ═════════════════════════════════════════════════════════════════════ -->
+  <article class="a4-sheet theme-lift2">
+    <!-- Ambient Lighting & Borders -->
+    <div class="bg-glow-top"></div>
+    <div class="bg-glow-bottom"></div>
+    <div class="poster-border-frame"></div>
+    <div class="poster-corner-accent accent-tl"></div>
+    <div class="poster-corner-accent accent-tr"></div>
+    <div class="poster-corner-accent accent-bl"></div>
+    <div class="poster-corner-accent accent-br"></div>
+
+    <!-- Header -->
+    <header class="poster-header">
+      <div class="brand-group">
+        <div class="brand-logo-box">
+          <img src="/icons/icon-192.png" alt="UniGram Logo" onerror="this.src='https://api.iconify.design/lucide:graduation-cap.svg?color=%2310B981'">
+        </div>
+        <div class="brand-text">
+          <h1>Uni<span>Gram</span></h1>
+          <p>UNIGRAM Student Community · unigramjind.site</p>
+        </div>
+      </div>
+      <div class="badge-pioneer">
+        <span>✨ 500+ CRSU Students Joined</span>
+      </div>
+    </header>
+
+    <!-- Main Elevator Hook & Title -->
+    <section class="poster-hero">
+      <div class="hook-pill">Ever wished CRSU had its own App? 🚀</div>
+      <h2 class="main-title">
+        Your Entire Campus <br>
+        <span class="gold-gradient">In One Single Tap.</span>
+      </h2>
+      <p class="sub-title">
+        ID Card kho gaya? Notice miss ho gaya? Ya bas campus me kya chal raha hai janna hai? Ab sab ek jagah.
+      </p>
+    </section>
+
+    <!-- Value Proposition Bento Grid -->
+    <section class="feature-grid">
+      <div class="feature-card highlight">
+        <div class="feature-icon-box">🔍</div>
+        <div class="feature-info">
+          <h4>Campus Lost & Found <span class="feature-tag">Lost & Found Updates</span></h4>
+          <p>Keys, ID Card, Earphones ya Books ghum hui? Turant report karein aur Lost & Found Updates check karein.</p>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">💬</div>
+        <div class="feature-info">
+          <h4>Student-to-Student DMs</h4>
+          <p>Alag-alag departments ke batchmates ke sath safe aur direct connect karein.</p>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">📅</div>
+        <div class="feature-info">
+          <h4>Timetable & Notices</h4>
+          <p>Weekly lecture timetable aur department circulars bina kisi confusion ke.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Giant QR Hero Container (Target: Chest / Eye Level) -->
+    <section class="qr-hero-card">
+      <div class="qr-text-side">
+        <h3>Try It Right Now<br>While You Ride! 🚀</h3>
+        <p>No Play Store login needed. Opens instantly on your browser.</p>
+        <div class="qr-pills">
+          <span class="qr-micro-pill">✓ iPhone & Android</span>
+          <span class="qr-micro-pill">✓ 1-Tap Home Screen</span>
+          <span class="qr-micro-pill">✓ 100% Free</span>
+        </div>
+      </div>
+      <div class="qr-code-wrapper">
+        <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://unigramjind.site&color=0D1424&bgcolor=FFFFFF&margin=1" alt="Scan QR Code to open UniGram">
+        <span class="qr-caption">Scan to Open</span>
+      </div>
+    </section>
+
+    <!-- Respectful Administrative & Student Pride Footer -->
+    <footer class="poster-footer">
+      <div class="pride-pill">
+        <span>🏛️ Made with Pride by CRSU Students</span>
+      </div>
+      <div class="admin-disclaimer">
+        Independent Student Initiative · Made by students, for students<br>
+        Not affiliated with official CRSU administration.
+      </div>
+    </footer>
+  </article>
+
+</body>
+</html>
