@@ -12,9 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
 }
 
-const DISMISS_KEY = 'unigram_install_banner_dismissed_at'
-const INSTALLED_KEY = 'unigram_app_installed'
-const DISMISS_COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24 hours
+const SESSION_DISMISS_KEY = 'unigram_install_banner_dismissed_session'
 
 export default function PwaInstallBanner() {
   const [mounted, setMounted] = useState(false)
@@ -31,41 +29,41 @@ export default function PwaInstallBanner() {
     const isStandaloneMatch = window.matchMedia('(display-mode: standalone)').matches
     const isNavigatorStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone === true
     if (isStandaloneMatch || isNavigatorStandalone) {
-      return // Already installed & opened as PWA
+      return // Already installed & opened as standalone PWA app
     }
 
-    // 2. Check if marked installed previously
-    if (localStorage.getItem(INSTALLED_KEY) === 'true') {
-      return
-    }
-
-    // 3. Check dismissal cooldown
-    const dismissedAt = localStorage.getItem(DISMISS_KEY)
-    if (dismissedAt) {
-      const elapsed = Date.now() - parseInt(dismissedAt, 10)
-      if (elapsed < DISMISS_COOLDOWN_MS) {
-        return
-      }
-    }
-
-    // 4. Detect iOS
+    // 2. Detect iOS
     const ua = window.navigator.userAgent.toLowerCase()
     const iosDevice = /iphone|ipad|ipod/.test(ua) && !(window as unknown as { MSStream?: boolean }).MSStream
     setIsIOS(iosDevice)
 
-    // 5. Show banner
-    setIsVisible(true)
+    // 3. Check session dismissal (allows re-showing in new session / visit)
+    let isDismissedInSession = false
+    try {
+      isDismissedInSession = sessionStorage.getItem(SESSION_DISMISS_KEY) === 'true'
+    } catch {}
 
-    // 6. Listen for beforeinstallprompt
+    if (!isDismissedInSession) {
+      setIsVisible(true)
+    }
+
+    // 4. Listen for beforeinstallprompt
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
+      // If prompt available, ensure banner is visible if not in standalone
+      if (!isDismissedInSession) {
+        setIsVisible(true)
+      }
     }
 
-    // 7. Listen for appinstalled
+    // 5. Listen for appinstalled
     const handleAppInstalled = () => {
       setIsVisible(false)
-      localStorage.setItem(INSTALLED_KEY, 'true')
+      setShowGuideModal(false)
+      try {
+        localStorage.setItem('unigram_app_installed', 'true')
+      } catch {}
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
@@ -77,11 +75,35 @@ export default function PwaInstallBanner() {
     }
   }, [])
 
+  // Global event listener: allows any button (login page, etc.) to trigger install or open guide modal
+  useEffect(() => {
+    const handleOpenInstall = () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt().then(() => {
+          return deferredPrompt.userChoice
+        }).then((choice) => {
+          if (choice?.outcome === 'accepted') {
+            setIsVisible(false)
+          }
+        }).catch(() => {
+          setShowGuideModal(true)
+        })
+      } else {
+        setShowGuideModal(true)
+      }
+    }
+
+    window.addEventListener('unigram:open-install-guide', handleOpenInstall)
+    return () => window.removeEventListener('unigram:open-install-guide', handleOpenInstall)
+  }, [deferredPrompt])
+
   const handleDismiss = () => {
     setIsDismissing(true)
     setTimeout(() => {
       setIsVisible(false)
-      localStorage.setItem(DISMISS_KEY, Date.now().toString())
+      try {
+        sessionStorage.setItem(SESSION_DISMISS_KEY, 'true')
+      } catch {}
     }, 280)
   }
 
@@ -92,7 +114,9 @@ export default function PwaInstallBanner() {
         const choice = await deferredPrompt.userChoice
         if (choice.outcome === 'accepted') {
           setIsVisible(false)
-          localStorage.setItem(INSTALLED_KEY, 'true')
+          try {
+            localStorage.setItem('unigram_app_installed', 'true')
+          } catch {}
         }
       } catch (err) {
         console.warn('Install prompt error:', err)
@@ -101,18 +125,19 @@ export default function PwaInstallBanner() {
         setDeferredPrompt(null)
       }
     } else {
-      // Either iOS or browser hasn't fired beforeinstallprompt
+      // Either iOS Safari or browser hasn't fired beforeinstallprompt
       setShowGuideModal(true)
     }
   }
 
-  if (!mounted || !isVisible) {
+  if (!mounted) {
     return null
   }
 
   return (
     <>
-      <section
+      {isVisible && (
+        <section
         role="region"
         aria-label="Install UniGram App"
         style={{
@@ -284,6 +309,7 @@ export default function PwaInstallBanner() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Guide Modal for iOS or manual browser installation */}
       {showGuideModal && (

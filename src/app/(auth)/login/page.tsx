@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Download } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { AuthHero } from '@/components/auth/AuthHero'
 
@@ -19,6 +19,13 @@ function LoginContent() {
   const [showPw,   setShowPw]   = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
+  const [isStandalone, setIsStandalone] = useState(false)
+
+  useEffect(() => {
+    const isStandaloneMatch = window.matchMedia('(display-mode: standalone)').matches
+    const isNavStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone === true
+    setIsStandalone(Boolean(isStandaloneMatch || isNavStandalone))
+  }, [])
 
   // If arriving due to an expired/revoked session, purge dead local credentials
   useEffect(() => {
@@ -216,6 +223,72 @@ function LoginContent() {
               Join Unigram
             </Link>
           </div>
+
+          {/* Persistent Install UniGram App Option on Login Screen */}
+          {!isStandalone && (
+            <div
+              style={{
+                marginTop: '1.25rem',
+                padding: '11px 13px',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, rgba(242, 169, 59, 0.12) 0%, rgba(212, 175, 55, 0.05) 100%)',
+                border: '1px solid rgba(242, 169, 59, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                <img
+                  src="/icons/icon-192.png"
+                  alt="UniGram App"
+                  width={36}
+                  height={36}
+                  style={{
+                    borderRadius: '9px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                    border: '1px solid rgba(212,175,55,0.35)',
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 750, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span>Install UniGram App</span>
+                    <span style={{ fontSize: '0.6rem', background: 'var(--accent)', color: '#0D1424', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>CRSU</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--ink-muted)', marginTop: 1 }}>
+                    Fast 1-tap app · Works offline · 0 MB
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('unigram:open-install-guide'))
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 13px',
+                  borderRadius: '999px',
+                  background: 'linear-gradient(135deg, #F2A93B 0%, #D4AF37 100%)',
+                  color: '#0D1424',
+                  border: 'none',
+                  fontWeight: 750,
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(242, 169, 59, 0.3)',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Download size={13} strokeWidth={2.4} />
+                <span>Install</span>
+              </button>
+            </div>
+          )}
 
           <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.72rem', color: 'var(--ink-subtle)', lineHeight: 1.4 }}>
             Unigram · Independent student platform<br />Not affiliated with CRSU
