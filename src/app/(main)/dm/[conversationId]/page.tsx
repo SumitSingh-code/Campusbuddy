@@ -105,6 +105,9 @@ export default function DMThreadPage() {
   const currentUserIdRef = useRef<string | null>(null)
   currentUserIdRef.current = user?.id || profile?.id || null
 
+  const otherUserIdRef = useRef<string | null>(null)
+  otherUserIdRef.current = convInfo?.other_user?.id || null
+
   const pendingTempIdsRef = useRef<Set<string>>(new Set())
   const lastTapRef = useRef<{ id: string; time: number } | null>(null)
   const messageSwipeRef = useRef<{ id: string; pointerId: number; x: number; y: number } | null>(null)
@@ -269,22 +272,31 @@ export default function DMThreadPage() {
             // 1. If this exact message ID is already in the list, ignore
             if (prev.some(m => m.id === newMsg.id)) return prev
 
-            // 2. Check if this is the current user's message
+            // 2. Check if this resolves a pending optimistic temp message
+            const otherId = otherUserIdRef.current
             const myId = currentUserIdRef.current
-            const isMine = Boolean(myId && newMsg.sender_id === myId)
+            const isFromMe = Boolean(
+              (myId && (newMsg.sender_id === myId || String(newMsg.sender_id).toLowerCase() === String(myId).toLowerCase())) ||
+              (otherId && newMsg.sender_id !== otherId) ||
+              pendingTempIdsRef.current.size > 0
+            )
 
-            if (isMine) {
-              const matchByContent = prev.findIndex(m => m.id.startsWith('temp-') && m.content === newMsg.content)
-              const firstPending = prev.findIndex(m => m.id.startsWith('temp-'))
-              const targetIdx = matchByContent !== -1 ? matchByContent : firstPending
+            // Look for matching temp message by trimmed content
+            let targetIdx = prev.findIndex(m => 
+              m.id.startsWith('temp-') && m.content.trim() === newMsg.content.trim()
+            )
 
-              if (targetIdx !== -1) {
-                const tempMsg = prev[targetIdx]
-                pendingTempIdsRef.current.delete(tempMsg.id)
-                const next = [...prev]
-                next[targetIdx] = newMsg
-                return next
-              }
+            // If not found by content, but this message is definitely from me (or pending exists), match the first pending temp
+            if (targetIdx === -1 && isFromMe) {
+              targetIdx = prev.findIndex(m => m.id.startsWith('temp-'))
+            }
+
+            if (targetIdx !== -1) {
+              const tempMsg = prev[targetIdx]
+              pendingTempIdsRef.current.delete(tempMsg.id)
+              const next = [...prev]
+              next[targetIdx] = newMsg
+              return next
             }
 
             // 3. Otherwise append new incoming message
@@ -470,22 +482,26 @@ export default function DMThreadPage() {
       const realMsg = (res as { data?: Message })?.data || (res as unknown as Message)
       pendingTempIdsRef.current.delete(tempId)
 
-      setMessages(prev => {
-        // If Realtime already swapped it in:
-        if (realMsg?.id && prev.some(m => m.id === realMsg.id)) {
-          return prev.filter(m => m.id !== tempId)
-        }
+      if (realMsg?.id) {
+        setMessages(prev => {
+          const hasReal = prev.some(m => m.id === realMsg.id)
+          const tempIdx = prev.findIndex(m => m.id === tempId)
 
-        // If Realtime hasn't arrived yet, replace tempId in-place:
-        const pendingIdx = prev.findIndex(m => m.id === tempId)
-        if (pendingIdx !== -1 && realMsg?.id) {
-          const next = [...prev]
-          next[pendingIdx] = realMsg
-          return next
-        }
+          if (hasReal) {
+            // Realtime already swapped it in or added it; filter out tempId if still there
+            return tempIdx !== -1 ? prev.filter(m => m.id !== tempId) : prev
+          }
 
-        return prev
-      })
+          if (tempIdx !== -1) {
+            // Realtime hasn't arrived yet; replace tempId in-place
+            const next = [...prev]
+            next[tempIdx] = realMsg
+            return next
+          }
+
+          return [...prev, realMsg]
+        })
+      }
     } catch (e: unknown) {
       pendingTempIdsRef.current.delete(tempId)
       toast.error((e as Error).message || 'Failed to send message')
@@ -561,10 +577,22 @@ export default function DMThreadPage() {
   }
 
   const other = convInfo?.other_user
-  const myId = currentUserIdRef.current || user?.id
+  const myId = currentUserIdRef.current || user?.id || profile?.id || ''
+
+  // Layer 3 Deduplication: Never display a temp message if a confirmed message with identical content exists
+  const displayMessages = messages.filter((msg) => {
+    if (msg.id.startsWith('temp-')) {
+      const hasDuplicate = messages.some(other => 
+        !other.id.startsWith('temp-') && 
+        other.content.trim() === msg.content.trim()
+      )
+      if (hasDuplicate) return false
+    }
+    return true
+  })
 
   // Last message sent by the current user to display Seen status
-  const lastOwnMsg = [...messages].reverse().find(m => m.sender_id === myId)
+  const lastOwnMsg = [...displayMessages].reverse().find(m => m.sender_id === myId)
 
   return (
     <div className="ig-thread-wrap">
@@ -656,7 +684,7 @@ export default function DMThreadPage() {
           <div className="ig-loading-center">
             <Loader2 size={24} className="ig-spinner" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : displayMessages.length === 0 ? (
           <div className="ig-empty-state">
             <div className="ig-empty-avatar">
               {other?.avatar_url ? (
@@ -670,7 +698,7 @@ export default function DMThreadPage() {
             <div className="ig-empty-hint">Say hi to break the ice 👋</div>
           </div>
         ) : (
-          groupByDay(messages).map(group => (
+          groupByDay(displayMessages).map(group => (
             <div key={group.date} className="ig-day-section">
               <div className="ig-day-pill">
                 <span>{group.date}</span>
@@ -1215,45 +1243,46 @@ const igThreadStyles = `
 /* ─── Quoted Preview Card Inside Bubble ─────────────────────────────── */
 .ig-quote-card {
   border-radius: 9px;
-  padding: 4px 9px;
-  margin-bottom: 5px;
+  padding: 5px 9px;
+  margin-bottom: 6px;
   font-size: 0.73rem;
   cursor: pointer;
   transition: opacity .15s ease;
+  user-select: none;
 }
 .ig-quote-card:hover {
-  opacity: 0.88;
+  opacity: 0.9;
 }
 
 .ig-quote-card--other {
-  background: var(--accent-light);
-  border-left: 2px solid var(--accent);
+  background: rgba(0, 0, 0, 0.05);
+  border-left: 3px solid var(--accent, #F59E0B);
 }
 .ig-quote-card--other .ig-quote-sender {
-  color: var(--accent-text);
+  color: var(--ink);
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 .ig-quote-card--other .ig-quote-snippet {
-  color: var(--ink-muted, #555555);
+  color: var(--ink-muted, #666666);
   margin-top: 1px;
 }
 
 .ig-quote-card--own {
-  background: rgba(255, 255, 255, 0.48);
-  border-left: 2px solid var(--accent-text);
+  background: rgba(0, 0, 0, 0.08);
+  border-left: 3px solid rgba(69, 26, 3, 0.65);
 }
 .ig-quote-card--own .ig-quote-sender {
-  color: var(--accent-text);
+  color: #3b2002;
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 .ig-quote-card--own .ig-quote-snippet {
-  color: #55421f;
+  color: #553406;
   margin-top: 1px;
 }
 
@@ -1266,7 +1295,7 @@ const igThreadStyles = `
 
 /* ─── Compact Inline Timestamps & Seen Row ─────────────────────────── */
 .ig-time-hint {
-  font-size: 0.65rem;
+  font-size: 0.66rem;
   color: var(--ink-muted);
   margin-top: 2px;
   padding: 0 4px;
@@ -1302,15 +1331,19 @@ const igThreadStyles = `
   animation: igFadeIn 0.2s ease;
 }
 .ig-seen-label {
-  font-size: 0.68rem;
-  font-weight: 550;
+  font-size: 0.69rem;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+  color: var(--ink-muted);
 }
 .ig-seen-label.seen {
-  color: var(--accent-text);
-  font-weight: 600;
+  color: var(--ink-muted);
+  font-weight: 550;
+}
+.ig-seen-label.seen .ig-seen-check {
+  color: #059669;
 }
 .ig-seen-label.sent {
   color: var(--ink-muted);
@@ -1457,11 +1490,11 @@ const igThreadStyles = `
 .ig-capsule-box {
   display: flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 8px;
   background: var(--surface);
   border: 1.5px solid var(--border);
-  border-radius: 24px;
-  padding: 4px 6px 4px 14px;
+  border-radius: 26px;
+  padding: 4px 6px 4px 16px;
   transition: border-color .15s ease, box-shadow .15s ease, border-radius .15s ease;
 }
 .ig-capsule-box:focus-within {
@@ -1479,22 +1512,32 @@ const igThreadStyles = `
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
   resize: none;
-  font-size: 0.92rem;
+  font-size: 0.94rem;
   line-height: 1.45;
   color: var(--ink);
   max-height: 100px;
   min-height: 24px;
   font-family: inherit;
-  padding: 6px 0;
+  padding: 7px 0;
+}
+.ig-capsule-textarea:focus,
+.ig-capsule-textarea:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .ig-capsule-textarea::placeholder {
   color: var(--ink-muted);
 }
 
 .ig-capsule-send-btn {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--bg-muted);
   color: var(--ink-muted);
@@ -1504,17 +1547,20 @@ const igThreadStyles = `
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  margin-bottom: 0;
-  opacity: 1;
+  margin-bottom: 2px;
+  opacity: 0.4;
   pointer-events: none;
-  transform: scale(1);
-  transition: transform .18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity .15s ease;
+  transform: scale(0.95);
+  transition: transform .18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity .15s ease, background-color .15s ease;
 }
 .ig-capsule-send-btn.can-send {
   background: var(--accent);
-  color: #382606;
+  color: #261a04;
   opacity: 1;
   pointer-events: auto;
+  transform: scale(1.04);
+  box-shadow: 0 2px 6px rgba(242, 169, 59, 0.35);
+}
   transform: scale(1);
 }
 .ig-capsule-send-btn:focus-visible,
