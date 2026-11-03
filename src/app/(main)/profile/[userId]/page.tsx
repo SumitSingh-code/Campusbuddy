@@ -31,6 +31,7 @@ export default function UserProfilePage() {
   const router = useRouter()
 
   const [profile, setProfile] = useState<OtherProfile | null>(null)
+  const [coverUrl, setCoverUrl] = useState<string>('/images/default-cover.jpg')
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [postsLoading, setPostsLoading] = useState(false)
@@ -39,6 +40,7 @@ export default function UserProfilePage() {
   const [activeComments, setActiveComments] = useState<string | null>(null)
   const [activeReport, setActiveReport] = useState<string | null>(null)
 
+  // Load target user profile
   useEffect(() => {
     if (!userId) return
     let cancelled = false
@@ -57,12 +59,30 @@ export default function UserProfilePage() {
     return () => { cancelled = true }
   }, [userId])
 
+  // Load global cover image
+  useEffect(() => {
+    let cancelled = false
+    api.get('/config')
+      .then(res => {
+        if (cancelled) return
+        const url = res.data?.cover_url || res.data?.profile_cover_url
+        if (url) setCoverUrl(url)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // Load strictly target user's posts
   useEffect(() => {
     if (!userId || !profile) return
     setPostsLoading(true)
-    api.get(`/feed?author_id=${userId}`)
-      .then(res => setPosts(res.data || []))
-      .catch(() => {})
+    api.get(`/profile/${userId}/posts`)
+      .catch(() => api.get(`/feed?author_id=${userId}`))
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : [])
+        setPosts(list)
+      })
+      .catch(() => setPosts([]))
       .finally(() => setPostsLoading(false))
   }, [userId, profile])
 
@@ -95,7 +115,7 @@ export default function UserProfilePage() {
     return (
       <div className="up-wrap">
         <div className="up-topbar">
-          <button className="up-back" onClick={() => router.back()}>
+          <button className="up-back" onClick={() => router.back()} aria-label="Go back">
             <ArrowLeft size={20} />
           </button>
           <div className="up-topbar-skeleton skeleton-pulse" style={{ width: 120 }} />
@@ -115,7 +135,7 @@ export default function UserProfilePage() {
     return (
       <div className="up-wrap">
         <div className="up-topbar">
-          <button className="up-back" onClick={() => router.back()}><ArrowLeft size={20} /></button>
+          <button className="up-back" onClick={() => router.back()} aria-label="Go back"><ArrowLeft size={20} /></button>
           <span className="up-topbar-title">Profile</span>
         </div>
         <div className="up-error">{error}</div>
@@ -128,12 +148,16 @@ export default function UserProfilePage() {
     <div className="up-wrap">
       {/* Topbar */}
       <div className="up-topbar">
-        <button className="up-back" onClick={() => router.back()}><ArrowLeft size={20} /></button>
+        <button className="up-back" onClick={() => router.back()} aria-label="Go back">
+          <ArrowLeft size={20} />
+        </button>
         <span className="up-topbar-title">{profile?.full_name || 'Profile'}</span>
       </div>
 
-      {/* Cover */}
-      <div className="up-cover" />
+      {/* Campus Cover Image */}
+      <div className="up-cover" style={{ backgroundImage: `url(${coverUrl})` }}>
+        <div className="up-cover-overlay" />
+      </div>
 
       {/* Content */}
       <div className="up-content">
@@ -163,7 +187,7 @@ export default function UserProfilePage() {
         {/* Stats */}
         <div className="up-stats">
           <div className="up-stat">
-            <div className="up-stat-value">{profile?.posts_count ?? 0}</div>
+            <div className="up-stat-value">{posts.length > 0 ? posts.length : (profile?.posts_count ?? 0)}</div>
             <div className="up-stat-label">Posts</div>
           </div>
           <div className="up-stat-divider" />
@@ -179,14 +203,20 @@ export default function UserProfilePage() {
         </div>
       </div>
 
-      {/* Posts */}
+      {/* Posts Section */}
       <div className="up-posts-header">
         <BookOpen size={14} /> <span>Posts</span>
       </div>
       {postsLoading ? (
         <div className="up-loading"><div className="up-spinner" /></div>
       ) : posts.length === 0 ? (
-        <div className="up-empty">No posts yet</div>
+        <div className="up-empty">
+          <div className="up-empty-icon">📝</div>
+          <div className="up-empty-title">No posts yet</div>
+          <p className="up-empty-sub">
+            {profile?.full_name ? `${profile.full_name.split(' ')[0]} hasn't published any posts yet.` : 'No posts shared yet.'}
+          </p>
+        </div>
       ) : (
         <div>
           {posts.map(post => (
@@ -230,22 +260,35 @@ const upStyles = `
 .up-topbar-title { font-size: .9375rem; font-weight: 700; color: var(--ink); }
 .up-topbar-skeleton { height: 16px; border-radius: 6px; }
 
-.up-cover { height: 140px; background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%); }
-.up-cover-skeleton { height: 140px; }
-
-.up-content { padding: 0 1rem 1rem; }
-.up-avatar {
-  width: 72px; height: 72px; border-radius: 50%;
-  border: 3px solid var(--bg); background: var(--surface2);
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden; margin-top: -36px;
+.up-cover {
+  height: 155px;
+  background-color: var(--surface);
+  background-size: cover;
+  background-position: center;
+  position: relative;
 }
-.up-avatar-img { width: 72px; height: 72px; object-fit: cover; }
-.up-avatar-initials { font-size: 1.35rem; font-weight: 800; color: var(--accent); }
-.up-avatar-skeleton { width: 72px; height: 72px; border-radius: 50%; margin-top: -36px; }
+.up-cover-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.45) 100%);
+}
+.up-cover-skeleton { height: 155px; }
+
+.up-content { padding: 0 1rem 1rem; position: relative; }
+.up-avatar {
+  width: 78px; height: 78px; border-radius: 50%;
+  border: 3.5px solid var(--bg); background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; margin-top: -39px;
+  position: relative;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+}
+.up-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.up-avatar-initials { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+.up-avatar-skeleton { width: 78px; height: 78px; border-radius: 50%; margin-top: -39px; }
 
 .up-name-row { display: flex; align-items: center; gap: .5rem; margin-top: .65rem; flex-wrap: wrap; }
-.up-name { font-size: 1.15rem; font-weight: 800; color: var(--ink); margin: 0; }
+.up-name { font-size: 1.2rem; font-weight: 800; color: var(--ink); margin: 0; }
 .up-role-badge { font-size: .7rem; font-weight: 600; background: rgba(212,175,55,.15); color: var(--accent); border-radius: 6px; padding: .2rem .5rem; }
 .up-roll { font-size: .78rem; color: var(--ink-muted); margin-top: .2rem; }
 .up-bio { font-size: .875rem; color: var(--ink-muted); margin: .5rem 0 0; line-height: 1.55; }
@@ -262,7 +305,18 @@ const upStyles = `
 
 .up-posts-header { display: flex; align-items: center; gap: .45rem; padding: .75rem 1rem .5rem; font-size: .8125rem; font-weight: 700; color: var(--ink-muted); border-top: 1px solid var(--border); }
 .up-loading { display: flex; justify-content: center; padding: 2rem; }
-.up-empty { text-align: center; padding: 2.5rem 1rem; color: var(--ink-muted); font-size: .875rem; }
+.up-empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.up-empty-icon { font-size: 2.2rem; margin-bottom: 0.5rem; opacity: 0.8; }
+.up-empty-title { font-size: 0.95rem; font-weight: 700; color: var(--ink); margin-bottom: 0.25rem; }
+.up-empty-sub { font-size: 0.8125rem; color: var(--ink-muted); margin: 0; max-width: 260px; line-height: 1.45; }
+
 .up-error { padding: 3rem 1rem; text-align: center; color: var(--danger); }
 .up-spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to{transform:rotate(360deg)} }

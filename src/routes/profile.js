@@ -133,10 +133,10 @@ router.patch('/me', async (req, res) => {
 });
 
 // ─── Helper: enrich posts with author, comments, vote + bookmark state ────────
-async function enrichProfilePosts(posts, profile) {
+async function enrichProfilePosts(posts, profile, viewingUserId) {
   if (!posts || posts.length === 0) return [];
   const postIds = posts.map(p => p.id);
-  const userId  = profile.id;
+  const userId  = viewingUserId || profile?.id;
 
   const [{ data: votes }, { data: bookmarks }] = await Promise.all([
     supabaseAdmin
@@ -211,30 +211,11 @@ router.get('/me/posts', async (req, res) => {
     const slice       = has_more ? posts.slice(0, limit) : posts;
     const next_cursor = has_more ? slice[slice.length - 1].created_at : null;
 
-    const data = await enrichProfilePosts(slice, req.profile);
+    const data = await enrichProfilePosts(slice, req.profile, req.profile.id);
 
     res.json({ data, next_cursor, has_more });
   } catch (err) {
     console.error('[profile GET /me/posts]', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ─── GET /:id — Public profile of another user ────────────────────────────────
-
-router.get('/:id', async (req, res) => {
-  try {
-    const { data: profile, error } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, roll_number, department, bio, avatar_url, karma, posts_count, notes_uploaded, notification_preferences, created_at')
-      .eq('id', req.params.id)
-      .eq('status', 'active')
-      .single();
-
-    if (error || !profile) return res.status(404).json({ error: 'User not found' });
-    res.json({ data: profile });
-  } catch (err) {
-    console.error('[profile GET /:id]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -254,4 +235,72 @@ router.get('/config', async (req, res) => {
   }
 });
 
+// ─── GET /:id/posts — Public posts of another user ───────────────────────────
+router.get('/:id/posts', async (req, res) => {
+  try {
+    const targetUserId = req.params.id;
+    const limit = Math.min(30, Math.max(1, parseInt(req.query.limit) || 20));
+    const before = req.query.before || new Date().toISOString();
+
+    const { data: targetProfile, error: targetError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, department, avatar_url, role, karma')
+      .eq('id', targetUserId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (targetError || !targetProfile) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { data: posts, error } = await supabaseAdmin
+      .from('posts')
+      .select(`
+        id, content, image_url, upvotes, downvotes, status, comments_count, created_at, updated_at,
+        author:profiles!user_id ( id, full_name, department, avatar_url, role, karma ),
+        comments ( count )
+      `)
+      .eq('user_id', targetUserId)
+      .eq('status', 'published')
+      .lt('created_at', before)
+      .order('created_at', { ascending: false })
+      .limit(limit + 1);
+
+    if (error) {
+      console.error('[profile GET /:id/posts]', error);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    const has_more    = posts.length > limit;
+    const slice       = has_more ? posts.slice(0, limit) : posts;
+    const next_cursor = has_more ? slice[slice.length - 1].created_at : null;
+
+    const data = await enrichProfilePosts(slice, targetProfile, req.profile.id);
+
+    res.json({ data, next_cursor, has_more });
+  } catch (err) {
+    console.error('[profile GET /:id/posts]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /:id — Public profile of another user ────────────────────────────────
+router.get('/:id', async (req, res) => {
+  try {
+    const { data: profile, error } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, roll_number, department, bio, avatar_url, karma, posts_count, notes_uploaded, notification_preferences, created_at')
+      .eq('id', req.params.id)
+      .eq('status', 'active')
+      .single();
+
+    if (error || !profile) return res.status(404).json({ error: 'User not found' });
+    res.json({ data: profile });
+  } catch (err) {
+    console.error('[profile GET /:id]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
+

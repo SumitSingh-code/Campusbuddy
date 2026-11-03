@@ -60,7 +60,12 @@ router.get('/', async (req, res) => {
     const before = req.query.before || new Date().toISOString();
 
     let userIdsToFilter = null;
-    if (req.query.department) {
+    if (req.query.author_id || req.query.user_id) {
+      const specificAuthor = String(req.query.author_id || req.query.user_id).trim();
+      if (specificAuthor) {
+        userIdsToFilter = [specificAuthor];
+      }
+    } else if (req.query.department) {
       let deptName = String(req.query.department).trim();
       if (deptName.toLowerCase() === 'my') {
         deptName = req.profile?.department || '';
