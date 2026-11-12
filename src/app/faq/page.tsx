@@ -217,7 +217,7 @@ export default function FAQPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', margin: '1.25rem 0' }}>
             <div style={{ padding: '1.1rem', borderRadius: 14, background: 'var(--surface)', border: '1.5px solid rgba(212,175,55,0.4)', display: 'flex', gap: 12, alignItems: 'center' }}>
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#D4AF37', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800 }}>
-                <img src="https://i.ibb.co/8gbm2trR/Professional-Portrait-in-Dark-Studio.png" alt="Sumit Singh" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src="/images/sumit-singh.jpg" alt="Sumit Singh - Founder & Lead Developer of UniGram" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div>
                 <div style={{ fontWeight: 800, fontSize: '0.98rem', color: 'var(--ink)' }}>Sumit Singh</div>

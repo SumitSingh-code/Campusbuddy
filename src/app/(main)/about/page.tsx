@@ -95,6 +95,46 @@ export default function AboutPage() {
           <p>
             Unigram is built with transparency and gratitude. Every student, developer, designer, and student coordinator who contributed code, feedback, or helped students join is recognized on our Contribution Wall.
           </p>
+
+          {/* Founder Spotlight Card */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '1rem',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              marginTop: '1rem',
+              marginBottom: '1rem',
+            }}
+          >
+            <img
+              src="/images/sumit-singh.jpg"
+              alt="Sumit Singh - Founder and Lead Developer of UniGram"
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '2px solid var(--accent)',
+                flexShrink: 0,
+              }}
+            />
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--ink)' }}>
+                Sumit Singh
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 700 }}>
+                Founder &amp; Lead Developer · CRSU Jind
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 2 }}>
+                Ideated, designed, and coded UniGram from scratch.
+              </div>
+            </div>
+          </div>
+
           <div style={{ marginTop: '0.75rem' }}>
             <Link
               href="/wall"

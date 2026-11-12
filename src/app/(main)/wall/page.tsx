@@ -22,7 +22,7 @@ const FALLBACK_CONTRIBUTORS: Contributor[] = [
     role: 'Founder & Developer',
     dept: 'CRSU, Jind',
     detail: 'Ideated, designed, and built the entire Unigram platform from scratch to connect CRSU students.',
-    photo_url: null,
+    photo_url: '/images/sumit-singh.jpg',
   },
 ]
 

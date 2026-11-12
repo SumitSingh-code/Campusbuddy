@@ -146,16 +146,27 @@ export default function RootLayout({
                   '@type': 'Person',
                   '@id': 'https://unigramjind.site/#founder-sumit-singh',
                   name: 'Sumit Singh',
+                  alternateName: ['Sumit Singh CRSU', 'Sumit Singh Jind', 'Sumit Singh UniGram'],
                   jobTitle: 'Founder & Lead Developer',
                   affiliation: {
                     '@type': 'CollegeOrUniversity',
                     name: 'Chaudhary Ranbir Singh University (CRSU), Jind',
                   },
                   description:
-                    'Founder and lead developer of UniGram (unigramjind.site). Ideated, designed, and built the entire UniGram platform from scratch to empower students of Chaudhary Ranbir Singh University (CRSU), Jind.',
-                  image: 'https://i.ibb.co/8gbm2trR/Professional-Portrait-in-Dark-Studio.png',
+                    'Founder and lead developer of UniGram (unigramjind.site) and creator of Vetanx. BCA student at Chaudhary Ranbir Singh University (CRSU), Jind. Full-stack architect, product builder, and campus technology innovator.',
+                  image: {
+                    '@type': 'ImageObject',
+                    '@id': 'https://unigramjind.site/images/sumit-singh.jpg#primaryimage',
+                    url: 'https://unigramjind.site/images/sumit-singh.jpg',
+                    contentUrl: 'https://unigramjind.site/images/sumit-singh.jpg',
+                    caption: 'Sumit Singh - Founder and Lead Developer of UniGram and Vetanx, CRSU Jind',
+                    creditText: 'Sumit Singh',
+                    representativeOfPage: true,
+                  },
                   sameAs: [
+                    'https://github.com/SumitSingh-code',
                     'https://www.instagram.com/unigramjind',
+                    'https://dev.to/sumitsingh-code',
                   ],
                 },
                 {
