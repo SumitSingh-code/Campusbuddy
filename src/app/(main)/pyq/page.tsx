@@ -12,6 +12,9 @@ import {
   GraduationCap,
   Calendar,
   Filter,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
@@ -64,12 +67,19 @@ export default function PYQPage() {
   const [department, setDepartment] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadStep, setUploadStep] = useState<string>('')
+  const [formError, setFormError] = useState<string | null>(null)
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Student department lock
   const studentDept = (profile?.department || '').trim()
+
+  // Clear form error when user edits any field
+  useEffect(() => {
+    if (formError) setFormError(null)
+  }, [subject, semester, year, department, linkUrl, uploadMode, file])
 
   // Restore draft from sessionStorage if page was reloaded by mobile OS
   useEffect(() => {
@@ -177,21 +187,50 @@ export default function PYQPage() {
     loadFiles('')
   }
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    setFormError(null)
+    const f = e.target.files?.[0]
+    if (!f) return
+
+    if (f.size > 3.5 * 1024 * 1024) {
+      setFormError(`PDF file is ${fmtBytes(f.size)}, which exceeds the 3.5MB limit. Please compress it or use the Google Drive link tab.`)
+      toast.error('PDF exceeds 3.5MB limit')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+    if (!isPdf) {
+      setFormError('Only PDF files are supported (.pdf)')
+      toast.error('Please select a PDF file')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    setFile(f)
+    toast.success(`Selected: ${f.name} (${fmtBytes(f.size)})`)
+  }
+
   async function handleUpload() {
+    setFormError(null)
     const finalDept = !isAdmin && studentDept ? studentDept : department.trim()
     if (!subject.trim()) {
+      setFormError('Please enter the subject name')
       toast.error('Please enter the subject name')
       return
     }
     if (!semester) {
+      setFormError('Please select a semester (Sem 1 to 8)')
       toast.error('Please select the semester')
       return
     }
     if (!year || isNaN(parseInt(year))) {
+      setFormError('Please enter a valid exam year (e.g. 2024)')
       toast.error('Please enter a valid exam year')
       return
     }
     if (!finalDept) {
+      setFormError('Please select a department')
       toast.error('Please select a department')
       return
     }
@@ -199,25 +238,30 @@ export default function PYQPage() {
     if (uploadMode === 'link') {
       const trimmedLink = linkUrl.trim()
       if (!trimmedLink) {
+        setFormError('Please enter the PDF or Google Drive share link')
         toast.error('Please enter the PDF or Google Drive link')
         return
       }
       if (!trimmedLink.startsWith('http://') && !trimmedLink.startsWith('https://')) {
+        setFormError('Please enter a valid URL starting with https://')
         toast.error('Please enter a valid URL starting with https://')
         return
       }
     } else {
       if (!file) {
-        toast.error('Please select a PDF file')
+        setFormError('Please tap the box above to select your PDF question paper')
+        toast.error('Please select a PDF file first')
         return
       }
       if (file.size > 3.5 * 1024 * 1024) {
-        toast.error('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
+        setFormError('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
+        toast.error('PDF file is too large (max 3.5MB).')
         return
       }
     }
 
     setUploading(true)
+    setUploadStep('Preparing PDF document…')
     try {
       let finalUrl = ''
       let finalFileName = ''
@@ -228,11 +272,14 @@ export default function PYQPage() {
         finalFileName = `${subject.trim()}_CRSU.pdf`
         finalFileSize = 0
       } else {
-        finalUrl = await uploadToStorage(file!, `pyq/${user!.id}/${Date.now()}_${file!.name}`)
+        const uploaderId = user?.id || profile?.id || 'admin'
+        setUploadStep('Uploading PDF to university vault…')
+        finalUrl = await uploadToStorage(file!, `pyq/${uploaderId}/${Date.now()}_${file!.name}`)
         finalFileName = file!.name
         finalFileSize = file!.size
       }
 
+      setUploadStep('Publishing to student directory…')
       await api.post('/pyq', {
         title: subject.trim(),
         subject: subject.trim(),
@@ -257,18 +304,23 @@ export default function PYQPage() {
       setLinkUrl('')
       setYear(new Date().getFullYear().toString())
       setFile(null)
+      setUploadStep('')
       loadFiles()
     } catch (e: unknown) {
       const errMsg = (e as Error)?.message || 'Upload failed'
       if (errMsg.includes('413') || errMsg.toLowerCase().includes('payload') || errMsg.toLowerCase().includes('large')) {
-        toast.error('File size too large for mobile network. Please compress PDF below 2.5MB or use link option.')
+        setFormError('File size is too large for mobile network. Please compress below 2.5MB or use the Google Drive link tab.')
+        toast.error('File size too large for mobile network')
       } else if (errMsg.includes('504') || errMsg.toLowerCase().includes('timeout')) {
-        toast.error('Upload timed out on mobile data. Please use Wi-Fi or paste Google Drive link.')
+        setFormError('Upload timed out on mobile connection. Please retry or use Google Drive link tab.')
+        toast.error('Upload timed out on mobile data')
       } else {
+        setFormError(errMsg)
         toast.error(errMsg)
       }
     } finally {
       setUploading(false)
+      setUploadStep('')
     }
   }
 
@@ -690,50 +742,86 @@ export default function PYQPage() {
                   <label className="pyq-label">Question Paper PDF *</label>
                   <div
                     className="pyq-file-area"
-                    onClick={e => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      fileInputRef.current?.click()
+                    style={{
+                      position: 'relative',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
                     }}
-                    role="button"
-                    tabIndex={0}
-                    style={{ cursor: 'pointer' }}
                   >
+                    {/* Native invisible file input: Covers 100% of card so touch/click hits native input directly */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,application/pdf,application/octet-stream"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        opacity: 0,
+                        cursor: 'pointer',
+                        zIndex: 5,
+                      }}
+                      onClick={e => {
+                        e.currentTarget.value = ''
+                      }}
+                      onChange={handleFileSelect}
+                    />
+
                     {file ? (
-                      <div className="pyq-file-selected">
-                        <FileText size={22} className="pyq-file-pdf-icon" />
-                        <div>
-                          <span className="pyq-file-name">{file.name}</span>
-                          <span className="pyq-file-size">({fmtBytes(file.size)})</span>
+                      <div className="pyq-file-selected" style={{ position: 'relative', zIndex: 6, width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+                          <FileText size={26} className="pyq-file-pdf-icon" style={{ flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                            <span className="pyq-file-name" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {file.name}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                              <span style={{ fontSize: '0.7rem', background: 'rgba(34,197,94,0.15)', color: '#16a34a', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                                READY
+                              </span>
+                              <span className="pyq-file-size">{fmtBytes(file.size)}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="pyq-file-remove-btn"
+                            style={{
+                              background: 'var(--surface2)',
+                              border: 'none',
+                              color: 'var(--ink-muted)',
+                              cursor: 'pointer',
+                              width: 28,
+                              height: 28,
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              zIndex: 10,
+                            }}
+                            onClick={e => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setFile(null)
+                              setFormError(null)
+                              if (fileInputRef.current) fileInputRef.current.value = ''
+                            }}
+                            title="Remove file"
+                          >
+                            <X size={16} />
+                          </button>
                         </div>
-                        <span className="pyq-file-change">Tap to change PDF</span>
+                        <span className="pyq-file-change">Tap box to choose a different PDF</span>
                       </div>
                     ) : (
-                      <>
-                        <Upload size={24} />
-                        <span className="pyq-file-cta">Tap to select PDF from phone</span>
-                        <span className="pyq-file-subtext">PDF format supported (max 3.5MB)</span>
-                      </>
+                      <div style={{ pointerEvents: 'none', textAlign: 'center' }}>
+                        <Upload size={26} style={{ margin: '0 auto 6px', display: 'block', color: 'var(--accent)' }} />
+                        <span className="pyq-file-cta">Tap to select PDF from device</span>
+                        <span className="pyq-file-subtext">PDF document supported (max 3.5MB)</span>
+                      </div>
                     )}
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    style={{ display: 'none' }}
-                    onChange={e => {
-                      e.stopPropagation()
-                      const f = e.target.files?.[0]
-                      if (!f) return
-                      if (f.size > 3.5 * 1024 * 1024) {
-                        toast.error('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
-                        if (fileInputRef.current) fileInputRef.current.value = ''
-                        return
-                      }
-                      setFile(f)
-                      toast.success(`Selected: ${f.name} (${fmtBytes(f.size)})`)
-                    }}
-                  />
                 </div>
               ) : (
                 <div>
@@ -750,13 +838,69 @@ export default function PYQPage() {
                 </div>
               )}
 
+              {/* Live Inline Error Feedback Banner */}
+              {formError && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#ef4444',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                  }}
+                  role="alert"
+                >
+                  <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* Live Multi-Stage Progress Banner */}
+              {uploading && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    background: 'rgba(212, 175, 55, 0.12)',
+                    border: '1px solid rgba(212, 175, 55, 0.35)',
+                    color: 'var(--accent)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                  <span>{uploadStep || 'Publishing paper…'}</span>
+                </div>
+              )}
+
               <button
                 type="button"
                 className="pyq-submit-btn"
                 onClick={handleUpload}
                 disabled={uploading}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
               >
-                {uploading ? 'Publishing Paper…' : 'Publish Question Paper'}
+                {uploading ? (
+                  <>
+                    <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>{uploadStep || 'Publishing Paper…'}</span>
+                  </>
+                ) : (
+                  'Publish Question Paper'
+                )}
               </button>
             </div>
           </div>
@@ -1085,16 +1229,19 @@ const pyqStyles = `
 .pyq-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .pyq-col { display: flex; flex-direction: column; }
 
-.pyq-file-area { border: 2px dashed var(--border); border-radius: 12px; padding: 1.4rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; color: var(--ink-muted); font-size: 0.875rem; transition: border-color 0.15s; background: var(--bg); }
+.pyq-file-area { position: relative; border: 2px dashed var(--border); border-radius: 12px; padding: 1.4rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; color: var(--ink-muted); font-size: 0.875rem; transition: border-color 0.15s; background: var(--bg); min-height: 110px; }
 .pyq-file-area:hover { border-color: var(--accent); }
-.pyq-file-cta { font-weight: 600; color: var(--ink); }
-.pyq-file-subtext { font-size: 0.72rem; color: var(--ink-muted); }
-.pyq-file-selected { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; text-align: center; }
+.pyq-file-cta { font-weight: 700; color: var(--ink); font-size: 0.9rem; }
+.pyq-file-subtext { font-size: 0.72rem; color: var(--ink-muted); margin-top: 2px; }
+.pyq-file-selected { display: flex; flex-direction: column; gap: 0.45rem; width: 100%; }
 .pyq-file-pdf-icon { color: var(--accent); }
-.pyq-file-name { font-weight: 700; color: var(--ink); font-size: 0.875rem; word-break: break-all; }
-.pyq-file-size { font-size: 0.75rem; color: var(--ink-muted); margin-left: 0.35rem; }
-.pyq-file-change { font-size: 0.72rem; color: var(--accent); font-weight: 600; text-decoration: underline; margin-top: 0.2rem; }
+.pyq-file-name { font-weight: 700; color: var(--ink); font-size: 0.875rem; }
+.pyq-file-size { font-size: 0.75rem; color: var(--ink-muted); }
+.pyq-file-change { font-size: 0.72rem; color: var(--accent); font-weight: 600; text-decoration: underline; margin-top: 0.1rem; text-align: center; }
 
 .pyq-submit-btn { width: 100%; padding: 0.85rem; background: var(--accent); color: var(--bg); border: none; border-radius: 12px; font-size: 0.9375rem; font-weight: 700; cursor: pointer; margin-top: 0.35rem; transition: opacity 0.15s; }
 .pyq-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+[data-sonner-toaster] { z-index: 9999999 !important; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 `

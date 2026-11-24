@@ -11,35 +11,19 @@
 import { api } from './api'
 
 async function fileToBase64(file: File | Blob): Promise<string> {
-  // Try arrayBuffer first for maximum mobile performance and reliability
-  if (typeof (file as Blob).arrayBuffer === 'function') {
-    try {
-      const buffer = await file.arrayBuffer()
-      const bytes = new Uint8Array(buffer)
-      let binary = ''
-      const len = bytes.byteLength
-      const chunkSize = 8192
-      for (let i = 0; i < len; i += chunkSize) {
-        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)))
-      }
-      return btoa(binary)
-    } catch (e) {
-      console.warn('[storage] arrayBuffer conversion failed, falling back to FileReader:', e)
-    }
-  }
-
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload  = () => {
+    reader.onload = () => {
       const res = reader.result as string
       if (!res) {
         reject(new Error('File reader returned empty result'))
         return
       }
-      const parts = res.split(',')
-      resolve(parts[1] || parts[0])
+      const commaIdx = res.indexOf(',')
+      resolve(commaIdx !== -1 ? res.slice(commaIdx + 1) : res)
     }
     reader.onerror = () => reject(new Error('Could not read file from storage'))
+    reader.onabort = () => reject(new Error('File reading was aborted'))
     reader.readAsDataURL(file)
   })
 }
