@@ -56,6 +56,8 @@ export default function PYQPage() {
 
   // Upload Modal State
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [uploadMode, setUploadMode] = useState<'file' | 'link'>('file')
+  const [linkUrl, setLinkUrl] = useState('')
   const [subject, setSubject] = useState('')
   const [semester, setSemester] = useState('')
   const [year, setYear] = useState(new Date().getFullYear().toString())
@@ -68,6 +70,49 @@ export default function PYQPage() {
 
   // Student department lock
   const studentDept = (profile?.department || '').trim()
+
+  // Restore draft from sessionStorage if page was reloaded by mobile OS
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('pyq_upload_draft')
+      if (saved) {
+        const d = JSON.parse(saved)
+        if (d.subject) setSubject(d.subject)
+        if (d.semester) setSemester(d.semester)
+        if (d.year) setYear(d.year)
+        if (d.department) setDepartment(d.department)
+        if (d.linkUrl) setLinkUrl(d.linkUrl)
+        if (d.uploadMode) setUploadMode(d.uploadMode)
+        if (d.open) setUploadOpen(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  // Save draft whenever user changes form values
+  useEffect(() => {
+    try {
+      if (uploadOpen) {
+        sessionStorage.setItem(
+          'pyq_upload_draft',
+          JSON.stringify({
+            open: true,
+            subject,
+            semester,
+            year,
+            department,
+            linkUrl,
+            uploadMode,
+          })
+        )
+      } else {
+        sessionStorage.removeItem('pyq_upload_draft')
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [uploadOpen, subject, semester, year, department, linkUrl, uploadMode])
 
   // Initialize department filter: students locked to their dept, admins see All by default
   useEffect(() => {
@@ -150,18 +195,44 @@ export default function PYQPage() {
       toast.error('Please select a department')
       return
     }
-    if (!file) {
-      toast.error('Please select a PDF file')
-      return
-    }
-    if (file.size > 3.5 * 1024 * 1024) {
-      toast.error('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
-      return
+
+    if (uploadMode === 'link') {
+      const trimmedLink = linkUrl.trim()
+      if (!trimmedLink) {
+        toast.error('Please enter the PDF or Google Drive link')
+        return
+      }
+      if (!trimmedLink.startsWith('http://') && !trimmedLink.startsWith('https://')) {
+        toast.error('Please enter a valid URL starting with https://')
+        return
+      }
+    } else {
+      if (!file) {
+        toast.error('Please select a PDF file')
+        return
+      }
+      if (file.size > 3.5 * 1024 * 1024) {
+        toast.error('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
+        return
+      }
     }
 
     setUploading(true)
     try {
-      const url = await uploadToStorage(file, `pyq/${user!.id}/${Date.now()}_${file.name}`)
+      let finalUrl = ''
+      let finalFileName = ''
+      let finalFileSize = 0
+
+      if (uploadMode === 'link') {
+        finalUrl = linkUrl.trim()
+        finalFileName = `${subject.trim()}_CRSU.pdf`
+        finalFileSize = 0
+      } else {
+        finalUrl = await uploadToStorage(file!, `pyq/${user!.id}/${Date.now()}_${file!.name}`)
+        finalFileName = file!.name
+        finalFileSize = file!.size
+      }
+
       await api.post('/pyq', {
         title: subject.trim(),
         subject: subject.trim(),
@@ -169,24 +240,30 @@ export default function PYQPage() {
         year: parseInt(year),
         exam_type: 'end',
         department: finalDept,
-        file_url: url,
-        file_name: file.name,
-        file_size: file.size,
-        file_size_bytes: file.size,
+        file_url: finalUrl,
+        file_name: finalFileName,
+        file_size: finalFileSize,
+        file_size_bytes: finalFileSize,
       })
-      toast.success('Question paper uploaded successfully!')
+      toast.success('Question paper published successfully! 🎉')
+      try {
+        sessionStorage.removeItem('pyq_upload_draft')
+      } catch {
+        /* ignore */
+      }
       setUploadOpen(false)
       setSubject('')
       setSemester('')
+      setLinkUrl('')
       setYear(new Date().getFullYear().toString())
       setFile(null)
       loadFiles()
     } catch (e: unknown) {
       const errMsg = (e as Error)?.message || 'Upload failed'
       if (errMsg.includes('413') || errMsg.toLowerCase().includes('payload') || errMsg.toLowerCase().includes('large')) {
-        toast.error('File size too large for mobile network. Please compress PDF below 2.5MB.')
+        toast.error('File size too large for mobile network. Please compress PDF below 2.5MB or use link option.')
       } else if (errMsg.includes('504') || errMsg.toLowerCase().includes('timeout')) {
-        toast.error('Upload timed out. Mobile connection is slow, please compress PDF below 2MB or use Wi-Fi.')
+        toast.error('Upload timed out on mobile data. Please use Wi-Fi or paste Google Drive link.')
       } else {
         toast.error(errMsg)
       }
@@ -471,16 +548,68 @@ export default function PYQPage() {
             if (e.target === e.currentTarget) setUploadOpen(false)
           }}
         >
-          <div className="pyq-sheet">
+          <div className="pyq-sheet" onClick={e => e.stopPropagation()}>
             <div className="pyq-sheet-handle" />
             <div className="pyq-sheet-header">
               <h2 className="pyq-sheet-title">Upload Question Paper</h2>
-              <button className="pyq-sheet-close" onClick={() => setUploadOpen(false)}>
+              <button
+                className="pyq-sheet-close"
+                onClick={() => setUploadOpen(false)}
+                type="button"
+              >
                 <X size={18} />
               </button>
             </div>
 
             <div className="pyq-form">
+              {/* Method Switcher: Upload File vs Google Drive Link */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  background: 'var(--surface2)',
+                  padding: 4,
+                  borderRadius: 12,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('file')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 10px',
+                    borderRadius: 9,
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: uploadMode === 'file' ? 'var(--accent)' : 'transparent',
+                    color: uploadMode === 'file' ? 'var(--bg)' : 'var(--ink-muted)',
+                  }}
+                >
+                  📁 Upload PDF File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('link')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 10px',
+                    borderRadius: 9,
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: uploadMode === 'link' ? 'var(--accent)' : 'transparent',
+                    color: uploadMode === 'link' ? 'var(--bg)' : 'var(--ink-muted)',
+                  }}
+                >
+                  🔗 Google Drive Link
+                </button>
+              </div>
+
               {/* Subject */}
               <div>
                 <label className="pyq-label">Subject Name *</label>
@@ -555,66 +684,79 @@ export default function PYQPage() {
                 )}
               </div>
 
-              {/* File Upload Box */}
-              <div>
-                <label className="pyq-label">Question Paper PDF *</label>
-                <label
-                  htmlFor="pyq-file-input"
-                  className="pyq-file-area"
-                  style={{ display: 'flex', cursor: 'pointer' }}
-                >
-                  {file ? (
-                    <div className="pyq-file-selected">
-                      <FileText size={22} className="pyq-file-pdf-icon" />
-                      <div>
-                        <span className="pyq-file-name">{file.name}</span>
-                        <span className="pyq-file-size">({fmtBytes(file.size)})</span>
+              {/* File Upload Box OR Link Box */}
+              {uploadMode === 'file' ? (
+                <div>
+                  <label className="pyq-label">Question Paper PDF *</label>
+                  <div
+                    className="pyq-file-area"
+                    onClick={e => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      fileInputRef.current?.click()
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {file ? (
+                      <div className="pyq-file-selected">
+                        <FileText size={22} className="pyq-file-pdf-icon" />
+                        <div>
+                          <span className="pyq-file-name">{file.name}</span>
+                          <span className="pyq-file-size">({fmtBytes(file.size)})</span>
+                        </div>
+                        <span className="pyq-file-change">Tap to change PDF</span>
                       </div>
-                      <span className="pyq-file-change">Click to change</span>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload size={24} />
-                      <span className="pyq-file-cta">Tap or click to select PDF file</span>
-                      <span className="pyq-file-subtext">PDF format up to 3.5MB supported</span>
-                    </>
-                  )}
-                </label>
-                <input
-                  id="pyq-file-input"
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf,.pdf,application/x-pdf"
-                  style={{
-                    position: 'absolute',
-                    width: '1px',
-                    height: '1px',
-                    padding: 0,
-                    margin: '-1px',
-                    overflow: 'hidden',
-                    clip: 'rect(0, 0, 0, 0)',
-                    whiteSpace: 'nowrap',
-                    border: 0,
-                  }}
-                  onChange={e => {
-                    const f = e.target.files?.[0]
-                    if (!f) return
-                    if (f.size > 3.5 * 1024 * 1024) {
-                      toast.error('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
-                      if (fileInputRef.current) fileInputRef.current.value = ''
-                      return
-                    }
-                    setFile(f)
-                  }}
-                />
-              </div>
+                    ) : (
+                      <>
+                        <Upload size={24} />
+                        <span className="pyq-file-cta">Tap to select PDF from phone</span>
+                        <span className="pyq-file-subtext">PDF format supported (max 3.5MB)</span>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      e.stopPropagation()
+                      const f = e.target.files?.[0]
+                      if (!f) return
+                      if (f.size > 3.5 * 1024 * 1024) {
+                        toast.error('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
+                        if (fileInputRef.current) fileInputRef.current.value = ''
+                        return
+                      }
+                      setFile(f)
+                      toast.success(`Selected: ${f.name} (${fmtBytes(f.size)})`)
+                    }}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="pyq-label">Google Drive or Cloud PDF Link *</label>
+                  <input
+                    className="pyq-input"
+                    placeholder="https://drive.google.com/file/d/... or any PDF link"
+                    value={linkUrl}
+                    onChange={e => setLinkUrl(e.target.value)}
+                  />
+                  <p className="pyq-field-hint">
+                    Instant &amp; 100% crash-proof: Shareable Google Drive, Dropbox, or web PDF link.
+                  </p>
+                </div>
+              )}
 
               <button
+                type="button"
                 className="pyq-submit-btn"
                 onClick={handleUpload}
                 disabled={uploading}
               >
-                {uploading ? 'Uploading Paper…' : 'Publish Question Paper'}
+                {uploading ? 'Publishing Paper…' : 'Publish Question Paper'}
               </button>
             </div>
           </div>
