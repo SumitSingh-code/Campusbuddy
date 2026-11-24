@@ -182,7 +182,14 @@ export default function PYQPage() {
       setFile(null)
       loadFiles()
     } catch (e: unknown) {
-      toast.error((e as Error).message || 'Upload failed')
+      const errMsg = (e as Error)?.message || 'Upload failed'
+      if (errMsg.includes('413') || errMsg.toLowerCase().includes('payload') || errMsg.toLowerCase().includes('large')) {
+        toast.error('File size too large for mobile network. Please compress PDF below 2.5MB.')
+      } else if (errMsg.includes('504') || errMsg.toLowerCase().includes('timeout')) {
+        toast.error('Upload timed out. Mobile connection is slow, please compress PDF below 2MB or use Wi-Fi.')
+      } else {
+        toast.error(errMsg)
+      }
     } finally {
       setUploading(false)
     }

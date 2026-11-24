@@ -37,13 +37,14 @@ export async function uploadToStorage(
 
   let mime = file instanceof File ? file.type : 'image/jpeg'
   const fileName = file instanceof File ? file.name : ''
-  if (!mime && fileName) {
+  if (!mime || mime === 'application/octet-stream') {
     const ext = fileName.split('.').pop()?.toLowerCase()
-    if (ext === 'pdf') mime = 'application/pdf'
+    if (ext === 'pdf' || folder === 'pyq' || path.startsWith('pyq')) mime = 'application/pdf'
     else if (['jpg', 'jpeg'].includes(ext || '')) mime = 'image/jpeg'
     else if (ext === 'png') mime = 'image/png'
     else if (ext === 'webp') mime = 'image/webp'
     else if (ext === 'gif') mime = 'image/gif'
+    else if (folder === 'pyq') mime = 'application/pdf'
   }
 
   const b64 = await fileToBase64(file)

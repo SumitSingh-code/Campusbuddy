@@ -217,11 +217,12 @@ app.post('/api/upload', async (req, res) => {
     let resolvedMime = (mime || '').toLowerCase().trim();
     if (!resolvedMime || resolvedMime === 'application/octet-stream') {
       const extFromName = (fileName || '').split('.').pop()?.toLowerCase();
-      if (extFromName === 'pdf') resolvedMime = 'application/pdf';
+      if (extFromName === 'pdf' || folder === 'pyq') resolvedMime = 'application/pdf';
       else if (['jpg', 'jpeg'].includes(extFromName)) resolvedMime = 'image/jpeg';
       else if (extFromName === 'png') resolvedMime = 'image/png';
       else if (extFromName === 'webp') resolvedMime = 'image/webp';
       else if (extFromName === 'gif') resolvedMime = 'image/gif';
+      else if (folder === 'pyq') resolvedMime = 'application/pdf';
     }
 
     const isImage = resolvedMime.startsWith('image/');
