@@ -166,7 +166,7 @@ router.post('/', async (req, res) => {
 
     if (error) {
       console.error('[pyq POST /]', error);
-      return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: error.message || 'Database error' });
     }
 
     // Send notification to department students who opted into resources alerts (awaited batch dispatch)

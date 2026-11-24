@@ -558,9 +558,10 @@ export default function PYQPage() {
               {/* File Upload Box */}
               <div>
                 <label className="pyq-label">Question Paper PDF *</label>
-                <div
+                <label
+                  htmlFor="pyq-file-input"
                   className="pyq-file-area"
-                  onClick={() => fileInputRef.current?.click()}
+                  style={{ display: 'flex', cursor: 'pointer' }}
                 >
                   {file ? (
                     <div className="pyq-file-selected">
@@ -578,20 +579,32 @@ export default function PYQPage() {
                       <span className="pyq-file-subtext">PDF format up to 3.5MB supported</span>
                     </>
                   )}
-                </div>
+                </label>
                 <input
+                  id="pyq-file-input"
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,application/pdf"
-                  hidden
+                  accept="application/pdf,.pdf,application/x-pdf"
+                  style={{
+                    position: 'absolute',
+                    width: '1px',
+                    height: '1px',
+                    padding: 0,
+                    margin: '-1px',
+                    overflow: 'hidden',
+                    clip: 'rect(0, 0, 0, 0)',
+                    whiteSpace: 'nowrap',
+                    border: 0,
+                  }}
                   onChange={e => {
                     const f = e.target.files?.[0]
-                    if (f && f.size > 3.5 * 1024 * 1024) {
+                    if (!f) return
+                    if (f.size > 3.5 * 1024 * 1024) {
                       toast.error('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
                       if (fileInputRef.current) fileInputRef.current.value = ''
                       return
                     }
-                    setFile(f || null)
+                    setFile(f)
                   }}
                 />
               </div>

@@ -290,7 +290,7 @@ app.post('/api/upload', async (req, res) => {
     res.json({ url: urlData.publicUrl });
   } catch (err) {
     console.error('[/api/upload]', err);
-    res.status(500).json({ error: 'Upload failed' });
+    res.status(500).json({ error: err.message || 'Upload failed' });
   }
 });
 

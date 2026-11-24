@@ -8,11 +8,38 @@
  * complexity in Vercel serverless functions).
  */
 
+import { api } from './api'
+
 async function fileToBase64(file: File | Blob): Promise<string> {
+  // Try arrayBuffer first for maximum mobile performance and reliability
+  if (typeof (file as Blob).arrayBuffer === 'function') {
+    try {
+      const buffer = await file.arrayBuffer()
+      const bytes = new Uint8Array(buffer)
+      let binary = ''
+      const len = bytes.byteLength
+      const chunkSize = 8192
+      for (let i = 0; i < len; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)))
+      }
+      return btoa(binary)
+    } catch (e) {
+      console.warn('[storage] arrayBuffer conversion failed, falling back to FileReader:', e)
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload  = () => resolve((reader.result as string).split(',')[1])
-    reader.onerror = reject
+    reader.onload  = () => {
+      const res = reader.result as string
+      if (!res) {
+        reject(new Error('File reader returned empty result'))
+        return
+      }
+      const parts = res.split(',')
+      resolve(parts[1] || parts[0])
+    }
+    reader.onerror = () => reject(new Error('Could not read file from storage'))
     reader.readAsDataURL(file)
   })
 }
@@ -49,28 +76,18 @@ export async function uploadToStorage(
 
   const b64 = await fileToBase64(file)
 
-  // Get auth token
-  const { supabase } = await import('./supabase')
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token || ''
-
-  const res = await fetch('/api/upload', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ data: b64, mime, folder, fileName }),
+  // Use authenticated api client:
+  // 1. Automatically verifies token validity & refreshes expired tokens
+  // 2. Automatically retries on 401 Unauthorized
+  // 3. Eliminates stale session / mobile PWA token expiry failures
+  const json = await api.post<{ url: string }>('/upload', {
+    data: b64,
+    mime,
+    folder,
+    fileName,
   })
 
-  if (!res.ok) {
-    let msg = `Upload failed (${res.status})`
-    try { const j = await res.json(); msg = j.error || msg } catch { /* ignore */ }
-    throw new Error(msg)
-  }
-
-  const json = await res.json()
-  if (!json.url) throw new Error('Upload succeeded but no URL returned')
+  if (!json?.url) throw new Error('Upload succeeded on server but no public URL was returned')
   return json.url
 }
 
