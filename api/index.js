@@ -197,6 +197,70 @@ app.get('/api/config', async (req, res) => {
 });
 
 // ── Server-side file upload (uses service role key — no RLS issues) ──────────
+// POST /api/upload/sign — Generates direct signed upload URL to Supabase Storage
+// Enables high-speed, direct binary streaming from mobile without hitting Vercel 4.5MB limits or 10s timeouts.
+app.post('/api/upload/sign', async (req, res) => {
+  try {
+    const { authGuard } = require('../src/middleware/authGuard');
+    await new Promise((resolve, reject) =>
+      authGuard(req, res, (err) => (err ? reject(err) : resolve()))
+    );
+  } catch {
+    return;
+  }
+  try {
+    const { supabaseAdmin } = require('../src/lib/supabase-admin');
+    const { folder = 'pyq', fileName = 'file.pdf', mime = 'application/pdf' } = req.body;
+
+    const safeFolder = ['posts', 'avatars', 'notes', 'pyq', 'timetable', 'lost-found', 'lostfound'].includes(folder)
+      ? folder
+      : 'posts';
+
+    const BUCKET = safeFolder === 'pyq' ? 'pyq-files'
+                 : safeFolder === 'notes' ? 'notes-files'
+                 : 'unigram';
+
+    const extFromName = (fileName || '').split('.').pop()?.toLowerCase();
+    const ext = extFromName || (safeFolder === 'pyq' ? 'pdf' : 'jpg');
+    const randomSuffix = Math.random().toString(36).slice(2, 8);
+    const path = `${safeFolder}/${req.profile.id}/${Date.now()}_${randomSuffix}.${ext}`;
+
+    // Ensure bucket exists
+    const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+    const bucketExists = (buckets || []).some(b => b.name === BUCKET);
+    if (!bucketExists) {
+      await supabaseAdmin.storage.createBucket(BUCKET, {
+        public: true,
+        allowedMimeTypes: null,
+        fileSizeLimit: 26214400, // 25MB
+      });
+    }
+
+    // Create signed upload URL (valid for 15 minutes)
+    const { data: signedData, error: signErr } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .createSignedUploadUrl(path);
+
+    if (signErr || !signedData?.signedUrl) {
+      console.warn('[/api/upload/sign] sign failed:', signErr?.message);
+      return res.status(500).json({ error: signErr?.message || 'Failed to create upload URL' });
+    }
+
+    const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+
+    res.json({
+      signedUrl: signedData.signedUrl,
+      token: signedData.token,
+      path: signedData.path || path,
+      publicUrl: urlData.publicUrl,
+      bucket: BUCKET,
+    });
+  } catch (err) {
+    console.error('[/api/upload/sign]', err);
+    res.status(500).json({ error: err.message || 'Presign failed' });
+  }
+});
+
 // POST /api/upload  — base64 body
 // Body: { data: '<base64 string>', mime: 'application/pdf' | 'image/...', folder: 'pyq|notes|posts|avatars|timetable', fileName?: '...' }
 // Returns: { url: '<public URL>' }

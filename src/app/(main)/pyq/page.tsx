@@ -192,16 +192,16 @@ export default function PYQPage() {
     const f = e.target.files?.[0]
     if (!f) return
 
-    if (f.size > 3.5 * 1024 * 1024) {
-      setFormError(`PDF file is ${fmtBytes(f.size)}, which exceeds the 3.5MB limit. Please compress it or use the Google Drive link tab.`)
-      toast.error('PDF exceeds 3.5MB limit')
+    if (f.size > 15 * 1024 * 1024) {
+      setFormError(`PDF file is ${fmtBytes(f.size)}, which exceeds the 15MB limit. Please compress it or use the Google Drive link tab.`)
+      toast.error('PDF exceeds 15MB limit')
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
-    const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+    const isPdf = !f.type || f.type === 'application/pdf' || f.type === 'application/octet-stream' || f.name.toLowerCase().endsWith('.pdf')
     if (!isPdf) {
-      setFormError('Only PDF files are supported (.pdf)')
+      setFormError('Please select a valid PDF file (.pdf)')
       toast.error('Please select a PDF file')
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
@@ -253,15 +253,15 @@ export default function PYQPage() {
         toast.error('Please select a PDF file first')
         return
       }
-      if (file.size > 3.5 * 1024 * 1024) {
-        setFormError('PDF file is too large (max 3.5MB). Please compress your PDF before uploading.')
-        toast.error('PDF file is too large (max 3.5MB).')
+      if (file.size > 15 * 1024 * 1024) {
+        setFormError('PDF file is too large (max 15MB). Please compress your PDF before uploading.')
+        toast.error('PDF file is too large (max 15MB).')
         return
       }
     }
 
     setUploading(true)
-    setUploadStep('Preparing PDF document…')
+    setUploadStep('Connecting to university vault…')
     try {
       let finalUrl = ''
       let finalFileName = ''
@@ -273,7 +273,7 @@ export default function PYQPage() {
         finalFileSize = 0
       } else {
         const uploaderId = user?.id || profile?.id || 'admin'
-        setUploadStep('Uploading PDF to university vault…')
+        setUploadStep('Uploading PDF directly to secure vault…')
         finalUrl = await uploadToStorage(file!, `pyq/${uploaderId}/${Date.now()}_${file!.name}`)
         finalFileName = file!.name
         finalFileSize = file!.size
@@ -748,11 +748,11 @@ export default function PYQPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    {/* Native invisible file input: Covers 100% of card so touch/click hits native input directly */}
+                    {/* Native invisible file input: Covers 100% of card so touch hits native input directly */}
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,application/pdf,application/octet-stream"
+                      accept="application/pdf,.pdf"
                       style={{
                         position: 'absolute',
                         inset: 0,
@@ -761,9 +761,6 @@ export default function PYQPage() {
                         opacity: 0,
                         cursor: 'pointer',
                         zIndex: 5,
-                      }}
-                      onClick={e => {
-                        e.currentTarget.value = ''
                       }}
                       onChange={handleFileSelect}
                     />
@@ -818,7 +815,7 @@ export default function PYQPage() {
                       <div style={{ pointerEvents: 'none', textAlign: 'center' }}>
                         <Upload size={26} style={{ margin: '0 auto 6px', display: 'block', color: 'var(--accent)' }} />
                         <span className="pyq-file-cta">Tap to select PDF from device</span>
-                        <span className="pyq-file-subtext">PDF document supported (max 3.5MB)</span>
+                        <span className="pyq-file-subtext">PDF document supported (max 15MB)</span>
                       </div>
                     )}
                   </div>

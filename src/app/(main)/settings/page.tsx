@@ -96,7 +96,7 @@ function Row({ icon, label, sub, href, onClick, danger, external }: { icon: Reac
 }
 
 export default function SettingsPage() {
-  const { profile, signOut, isAdmin } = useAuth()
+  const { profile, signOut, isAdmin, updateProfileLocally, refreshProfile } = useAuth()
   const router = useRouter()
   const [dark, setDark] = useState(false)
   const [signOutConfirm, setSignOutConfirm] = useState(false)
@@ -207,12 +207,15 @@ export default function SettingsPage() {
   }
 
   async function saveName() {
-    if (!nameInput.trim() || nameInput.trim().length < 2) { toast.error('Name too short'); return }
+    const trimmed = nameInput.trim()
+    if (!trimmed || trimmed.length < 2) { toast.error('Name must be at least 2 characters'); return }
     setNameSaving(true)
     try {
-      await api.patch('/profile/me', { full_name: nameInput.trim() })
+      await api.patch('/profile/me', { full_name: trimmed })
+      updateProfileLocally({ full_name: trimmed })
       toast.success('Name updated!')
       setNameModal(false)
+      refreshProfile().catch(() => {})
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to update name')
     } finally { setNameSaving(false) }

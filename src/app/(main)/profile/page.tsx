@@ -34,7 +34,7 @@ interface ProfileData {
 }
 
 export default function ProfilePage() {
-  const { user, profile: authProfile, isAdmin } = useAuth()
+  const { user, profile: authProfile, isAdmin, updateProfileLocally, refreshProfile } = useAuth()
   const router = useRouter()
 
   const [profile, setProfile] = useState<ProfileData | null>(null)
@@ -122,12 +122,14 @@ export default function ProfilePage() {
       const compressed = await compressImage(file, 400, 80)
       const url = await uploadToStorage(compressed, `avatars/${user.id}/${Date.now()}.jpg`)
       await api.patch('/profile/me', { avatar_url: url })
+      updateProfileLocally({ avatar_url: url })
       setProfile(prev => prev ? { ...prev, avatar_url: url } : prev)
       setPosts(prev => prev.map(p => ({
         ...p,
         author: p.author ? { ...p.author, avatar_url: url } : p.author
       })))
       toast.success('Profile photo updated')
+      refreshProfile().catch(() => {})
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Upload failed')
     } finally {
@@ -137,17 +139,20 @@ export default function ProfilePage() {
   }
 
   async function saveProfile() {
-    if (!editName.trim()) { toast.error('Name cannot be empty'); return }
+    const trimmedName = editName.trim()
+    if (!trimmedName || trimmedName.length < 2) { toast.error('Name must be at least 2 characters'); return }
     setSaving(true)
     try {
-      await api.patch('/profile/me', { full_name: editName.trim(), bio: editBio.trim() || null })
-      setProfile(prev => prev ? { ...prev, full_name: editName.trim(), bio: editBio.trim() || undefined } : prev)
+      await api.patch('/profile/me', { full_name: trimmedName, bio: editBio.trim() || null })
+      updateProfileLocally({ full_name: trimmedName, bio: editBio.trim() || undefined })
+      setProfile(prev => prev ? { ...prev, full_name: trimmedName, bio: editBio.trim() || undefined } : prev)
       setPosts(prev => prev.map(p => ({
         ...p,
-        author: p.author ? { ...p.author, full_name: editName.trim() } : p.author
+        author: p.author ? { ...p.author, full_name: trimmedName } : p.author
       })))
       setEditOpen(false)
       toast.success('Profile updated')
+      refreshProfile().catch(() => {})
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Save failed')
     } finally {

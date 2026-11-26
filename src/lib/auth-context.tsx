@@ -61,6 +61,7 @@ interface AuthContextType {
   changePassword: (newPassword: string) => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  updateProfileLocally: (updates: Partial<Profile>) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -358,6 +359,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchProfile(user)
   }, [user, fetchProfile])
 
+  const updateProfileLocally = useCallback((updates: Partial<Profile>) => {
+    setProfile(prev => {
+      if (!prev) return prev
+      const next = { ...prev, ...updates }
+      try {
+        localStorage.setItem('cw_profile', JSON.stringify(next))
+      } catch {}
+      return next
+    })
+  }, [])
+
   // ── Computed Values ──────────────────────────────────────────
   const isGoogleOnly = (() => {
     if (!user?.identities) return false
@@ -386,6 +398,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     changePassword,
     signOut,
     refreshProfile,
+    updateProfileLocally,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

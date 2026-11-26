@@ -58,12 +58,40 @@ export async function uploadToStorage(
     else if (folder === 'pyq') mime = 'application/pdf'
   }
 
+  // 1. Direct Binary Streaming via Signed URL (Primary: fast, raw binary, no 4.5MB Vercel limit)
+  try {
+    const signRes = await api.post<{
+      signedUrl: string
+      token: string
+      path: string
+      publicUrl: string
+    }>('/upload/sign', {
+      folder,
+      fileName,
+      mime,
+    })
+
+    if (signRes?.signedUrl && signRes?.publicUrl) {
+      const putRes = await fetch(signRes.signedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': mime || 'application/octet-stream',
+        },
+        body: file,
+      })
+
+      if (putRes.ok) {
+        return signRes.publicUrl
+      }
+      console.warn('[storage] Direct signed upload failed (' + putRes.status + '), falling back to server route')
+    }
+  } catch (err) {
+    console.warn('[storage] Signed upload initiation failed, falling back to server route:', err)
+  }
+
+  // 2. Fallback to /api/upload (Base64 over JSON)
   const b64 = await fileToBase64(file)
 
-  // Use authenticated api client:
-  // 1. Automatically verifies token validity & refreshes expired tokens
-  // 2. Automatically retries on 401 Unauthorized
-  // 3. Eliminates stale session / mobile PWA token expiry failures
   const json = await api.post<{ url: string }>('/upload', {
     data: b64,
     mime,
