@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import {
   Upload,
   Download,
@@ -371,10 +372,10 @@ export default function PYQPage() {
           <h1 className="pyq-title">📄 Previous Year Questions (PYQs)</h1>
           <p className="pyq-subtitle">Browse and download semester exam question papers</p>
         </div>
-        <button className="pyq-upload-btn" onClick={() => setUploadOpen(true)}>
+        <Link href="/pyq/upload" className="pyq-upload-btn">
           <Upload size={15} />
           <span>Upload PYQ</span>
-        </button>
+        </Link>
       </div>
 
       {/* ── Student Department Banner or Admin Selector ───────── */}
@@ -526,9 +527,9 @@ export default function PYQPage() {
                 Clear Filters
               </button>
             )}
-            <button className="pyq-upload-btn" onClick={() => setUploadOpen(true)}>
+            <Link href="/pyq/upload" className="pyq-upload-btn">
               <Upload size={14} /> Upload First Paper
-            </button>
+            </Link>
           </div>
         </div>
       ) : (
@@ -926,7 +927,7 @@ const pyqStyles = `
 .pyq-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1rem 0.85rem; border-bottom: 1px solid var(--border); }
 .pyq-title { font-size: 1.15rem; font-weight: 800; color: var(--ink); margin: 0; }
 .pyq-subtitle { font-size: 0.75rem; color: var(--ink-muted); margin: 0.2rem 0 0; }
-.pyq-upload-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.95rem; background: var(--accent); color: var(--bg); border: none; border-radius: 10px; font-size: 0.8125rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; flex-shrink: 0; }
+.pyq-upload-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.95rem; background: var(--accent); color: var(--bg); border: none; border-radius: 10px; font-size: 0.8125rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; flex-shrink: 0; text-decoration: none; }
 .pyq-upload-btn:hover { opacity: 0.9; }
 
 /* Student Department Card */
