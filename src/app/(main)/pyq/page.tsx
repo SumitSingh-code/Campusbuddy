@@ -307,6 +307,7 @@ export default function PYQPage() {
       setUploadStep('')
       loadFiles()
     } catch (e: unknown) {
+      console.error('[pyq-upload]', e)
       const errMsg = (e as Error)?.message || 'Upload failed'
       if (errMsg.includes('413') || errMsg.toLowerCase().includes('payload') || errMsg.toLowerCase().includes('large')) {
         setFormError('File size is too large for mobile network. Please compress below 2.5MB or use the Google Drive link tab.')
@@ -597,7 +598,7 @@ export default function PYQPage() {
         <div
           className="pyq-overlay"
           onClick={e => {
-            if (e.target === e.currentTarget) setUploadOpen(false)
+            if (e.target === e.currentTarget && !uploading) setUploadOpen(false)
           }}
         >
           <div className="pyq-sheet" onClick={e => e.stopPropagation()}>

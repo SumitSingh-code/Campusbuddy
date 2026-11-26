@@ -65,25 +65,30 @@ export async function uploadToStorage(
       token: string
       path: string
       publicUrl: string
+      bucket?: string
     }>('/upload/sign', {
       folder,
       fileName,
       mime,
     })
 
-    if (signRes?.signedUrl && signRes?.publicUrl) {
-      const putRes = await fetch(signRes.signedUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': mime || 'application/octet-stream',
-        },
-        body: file,
-      })
+    if (signRes?.token && signRes?.path) {
+      const { supabase } = await import('./supabase')
+      const targetBucket = signRes.bucket || (folder === 'pyq' ? 'pyq-files' : folder === 'notes' ? 'notes-files' : 'unigram')
 
-      if (putRes.ok) {
+      const { error: uploadErr } = await supabase.storage
+        .from(targetBucket)
+        .uploadToSignedUrl(signRes.path, signRes.token, file, {
+          contentType: mime || 'application/pdf',
+          upsert: true,
+        })
+
+      if (!uploadErr && signRes.publicUrl) {
         return signRes.publicUrl
       }
-      console.warn('[storage] Direct signed upload failed (' + putRes.status + '), falling back to server route')
+      if (uploadErr) {
+        console.warn('[storage] uploadToSignedUrl error:', uploadErr.message)
+      }
     }
   } catch (err) {
     console.warn('[storage] Signed upload initiation failed, falling back to server route:', err)
