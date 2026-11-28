@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   Upload,
   Download,
@@ -12,14 +13,12 @@ import {
   Building2,
   GraduationCap,
   Calendar,
-  Filter,
   AlertCircle,
-  CheckCircle2,
-  Loader2,
+  RefreshCw,
+  UserCheck,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
-import { uploadToStorage } from '@/lib/storage'
 import { fmtBytes } from '@/lib/format'
 import { timeAgo } from '@/lib/date'
 import { DEPARTMENTS as CRSU_DEPARTMENTS } from '@/lib/constants'
@@ -46,122 +45,74 @@ interface PYQFile {
 const DEPARTMENTS = ['All', ...CRSU_DEPARTMENTS]
 const SEMESTERS = ['All', '1', '2', '3', '4', '5', '6', '7', '8']
 
-export default function PYQPage() {
+function PYQContent() {
+  const searchParams = useSearchParams()
   const { user, profile, isAdmin } = useAuth()
 
   const [files, setFiles] = useState<PYQFile[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   // Filters
   const [filterDept, setFilterDept] = useState<string>('All')
   const [filterSem, setFilterSem] = useState<string>('All')
+  const [filterMyUploads, setFilterMyUploads] = useState<boolean>(false)
   const [searchInput, setSearchInput] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  // Upload Modal State
-  const [uploadOpen, setUploadOpen] = useState(false)
-  const [uploadMode, setUploadMode] = useState<'file' | 'link'>('file')
-  const [linkUrl, setLinkUrl] = useState('')
-  const [subject, setSubject] = useState('')
-  const [semester, setSemester] = useState('')
-  const [year, setYear] = useState(new Date().getFullYear().toString())
-  const [department, setDepartment] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadStep, setUploadStep] = useState<string>('')
-  const [formError, setFormError] = useState<string | null>(null)
-
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Student department lock
   const studentDept = (profile?.department || '').trim()
 
-  // Clear form error when user edits any field
+  // 1. Sync from URL search params on mount (e.g. returning from /pyq/upload)
   useEffect(() => {
-    if (formError) setFormError(null)
-  }, [subject, semester, year, department, linkUrl, uploadMode, file])
+    const urlDept = searchParams?.get('dept')
+    const urlSem = searchParams?.get('sem')
+    const uploaded = searchParams?.get('uploaded')
 
-  // Restore draft from sessionStorage if page was reloaded by mobile OS
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('pyq_upload_draft')
-      if (saved) {
-        const d = JSON.parse(saved)
-        if (d.subject) setSubject(d.subject)
-        if (d.semester) setSemester(d.semester)
-        if (d.year) setYear(d.year)
-        if (d.department) setDepartment(d.department)
-        if (d.linkUrl) setLinkUrl(d.linkUrl)
-        if (d.uploadMode) setUploadMode(d.uploadMode)
-        if (d.open) setUploadOpen(true)
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [])
-
-  // Save draft whenever user changes form values
-  useEffect(() => {
-    try {
-      if (uploadOpen) {
-        sessionStorage.setItem(
-          'pyq_upload_draft',
-          JSON.stringify({
-            open: true,
-            subject,
-            semester,
-            year,
-            department,
-            linkUrl,
-            uploadMode,
-          })
-        )
-      } else {
-        sessionStorage.removeItem('pyq_upload_draft')
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [uploadOpen, subject, semester, year, department, linkUrl, uploadMode])
-
-  // Initialize department filter: students locked to their dept, admins see All by default
-  useEffect(() => {
-    if (!isAdmin && studentDept) {
+    if (urlDept) {
+      setFilterDept(urlDept)
+    } else if (!isAdmin && studentDept) {
       setFilterDept(studentDept)
-    } else if (isAdmin && filterDept === 'All') {
+    } else {
       setFilterDept('All')
     }
-  }, [studentDept, isAdmin])
 
-  // Sync upload department when modal opens
-  useEffect(() => {
-    if (uploadOpen) {
-      if (!isAdmin && studentDept) {
-        setDepartment(studentDept)
-      } else if (!department && studentDept) {
-        setDepartment(studentDept)
-      } else if (!department && CRSU_DEPARTMENTS.length > 0) {
-        setDepartment(CRSU_DEPARTMENTS[0])
-      }
+    if (urlSem) {
+      setFilterSem(urlSem)
     }
-  }, [uploadOpen, studentDept, isAdmin])
 
+    if (uploaded === '1') {
+      toast.success('Your question paper is live in the catalog below! 📄✨')
+    }
+  }, [searchParams, studentDept, isAdmin])
+
+  // 2. Fetch PYQ files whenever department, semester, or my_uploads changes
   useEffect(() => {
     loadFiles()
-  }, [filterDept, filterSem])
+  }, [filterDept, filterSem, filterMyUploads])
 
-  async function loadFiles(searchOverride?: string) {
-    setLoading(true)
+  async function loadFiles(searchOverride?: string, isManualRefresh = false) {
+    if (isManualRefresh) setRefreshing(true)
+    else setLoading(true)
+    setFetchError(null)
+
     try {
       const params = new URLSearchParams()
-      const effectiveDept = !isAdmin && studentDept ? studentDept : filterDept
-      if (effectiveDept && effectiveDept !== 'All') {
-        params.set('department', effectiveDept)
+      // Cache-busting timestamp to prevent mobile browsers and proxies from serving stale lists
+      params.set('_t', Date.now().toString())
+
+      if (filterMyUploads) {
+        params.set('my_uploads', '1')
+      } else if (filterDept && filterDept !== 'All') {
+        params.set('department', filterDept)
       }
+
       if (filterSem !== 'All') {
         params.set('semester', filterSem)
       }
+
       const q = searchOverride !== undefined ? searchOverride : searchQuery
       if (q.trim()) {
         params.set('search', q.trim())
@@ -170,10 +121,17 @@ export default function PYQPage() {
       const qString = params.toString() ? `?${params}` : ''
       const res = await api.get<{ data: PYQFile[] }>(`/pyq${qString}`)
       setFiles(res.data || [])
+      if (isManualRefresh) {
+        toast.success('Question papers refreshed!')
+      }
     } catch (e: unknown) {
-      toast.error((e as Error).message || 'Failed to load PYQs')
+      console.error('[pyq-load-error]', e)
+      const msg = (e as Error)?.message || 'Failed to fetch question papers'
+      setFetchError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -188,144 +146,6 @@ export default function PYQPage() {
     loadFiles('')
   }
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    setFormError(null)
-    const f = e.target.files?.[0]
-    if (!f) return
-
-    if (f.size > 15 * 1024 * 1024) {
-      setFormError(`PDF file is ${fmtBytes(f.size)}, which exceeds the 15MB limit. Please compress it or use the Google Drive link tab.`)
-      toast.error('PDF exceeds 15MB limit')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      return
-    }
-
-    const isPdf = !f.type || f.type === 'application/pdf' || f.type === 'application/octet-stream' || f.name.toLowerCase().endsWith('.pdf')
-    if (!isPdf) {
-      setFormError('Please select a valid PDF file (.pdf)')
-      toast.error('Please select a PDF file')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      return
-    }
-
-    setFile(f)
-    toast.success(`Selected: ${f.name} (${fmtBytes(f.size)})`)
-  }
-
-  async function handleUpload() {
-    setFormError(null)
-    const finalDept = !isAdmin && studentDept ? studentDept : department.trim()
-    if (!subject.trim()) {
-      setFormError('Please enter the subject name')
-      toast.error('Please enter the subject name')
-      return
-    }
-    if (!semester) {
-      setFormError('Please select a semester (Sem 1 to 8)')
-      toast.error('Please select the semester')
-      return
-    }
-    if (!year || isNaN(parseInt(year))) {
-      setFormError('Please enter a valid exam year (e.g. 2024)')
-      toast.error('Please enter a valid exam year')
-      return
-    }
-    if (!finalDept) {
-      setFormError('Please select a department')
-      toast.error('Please select a department')
-      return
-    }
-
-    if (uploadMode === 'link') {
-      const trimmedLink = linkUrl.trim()
-      if (!trimmedLink) {
-        setFormError('Please enter the PDF or Google Drive share link')
-        toast.error('Please enter the PDF or Google Drive link')
-        return
-      }
-      if (!trimmedLink.startsWith('http://') && !trimmedLink.startsWith('https://')) {
-        setFormError('Please enter a valid URL starting with https://')
-        toast.error('Please enter a valid URL starting with https://')
-        return
-      }
-    } else {
-      if (!file) {
-        setFormError('Please tap the box above to select your PDF question paper')
-        toast.error('Please select a PDF file first')
-        return
-      }
-      if (file.size > 15 * 1024 * 1024) {
-        setFormError('PDF file is too large (max 15MB). Please compress your PDF before uploading.')
-        toast.error('PDF file is too large (max 15MB).')
-        return
-      }
-    }
-
-    setUploading(true)
-    setUploadStep('Connecting to university vault…')
-    try {
-      let finalUrl = ''
-      let finalFileName = ''
-      let finalFileSize = 0
-
-      if (uploadMode === 'link') {
-        finalUrl = linkUrl.trim()
-        finalFileName = `${subject.trim()}_CRSU.pdf`
-        finalFileSize = 0
-      } else {
-        const uploaderId = user?.id || profile?.id || 'admin'
-        setUploadStep('Uploading PDF directly to secure vault…')
-        finalUrl = await uploadToStorage(file!, `pyq/${uploaderId}/${Date.now()}_${file!.name}`)
-        finalFileName = file!.name
-        finalFileSize = file!.size
-      }
-
-      setUploadStep('Publishing to student directory…')
-      await api.post('/pyq', {
-        title: subject.trim(),
-        subject: subject.trim(),
-        semester: parseInt(semester),
-        year: parseInt(year),
-        exam_type: 'end',
-        department: finalDept,
-        file_url: finalUrl,
-        file_name: finalFileName,
-        file_size: finalFileSize,
-        file_size_bytes: finalFileSize,
-      })
-      toast.success('Question paper published successfully! 🎉')
-      try {
-        sessionStorage.removeItem('pyq_upload_draft')
-      } catch {
-        /* ignore */
-      }
-      setUploadOpen(false)
-      setSubject('')
-      setSemester('')
-      setLinkUrl('')
-      setYear(new Date().getFullYear().toString())
-      setFile(null)
-      setUploadStep('')
-      loadFiles()
-    } catch (e: unknown) {
-      console.error('[pyq-upload]', e)
-      const errMsg = (e as Error)?.message || 'Upload failed'
-      if (errMsg.includes('413') || errMsg.toLowerCase().includes('payload') || errMsg.toLowerCase().includes('large')) {
-        setFormError('File size is too large for mobile network. Please compress below 2.5MB or use the Google Drive link tab.')
-        toast.error('File size too large for mobile network')
-      } else if (errMsg.includes('504') || errMsg.toLowerCase().includes('timeout')) {
-        setFormError('Upload timed out on mobile connection. Please retry or use Google Drive link tab.')
-        toast.error('Upload timed out on mobile data')
-      } else {
-        setFormError(errMsg)
-        toast.error(errMsg)
-      }
-    } finally {
-      setUploading(false)
-      setUploadStep('')
-    }
-  }
-
   async function handleDelete() {
     if (!confirmDelete) return
     try {
@@ -338,21 +158,26 @@ export default function PYQPage() {
     setConfirmDelete(null)
   }
 
-  // Client-side instant filter on top of fetched items
+  // Instant client-side filtering on top of fetched items
   const filtered = files.filter(f => {
-    // 1. Department filter (Student can ONLY see their own department)
-    if (!isAdmin && studentDept) {
-      if (f.department.toLowerCase() !== studentDept.toLowerCase()) return false
-    } else if (filterDept !== 'All') {
+    const isMyUpload = f.uploaded_by === user?.id || f.uploader_id === user?.id
+
+    // If "My Uploads" filter is active, only show user's own uploads
+    if (filterMyUploads && !isMyUpload) {
+      return false
+    }
+
+    // Department filter (User's own upload is always shown even if looking at another dept)
+    if (!filterMyUploads && filterDept !== 'All' && !isMyUpload) {
       if (f.department.toLowerCase() !== filterDept.toLowerCase()) return false
     }
 
-    // 2. Semester filter
+    // Semester filter
     if (filterSem !== 'All') {
       if (String(f.semester) !== String(filterSem)) return false
     }
 
-    // 3. Search query
+    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim()
       const matchSub = f.subject.toLowerCase().includes(q)
@@ -364,6 +189,11 @@ export default function PYQPage() {
     return true
   })
 
+  // Count user's own uploads in loaded list
+  const myUploadsCount = files.filter(
+    f => f.uploaded_by === user?.id || f.uploader_id === user?.id
+  ).length
+
   return (
     <div className="pyq-page">
       {/* ── Page Header ────────────────────────────────────────── */}
@@ -372,54 +202,88 @@ export default function PYQPage() {
           <h1 className="pyq-title">📄 Previous Year Questions (PYQs)</h1>
           <p className="pyq-subtitle">Browse and download semester exam question papers</p>
         </div>
-        <Link href="/pyq/upload" className="pyq-upload-btn">
-          <Upload size={15} />
-          <span>Upload PYQ</span>
-        </Link>
+        <div className="pyq-header-actions">
+          <button
+            type="button"
+            className="pyq-icon-btn"
+            onClick={() => loadFiles(undefined, true)}
+            disabled={loading || refreshing}
+            title="Refresh question papers list"
+            aria-label="Refresh"
+          >
+            <RefreshCw size={15} className={loading || refreshing ? 'pyq-spin' : ''} />
+          </button>
+          <Link href="/pyq/upload" className="pyq-upload-btn">
+            <Upload size={14} />
+            <span>Upload PYQ</span>
+          </Link>
+        </div>
       </div>
 
-      {/* ── Student Department Banner or Admin Selector ───────── */}
-      {!isAdmin ? (
-        <div className="pyq-student-dept-card">
-          <div className="pyq-student-dept-icon">
-            <Building2 size={20} />
+      {/* ── Filter Mode: All / Department / My Uploads ─────────── */}
+      <div className="pyq-quick-tabs">
+        <button
+          type="button"
+          className={`pyq-quick-tab ${!filterMyUploads ? 'active' : ''}`}
+          onClick={() => {
+            setFilterMyUploads(false)
+          }}
+        >
+          <Building2 size={13} />
+          <span>All Papers</span>
+        </button>
+
+        {user && (
+          <button
+            type="button"
+            className={`pyq-quick-tab ${filterMyUploads ? 'active' : ''}`}
+            onClick={() => {
+              setFilterMyUploads(true)
+            }}
+          >
+            <UserCheck size={13} />
+            <span>My Uploads {myUploadsCount > 0 ? `(${myUploadsCount})` : ''}</span>
+          </button>
+        )}
+      </div>
+
+      {/* ── Department Selector (Available to all students and admins) ── */}
+      {!filterMyUploads && (
+        <div className="pyq-dept-bar">
+          <div className="pyq-dept-bar-header">
+            <Building2 size={13} />
+            <span>Department:</span>
+            {studentDept && (
+              <span className="pyq-dept-my-badge">
+                Registered: {studentDept}
+              </span>
+            )}
           </div>
-          <div className="pyq-student-dept-info">
-            <div className="pyq-student-dept-label">Department View</div>
-            <div className="pyq-student-dept-name">{studentDept || 'General / All CRSU'}</div>
-            <div className="pyq-student-dept-note">
-              Showing official question papers exclusive to your registered department
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Admin Department Selector */
-        <div className="pyq-admin-dept-bar">
-          <label className="pyq-admin-dept-label">
-            <Building2 size={14} /> Filter Department (Admin):
-          </label>
-          <div className="pyq-admin-dept-scroll">
-            {DEPARTMENTS.map(d => (
-              <button
-                key={d}
-                className={`pyq-admin-dept-chip ${filterDept === d ? 'active' : ''}`}
-                onClick={() => setFilterDept(d)}
-              >
-                {d}
-              </button>
-            ))}
+          <div className="pyq-dept-scroll">
+            {DEPARTMENTS.map(d => {
+              const isUserDept = studentDept && d.toLowerCase() === studentDept.toLowerCase()
+              return (
+                <button
+                  key={d}
+                  className={`pyq-dept-chip ${filterDept === d ? 'active' : ''}`}
+                  onClick={() => setFilterDept(d)}
+                >
+                  {d} {isUserDept && d !== 'All' ? '★' : ''}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* ── Search Bar with Search Button ──────────────────────── */}
+      {/* ── Search Bar with Submit Button ──────────────────────── */}
       <div className="pyq-search-container">
         <div className="pyq-search-input-wrap">
           <Search size={16} className="pyq-search-icon" />
           <input
             type="text"
             className="pyq-search-input"
-            placeholder="Search by subject or topic (e.g. Data Structures, Maths, OS)..."
+            placeholder="Search subject, topic, code..."
             value={searchInput}
             onChange={e => {
               setSearchInput(e.target.value)
@@ -431,7 +295,7 @@ export default function PYQPage() {
           />
           {searchInput && (
             <button className="pyq-search-clear" onClick={handleClearSearch} aria-label="Clear search">
-              <X size={15} />
+              <X size={14} />
             </button>
           )}
         </div>
@@ -444,7 +308,7 @@ export default function PYQPage() {
       {/* ── Semester Filter Strip ──────────────────────────────── */}
       <div className="pyq-sem-strip-wrap">
         <div className="pyq-sem-strip-header">
-          <GraduationCap size={15} />
+          <GraduationCap size={14} />
           <span>Filter by Semester:</span>
         </div>
         <div className="pyq-sem-strip">
@@ -461,13 +325,19 @@ export default function PYQPage() {
       </div>
 
       {/* ── Active Filters Summary ─────────────────────────────── */}
-      {(searchQuery || filterSem !== 'All' || (isAdmin && filterDept !== 'All')) && (
+      {(searchQuery || filterSem !== 'All' || filterDept !== 'All' || filterMyUploads) && (
         <div className="pyq-active-filters">
-          <span className="pyq-active-filters-label">Active Filters:</span>
-          {searchQuery && (
+          <span className="pyq-active-filters-label">Active:</span>
+          {filterMyUploads && (
             <span className="pyq-filter-tag">
-              Subject: &quot;{searchQuery}&quot;
-              <button onClick={handleClearSearch}><X size={12} /></button>
+              My Uploads
+              <button onClick={() => setFilterMyUploads(false)}><X size={12} /></button>
+            </span>
+          )}
+          {filterDept !== 'All' && !filterMyUploads && (
+            <span className="pyq-filter-tag">
+              Dept: {filterDept}
+              <button onClick={() => setFilterDept('All')}><X size={12} /></button>
             </span>
           )}
           {filterSem !== 'All' && (
@@ -476,10 +346,10 @@ export default function PYQPage() {
               <button onClick={() => setFilterSem('All')}><X size={12} /></button>
             </span>
           )}
-          {isAdmin && filterDept !== 'All' && (
+          {searchQuery && (
             <span className="pyq-filter-tag">
-              Dept: {filterDept}
-              <button onClick={() => setFilterDept('All')}><X size={12} /></button>
+              &quot;{searchQuery}&quot;
+              <button onClick={handleClearSearch}><X size={12} /></button>
             </span>
           )}
           <button
@@ -487,7 +357,8 @@ export default function PYQPage() {
             onClick={() => {
               handleClearSearch()
               setFilterSem('All')
-              if (isAdmin) setFilterDept('All')
+              setFilterDept('All')
+              setFilterMyUploads(false)
             }}
           >
             Reset All
@@ -495,8 +366,23 @@ export default function PYQPage() {
         </div>
       )}
 
-      {/* ── Question Papers List ───────────────────────────────── */}
-      {loading ? (
+      {/* ── Content View: Error, Loading, Empty, or List ───────── */}
+      {fetchError ? (
+        <div className="pyq-empty">
+          <AlertCircle size={40} color="#ef4444" strokeWidth={1.5} />
+          <h3 className="pyq-empty-title">Failed to Load Question Papers</h3>
+          <p className="pyq-empty-desc">{fetchError}</p>
+          <div className="pyq-empty-actions">
+            <button
+              className="pyq-reset-btn"
+              onClick={() => loadFiles(undefined, true)}
+              style={{ background: 'var(--accent)', color: 'var(--bg)', border: 'none' }}
+            >
+              <RefreshCw size={14} style={{ display: 'inline', marginRight: 6 }} /> Try Again
+            </button>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="pyq-loading">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="pyq-skeleton skeleton-pulse" />
@@ -506,16 +392,31 @@ export default function PYQPage() {
         <div className="pyq-empty">
           <FileText size={42} strokeWidth={1.5} />
           <h3 className="pyq-empty-title">
-            {searchQuery ? 'No Question Papers Found' : 'Uploading Soon 📄'}
+            {searchQuery
+              ? 'No Question Papers Found'
+              : filterMyUploads
+              ? 'No Uploads Found'
+              : 'Uploading Soon 📄'}
           </h3>
           <p className="pyq-empty-desc">
             {searchQuery
-              ? `No PYQs matched "${searchQuery}". Try searching a different keyword.`
+              ? `No PYQs matched "${searchQuery}". Try a different keyword.`
+              : filterMyUploads
+              ? 'You have not uploaded any question papers yet.'
               : filterSem !== 'All'
-              ? `Previous year question papers for ${studentDept || 'your stream'} (Semester ${filterSem}) are being uploaded soon.`
-              : `Previous year question papers for ${studentDept || 'your stream'} are being uploaded soon. Check back shortly!`}
+              ? `No papers found for ${filterDept !== 'All' ? filterDept : 'selected stream'} (Semester ${filterSem}).`
+              : `No question papers published yet for ${filterDept !== 'All' ? filterDept : 'this stream'}.`}
           </p>
           <div className="pyq-empty-actions">
+            {filterDept !== 'All' && (
+              <button
+                className="pyq-reset-btn"
+                onClick={() => setFilterDept('All')}
+                style={{ background: 'var(--accent)', color: 'var(--bg)', border: 'none', fontWeight: 700 }}
+              >
+                Browse All Departments ({files.length} available)
+              </button>
+            )}
             {(searchQuery || filterSem !== 'All') && (
               <button
                 className="pyq-reset-btn"
@@ -528,7 +429,7 @@ export default function PYQPage() {
               </button>
             )}
             <Link href="/pyq/upload" className="pyq-upload-btn">
-              <Upload size={14} /> Upload First Paper
+              <Upload size={14} /> Upload Paper
             </Link>
           </div>
         </div>
@@ -594,318 +495,6 @@ export default function PYQPage() {
         </div>
       )}
 
-      {/* ── Upload Sheet Modal ─────────────────────────────────── */}
-      {uploadOpen && (
-        <div
-          className="pyq-overlay"
-          onClick={e => {
-            if (e.target === e.currentTarget && !uploading) setUploadOpen(false)
-          }}
-        >
-          <div className="pyq-sheet" onClick={e => e.stopPropagation()}>
-            <div className="pyq-sheet-handle" />
-            <div className="pyq-sheet-header">
-              <h2 className="pyq-sheet-title">Upload Question Paper</h2>
-              <button
-                className="pyq-sheet-close"
-                onClick={() => setUploadOpen(false)}
-                type="button"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="pyq-form">
-              {/* Method Switcher: Upload File vs Google Drive Link */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 6,
-                  background: 'var(--surface2)',
-                  padding: 4,
-                  borderRadius: 12,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setUploadMode('file')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 10px',
-                    borderRadius: 9,
-                    border: 'none',
-                    fontWeight: 700,
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    background: uploadMode === 'file' ? 'var(--accent)' : 'transparent',
-                    color: uploadMode === 'file' ? 'var(--bg)' : 'var(--ink-muted)',
-                  }}
-                >
-                  📁 Upload PDF File
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUploadMode('link')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 10px',
-                    borderRadius: 9,
-                    border: 'none',
-                    fontWeight: 700,
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    background: uploadMode === 'link' ? 'var(--accent)' : 'transparent',
-                    color: uploadMode === 'link' ? 'var(--bg)' : 'var(--ink-muted)',
-                  }}
-                >
-                  🔗 Google Drive Link
-                </button>
-              </div>
-
-              {/* Subject */}
-              <div>
-                <label className="pyq-label">Subject Name *</label>
-                <input
-                  className="pyq-input"
-                  placeholder="e.g. Operating Systems, Data Structures..."
-                  value={subject}
-                  onChange={e => setSubject(e.target.value)}
-                />
-              </div>
-
-              {/* Semester & Year */}
-              <div className="pyq-row">
-                <div className="pyq-col">
-                  <label className="pyq-label">Semester *</label>
-                  <select
-                    className="pyq-input"
-                    value={semester}
-                    onChange={e => setSemester(e.target.value)}
-                  >
-                    <option value="">Select Semester…</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                      <option key={s} value={s}>
-                        Semester {s} (Sem {s})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="pyq-col">
-                  <label className="pyq-label">Exam Year *</label>
-                  <input
-                    className="pyq-input"
-                    type="number"
-                    min="2000"
-                    max={new Date().getFullYear() + 2}
-                    value={year}
-                    onChange={e => setYear(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Department */}
-              <div>
-                <label className="pyq-label">Department *</label>
-                {!isAdmin && studentDept ? (
-                  <div>
-                    <input
-                      className="pyq-input"
-                      value={studentDept}
-                      disabled
-                      readOnly
-                      style={{ opacity: 0.85, background: 'var(--surface2)', cursor: 'not-allowed' }}
-                    />
-                    <p className="pyq-field-hint">
-                      Locked to your registered university department
-                    </p>
-                  </div>
-                ) : (
-                  <select
-                    className="pyq-input"
-                    value={department}
-                    onChange={e => setDepartment(e.target.value)}
-                  >
-                    <option value="">Select department…</option>
-                    {CRSU_DEPARTMENTS.map(d => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* File Upload Box OR Link Box */}
-              {uploadMode === 'file' ? (
-                <div>
-                  <label className="pyq-label">Question Paper PDF *</label>
-                  <div
-                    className="pyq-file-area"
-                    style={{
-                      position: 'relative',
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {/* Native invisible file input: Covers 100% of card so touch hits native input directly */}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="application/pdf,.pdf"
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        opacity: 0,
-                        cursor: 'pointer',
-                        zIndex: 5,
-                      }}
-                      onChange={handleFileSelect}
-                    />
-
-                    {file ? (
-                      <div className="pyq-file-selected" style={{ position: 'relative', zIndex: 6, width: '100%' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-                          <FileText size={26} className="pyq-file-pdf-icon" style={{ flexShrink: 0 }} />
-                          <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                            <span className="pyq-file-name" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {file.name}
-                            </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                              <span style={{ fontSize: '0.7rem', background: 'rgba(34,197,94,0.15)', color: '#16a34a', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-                                READY
-                              </span>
-                              <span className="pyq-file-size">{fmtBytes(file.size)}</span>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="pyq-file-remove-btn"
-                            style={{
-                              background: 'var(--surface2)',
-                              border: 'none',
-                              color: 'var(--ink-muted)',
-                              cursor: 'pointer',
-                              width: 28,
-                              height: 28,
-                              borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              zIndex: 10,
-                            }}
-                            onClick={e => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setFile(null)
-                              setFormError(null)
-                              if (fileInputRef.current) fileInputRef.current.value = ''
-                            }}
-                            title="Remove file"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                        <span className="pyq-file-change">Tap box to choose a different PDF</span>
-                      </div>
-                    ) : (
-                      <div style={{ pointerEvents: 'none', textAlign: 'center' }}>
-                        <Upload size={26} style={{ margin: '0 auto 6px', display: 'block', color: 'var(--accent)' }} />
-                        <span className="pyq-file-cta">Tap to select PDF from device</span>
-                        <span className="pyq-file-subtext">PDF document supported (max 15MB)</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="pyq-label">Google Drive or Cloud PDF Link *</label>
-                  <input
-                    className="pyq-input"
-                    placeholder="https://drive.google.com/file/d/... or any PDF link"
-                    value={linkUrl}
-                    onChange={e => setLinkUrl(e.target.value)}
-                  />
-                  <p className="pyq-field-hint">
-                    Instant &amp; 100% crash-proof: Shareable Google Drive, Dropbox, or web PDF link.
-                  </p>
-                </div>
-              )}
-
-              {/* Live Inline Error Feedback Banner */}
-              {formError && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#ef4444',
-                    fontSize: '0.84rem',
-                    fontWeight: 600,
-                  }}
-                  role="alert"
-                >
-                  <AlertCircle size={18} style={{ flexShrink: 0 }} />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              {/* Live Multi-Stage Progress Banner */}
-              {uploading && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    background: 'rgba(212, 175, 55, 0.12)',
-                    border: '1px solid rgba(212, 175, 55, 0.35)',
-                    color: 'var(--accent)',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                  }}
-                >
-                  <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                  <span>{uploadStep || 'Publishing paper…'}</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                className="pyq-submit-btn"
-                onClick={handleUpload}
-                disabled={uploading}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-              >
-                {uploading ? (
-                  <>
-                    <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                    <span>{uploadStep || 'Publishing Paper…'}</span>
-                  </>
-                ) : (
-                  'Publish Question Paper'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {confirmDelete && (
         <ConfirmDialog
           message="Delete this question paper? This cannot be undone."
@@ -915,332 +504,491 @@ export default function PYQPage() {
         />
       )}
 
-      <style>{pyqStyles}</style>
+      <style jsx>{`
+        .pyq-page {
+          max-width: 640px;
+          margin: 0 auto;
+          padding-bottom: 4.5rem;
+        }
+        .pyq-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1rem 1rem 0.85rem;
+          border-bottom: 1px solid var(--border);
+        }
+        .pyq-title {
+          font-size: 1.15rem;
+          font-weight: 800;
+          color: var(--ink);
+          margin: 0;
+        }
+        .pyq-subtitle {
+          font-size: 0.75rem;
+          color: var(--ink-muted);
+          margin: 0.2rem 0 0;
+        }
+        .pyq-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-shrink: 0;
+        }
+        .pyq-icon-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--ink);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .pyq-icon-btn:hover {
+          background: var(--surface2);
+        }
+        .pyq-upload-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.55rem 0.95rem;
+          background: var(--accent);
+          color: var(--bg);
+          border: none;
+          border-radius: 10px;
+          font-size: 0.8125rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: opacity 0.15s;
+          text-decoration: none;
+        }
+        .pyq-upload-btn:hover {
+          opacity: 0.9;
+        }
+        .pyq-quick-tabs {
+          display: flex;
+          gap: 0.4rem;
+          padding: 0.65rem 1rem 0.25rem;
+        }
+        .pyq-quick-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.35rem 0.75rem;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--ink-muted);
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .pyq-quick-tab.active {
+          border-color: var(--accent);
+          background: rgba(212, 175, 55, 0.12);
+          color: var(--accent);
+          font-weight: 700;
+        }
+        .pyq-dept-bar {
+          padding: 0.45rem 1rem 0.25rem;
+        }
+        .pyq-dept-bar-header {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--ink-muted);
+          margin-bottom: 0.4rem;
+        }
+        .pyq-dept-my-badge {
+          margin-left: auto;
+          font-size: 0.68rem;
+          background: var(--surface2);
+          padding: 1px 6px;
+          border-radius: 4px;
+          color: var(--ink);
+          font-weight: 600;
+        }
+        .pyq-dept-scroll {
+          display: flex;
+          gap: 0.4rem;
+          overflow-x: auto;
+          padding-bottom: 0.3rem;
+          scrollbar-width: none;
+        }
+        .pyq-dept-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .pyq-dept-chip {
+          flex-shrink: 0;
+          padding: 0.35rem 0.8rem;
+          border-radius: 99px;
+          border: 1.5px solid var(--border);
+          background: var(--surface);
+          color: var(--ink-muted);
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .pyq-dept-chip.active {
+          border-color: var(--accent);
+          background: rgba(212, 175, 55, 0.12);
+          color: var(--accent);
+          font-weight: 700;
+        }
+        .pyq-search-container {
+          display: flex;
+          gap: 0.5rem;
+          padding: 0.6rem 1rem 0.35rem;
+        }
+        .pyq-search-input-wrap {
+          position: relative;
+          flex: 1;
+          display: flex;
+          align-items: center;
+        }
+        .pyq-search-icon {
+          position: absolute;
+          left: 0.85rem;
+          color: var(--ink-muted);
+          pointer-events: none;
+        }
+        .pyq-search-input {
+          width: 100%;
+          height: 38px;
+          padding: 0 2.2rem 0 2.4rem;
+          background: var(--surface);
+          border: 1.5px solid var(--border);
+          border-radius: 11px;
+          font-size: 0.84rem;
+          color: var(--ink);
+          outline: none;
+          font-family: inherit;
+        }
+        .pyq-search-input:focus {
+          border-color: var(--accent);
+        }
+        .pyq-search-clear {
+          position: absolute;
+          right: 0.65rem;
+          width: 20px;
+          height: 20px;
+          border: none;
+          background: var(--surface2);
+          color: var(--ink-muted);
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .pyq-search-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0 0.95rem;
+          height: 38px;
+          background: var(--accent);
+          color: var(--bg);
+          border: none;
+          border-radius: 11px;
+          font-size: 0.8125rem;
+          font-weight: 700;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .pyq-sem-strip-wrap {
+          padding: 0.3rem 1rem 0.55rem;
+        }
+        .pyq-sem-strip-header {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--ink-muted);
+          margin-bottom: 0.35rem;
+        }
+        .pyq-sem-strip {
+          display: flex;
+          gap: 0.4rem;
+          overflow-x: auto;
+          scrollbar-width: none;
+          padding-bottom: 0.2rem;
+        }
+        .pyq-sem-strip::-webkit-scrollbar {
+          display: none;
+        }
+        .pyq-sem-chip {
+          flex-shrink: 0;
+          padding: 0.32rem 0.75rem;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--ink-muted);
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .pyq-sem-chip.active {
+          border-color: var(--accent);
+          background: var(--accent);
+          color: var(--bg);
+          font-weight: 700;
+        }
+        .pyq-active-filters {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.4rem;
+          padding: 0 1rem 0.55rem;
+        }
+        .pyq-active-filters-label {
+          font-size: 0.72rem;
+          color: var(--ink-muted);
+          font-weight: 600;
+        }
+        .pyq-filter-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          background: var(--surface2);
+          color: var(--ink);
+          padding: 0.2rem 0.55rem;
+          border-radius: 6px;
+          font-size: 0.72rem;
+          font-weight: 600;
+        }
+        .pyq-filter-tag button {
+          background: none;
+          border: none;
+          color: var(--ink-muted);
+          cursor: pointer;
+          padding: 0;
+          display: flex;
+          align-items: center;
+        }
+        .pyq-clear-all-btn {
+          background: none;
+          border: none;
+          color: var(--danger);
+          font-size: 0.72rem;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 0.2rem 0.4rem;
+        }
+        .pyq-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          padding: 0.4rem 1rem 1rem;
+        }
+        .pyq-card {
+          display: flex;
+          align-items: center;
+          gap: 0.85rem;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 0.95rem;
+        }
+        .pyq-card-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 11px;
+          background: rgba(212, 175, 55, 0.12);
+          color: var(--accent);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .pyq-card-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .pyq-card-subject {
+          font-weight: 700;
+          font-size: 0.92rem;
+          color: var(--ink);
+          margin-bottom: 0.35rem;
+          line-height: 1.3;
+        }
+        .pyq-card-meta {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.72rem;
+          color: var(--ink-muted);
+          margin-bottom: 0.25rem;
+        }
+        .pyq-sem-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          background: rgba(109, 74, 255, 0.12);
+          color: #7a5af8;
+          border-radius: 5px;
+          padding: 0.15rem 0.45rem;
+          font-weight: 700;
+        }
+        .pyq-year-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          background: var(--surface2);
+          border-radius: 5px;
+          padding: 0.15rem 0.45rem;
+          font-weight: 600;
+          color: var(--ink);
+        }
+        .pyq-dept-badge {
+          background: var(--surface2);
+          border-radius: 5px;
+          padding: 0.15rem 0.45rem;
+          color: var(--ink-muted);
+        }
+        .pyq-size-badge {
+          background: transparent;
+          color: var(--ink-muted);
+        }
+        .pyq-card-uploader {
+          font-size: 0.69rem;
+          color: var(--ink-muted);
+        }
+        .pyq-card-actions {
+          display: flex;
+          gap: 0.4rem;
+        }
+        .pyq-download-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 9px;
+          background: var(--accent);
+          color: var(--bg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-decoration: none;
+        }
+        .pyq-download-btn:hover {
+          opacity: 0.88;
+        }
+        .pyq-delete-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 9px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--danger);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .pyq-delete-btn:hover {
+          background: rgba(232, 93, 78, 0.08);
+        }
+        .pyq-loading {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          padding: 0.75rem 1rem;
+        }
+        .pyq-skeleton {
+          height: 78px;
+          border-radius: 14px;
+        }
+        .skeleton-pulse {
+          background: var(--surface);
+          animation: sk-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes sk-pulse {
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.4;
+          }
+        }
+        .pyq-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.65rem;
+          padding: 3.5rem 1.5rem;
+          color: var(--ink-muted);
+          text-align: center;
+        }
+        .pyq-empty-title {
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--ink);
+          margin: 0;
+        }
+        .pyq-empty-desc {
+          font-size: 0.8125rem;
+          max-width: 380px;
+          margin: 0;
+          line-height: 1.5;
+        }
+        .pyq-empty-actions {
+          display: flex;
+          gap: 0.6rem;
+          margin-top: 0.5rem;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+        .pyq-reset-btn {
+          padding: 0.55rem 0.95rem;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--ink);
+          font-size: 0.8125rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .pyq-spin {
+          animation: pyqSpin 1s linear infinite;
+        }
+        @keyframes pyqSpin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
     </div>
   )
 }
 
-const pyqStyles = `
-.pyq-page { max-width: 640px; margin: 0 auto; padding-bottom: 4.5rem; }
-
-/* Header */
-.pyq-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1rem 0.85rem; border-bottom: 1px solid var(--border); }
-.pyq-title { font-size: 1.15rem; font-weight: 800; color: var(--ink); margin: 0; }
-.pyq-subtitle { font-size: 0.75rem; color: var(--ink-muted); margin: 0.2rem 0 0; }
-.pyq-upload-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.95rem; background: var(--accent); color: var(--bg); border: none; border-radius: 10px; font-size: 0.8125rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; flex-shrink: 0; text-decoration: none; }
-.pyq-upload-btn:hover { opacity: 0.9; }
-
-/* Student Department Card */
-.pyq-student-dept-card {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  margin: 0.75rem 1rem 0.25rem;
-  padding: 0.8rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--accent);
-  border-radius: 12px;
+export default function PYQPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '1rem' }}>
+          <div
+            style={{
+              height: 80,
+              borderRadius: 14,
+              background: 'var(--surface)',
+              animation: 'sk-pulse 1.4s ease-in-out infinite',
+            }}
+          />
+        </div>
+      }
+    >
+      <PYQContent />
+    </Suspense>
+  )
 }
-.pyq-student-dept-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: rgba(212, 175, 55, 0.12);
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.pyq-student-dept-info { flex: 1; min-width: 0; }
-.pyq-student-dept-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
-.pyq-student-dept-name { font-size: 0.9375rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pyq-student-dept-note { font-size: 0.7rem; color: var(--ink-muted); margin-top: 0.1rem; }
-
-/* Admin Dept Bar */
-.pyq-admin-dept-bar { padding: 0.75rem 1rem 0.25rem; }
-.pyq-admin-dept-label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 700; color: var(--ink-muted); margin-bottom: 0.45rem; }
-.pyq-admin-dept-scroll { display: flex; gap: 0.45rem; overflow-x: auto; padding-bottom: 0.4rem; scrollbar-width: none; }
-.pyq-admin-dept-scroll::-webkit-scrollbar { display: none; }
-.pyq-admin-dept-chip { flex-shrink: 0; padding: 0.35rem 0.85rem; border-radius: 99px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink-muted); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
-.pyq-admin-dept-chip.active { border-color: var(--accent); background: rgba(212, 175, 55, 0.12); color: var(--accent); font-weight: 700; }
-
-/* Search Container */
-.pyq-search-container {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem 0.4rem;
-}
-.pyq-search-input-wrap {
-  position: relative;
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-.pyq-search-icon {
-  position: absolute;
-  left: 0.85rem;
-  color: var(--ink-muted);
-  pointer-events: none;
-}
-.pyq-search-input {
-  width: 100%;
-  height: 40px;
-  padding: 0 2.2rem 0 2.4rem;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 11px;
-  font-size: 0.84rem;
-  color: var(--ink);
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.15s;
-}
-.pyq-search-input:focus {
-  border-color: var(--accent);
-}
-.pyq-search-clear {
-  position: absolute;
-  right: 0.65rem;
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: var(--surface2);
-  color: var(--ink-muted);
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.pyq-search-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0 1rem;
-  height: 40px;
-  background: var(--accent);
-  color: var(--bg);
-  border: none;
-  border-radius: 11px;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-}
-.pyq-search-btn:hover { opacity: 0.9; }
-
-/* Semester Strip */
-.pyq-sem-strip-wrap {
-  padding: 0.35rem 1rem 0.65rem;
-}
-.pyq-sem-strip-header {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--ink-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.4rem;
-}
-.pyq-sem-strip {
-  display: flex;
-  gap: 0.4rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 0.2rem;
-}
-.pyq-sem-strip::-webkit-scrollbar { display: none; }
-.pyq-sem-chip {
-  flex-shrink: 0;
-  padding: 0.35rem 0.8rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--ink-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.pyq-sem-chip.active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--bg);
-  font-weight: 700;
-}
-
-/* Active Filters */
-.pyq-active-filters {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0 1rem 0.65rem;
-}
-.pyq-active-filters-label { font-size: 0.72rem; color: var(--ink-muted); font-weight: 600; }
-.pyq-filter-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: var(--surface2);
-  color: var(--ink);
-  padding: 0.2rem 0.55rem;
-  border-radius: 6px;
-  font-size: 0.72rem;
-  font-weight: 600;
-}
-.pyq-filter-tag button {
-  background: none;
-  border: none;
-  color: var(--ink-muted);
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-}
-.pyq-clear-all-btn {
-  background: none;
-  border: none;
-  color: var(--danger);
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0.2rem 0.4rem;
-}
-
-/* List */
-.pyq-list { display: flex; flex-direction: column; gap: 0.65rem; padding: 0.4rem 1rem 1rem; }
-.pyq-card {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 0.95rem;
-  transition: border-color 0.15s;
-}
-.pyq-card:hover { border-color: rgba(212, 175, 55, 0.4); }
-.pyq-card-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 11px;
-  background: rgba(212, 175, 55, 0.12);
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.pyq-card-info { flex: 1; min-width: 0; }
-.pyq-card-subject { font-weight: 700; font-size: 0.92rem; color: var(--ink); margin-bottom: 0.35rem; line-height: 1.3; }
-.pyq-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--ink-muted); margin-bottom: 0.25rem; }
-.pyq-sem-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  background: rgba(109, 74, 255, 0.12);
-  color: #7A5AF8;
-  border-radius: 5px;
-  padding: 0.15rem 0.45rem;
-  font-weight: 700;
-}
-.pyq-year-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  background: var(--surface2);
-  border-radius: 5px;
-  padding: 0.15rem 0.45rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-.pyq-dept-badge {
-  background: var(--surface2);
-  border-radius: 5px;
-  padding: 0.15rem 0.45rem;
-  color: var(--ink-muted);
-}
-.pyq-size-badge {
-  background: transparent;
-  color: var(--ink-muted);
-}
-.pyq-card-uploader { font-size: 0.69rem; color: var(--ink-muted); }
-.pyq-card-actions { display: flex; gap: 0.4rem; }
-.pyq-download-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  background: var(--accent);
-  color: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  transition: opacity 0.15s;
-}
-.pyq-download-btn:hover { opacity: 0.88; }
-.pyq-delete-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--danger);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
-}
-.pyq-delete-btn:hover { background: rgba(232, 93, 78, 0.08); }
-
-/* Loading & Empty */
-.pyq-loading { display: flex; flex-direction: column; gap: 0.65rem; padding: 0.75rem 1rem; }
-.pyq-skeleton { height: 78px; border-radius: 14px; }
-.skeleton-pulse { background: var(--surface); animation: sk-pulse 1.4s ease-in-out infinite; }
-@keyframes sk-pulse { 0%,100%{opacity:1}50%{opacity:.4} }
-
-.pyq-empty { display: flex; flex-direction: column; align-items: center; gap: 0.65rem; padding: 3.5rem 1.5rem; color: var(--ink-muted); text-align: center; }
-.pyq-empty-title { font-size: 1rem; font-weight: 700; color: var(--ink); margin: 0; }
-.pyq-empty-desc { font-size: 0.8125rem; max-width: 380px; margin: 0; line-height: 1.5; }
-.pyq-empty-actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap; justify-content: center; }
-.pyq-reset-btn { padding: 0.55rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
-
-/* Upload Modal */
-.pyq-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.6); backdrop-filter: blur(5px); display: flex; align-items: flex-end; justify-content: center; }
-.pyq-sheet { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; animation: pyqIn .25s ease; max-height: 90vh; overflow-y: auto; }
-@keyframes pyqIn { from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1} }
-.pyq-sheet-handle { width: 38px; height: 4px; background: var(--border); border-radius: 2px; margin: 0.75rem auto 0.25rem; }
-.pyq-sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1.25rem 0.75rem; border-bottom: 1px solid var(--border); }
-.pyq-sheet-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); margin: 0; }
-.pyq-sheet-close { width: 30px; height: 30px; border: none; border-radius: 50%; background: var(--surface2); color: var(--ink-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.pyq-form { padding: 1rem 1.25rem calc(1.75rem + env(safe-area-inset-bottom, 0)); display: flex; flex-direction: column; gap: 0.85rem; }
-.pyq-label { font-size: 0.78rem; font-weight: 700; color: var(--ink); margin-bottom: 0.25rem; display: block; }
-.pyq-field-hint { font-size: 0.7rem; color: var(--ink-muted); margin: 0.25rem 0 0; }
-.pyq-input { width: 100%; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.875rem; color: var(--ink); outline: none; font-family: inherit; box-sizing: border-box; }
-.pyq-input:focus { border-color: var(--accent); }
-.pyq-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.pyq-col { display: flex; flex-direction: column; }
-
-.pyq-file-area { position: relative; border: 2px dashed var(--border); border-radius: 12px; padding: 1.4rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; color: var(--ink-muted); font-size: 0.875rem; transition: border-color 0.15s; background: var(--bg); min-height: 110px; }
-.pyq-file-area:hover { border-color: var(--accent); }
-.pyq-file-cta { font-weight: 700; color: var(--ink); font-size: 0.9rem; }
-.pyq-file-subtext { font-size: 0.72rem; color: var(--ink-muted); margin-top: 2px; }
-.pyq-file-selected { display: flex; flex-direction: column; gap: 0.45rem; width: 100%; }
-.pyq-file-pdf-icon { color: var(--accent); }
-.pyq-file-name { font-weight: 700; color: var(--ink); font-size: 0.875rem; }
-.pyq-file-size { font-size: 0.75rem; color: var(--ink-muted); }
-.pyq-file-change { font-size: 0.72rem; color: var(--accent); font-weight: 600; text-decoration: underline; margin-top: 0.1rem; text-align: center; }
-
-.pyq-submit-btn { width: 100%; padding: 0.85rem; background: var(--accent); color: var(--bg); border: none; border-radius: 12px; font-size: 0.9375rem; font-weight: 700; cursor: pointer; margin-top: 0.35rem; transition: opacity 0.15s; }
-.pyq-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-[data-sonner-toaster] { z-index: 9999999 !important; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-`

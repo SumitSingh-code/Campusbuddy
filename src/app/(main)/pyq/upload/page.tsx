@@ -193,8 +193,11 @@ export default function PYQUploadPage() {
         localStorage.removeItem('unigram_pyq_draft')
       } catch {}
 
-      // Return to PYQ catalog
-      router.push('/pyq')
+      // Refresh route cache and return directly to the uploaded department & semester
+      try {
+        router.refresh()
+      } catch {}
+      router.push(`/pyq?dept=${encodeURIComponent(finalDept)}&sem=${semester}&uploaded=1&_t=${Date.now()}`)
     } catch (e: unknown) {
       console.error('[pyq-upload-page]', e)
       const errMsg = (e as Error)?.message || 'Upload failed'

@@ -128,8 +128,19 @@ async function request<T = unknown>(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
+  // For GET requests, ensure aggressive caching in mobile browsers and PWAs never serves stale data
+  const isGet = method.toUpperCase() === 'GET'
+  if (isGet) {
+    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    headers['Pragma'] = 'no-cache'
+  }
+
   const url = `/api${path}`
-  const init: RequestInit = { method, headers }
+  const init: RequestInit = {
+    method,
+    headers,
+    ...(isGet ? { cache: 'no-store' } : {}),
+  }
   if (body !== undefined && body !== null) init.body = JSON.stringify(body)
 
   let response: Response

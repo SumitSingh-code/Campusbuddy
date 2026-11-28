@@ -17,6 +17,11 @@ router.use(authGuard);
 
 router.get('/', async (req, res) => {
   try {
+    // Prevent mobile browsers & proxy CDNs from serving stale PYQ list after upload
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const {
       subject     = '',
       search      = '',
@@ -27,6 +32,8 @@ router.get('/', async (req, res) => {
       exam_type   = '',
       dept        = '',
       department  = '',
+      my_uploads  = '',
+      uploader_id = '',
       page        = 1,
       limit       = 20,
     } = req.query;
@@ -38,9 +45,10 @@ router.get('/', async (req, res) => {
     const pageSize = Math.min(50, Math.max(1, parseInt(limit)));
     const offset   = (pageNum - 1) * pageSize;
 
-    // Students only see their own department's PYQ; admins can see All or any dept
-    let effectiveDept = (department || dept || '').trim();
-    if (!isAdmin && userDept) {
+    // Respect user-selected department filter; if omitted, default to user's registered department
+    let requestedDept = (department || dept || '').trim();
+    let effectiveDept = requestedDept;
+    if (!effectiveDept && !isAdmin && userDept) {
       effectiveDept = userDept;
     }
 
@@ -58,6 +66,12 @@ router.get('/', async (req, res) => {
       .eq('status', 'published')
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1);
+
+    if (my_uploads === '1' || my_uploads === 'true' || uploader_id === 'me') {
+      query = query.eq('uploader_id', req.profile.id);
+    } else if (uploader_id) {
+      query = query.eq('uploader_id', uploader_id);
+    }
 
     if (searchQuery) {
       query = query.or(`subject.ilike.%${searchQuery}%,title.ilike.%${searchQuery}%`);
@@ -253,6 +267,10 @@ router.delete('/:id', async (req, res) => {
 
 router.get('/meta', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const [subjects, departments, years] = await Promise.all([
       supabaseAdmin.from('pyq_files').select('subject').eq('status', 'published').order('subject'),
       supabaseAdmin.from('pyq_files').select('department').eq('status', 'published').order('department'),
